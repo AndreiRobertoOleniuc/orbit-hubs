@@ -1,93 +1,160 @@
-# baden-connect
+# BadenConnect
 
+> Semantic matchmaking between Swiss startups, researchers, and industry —
+> anchored to the Handelsregister, explained in plain language.
 
+[![FHNW Projekt 5 2025](https://img.shields.io/badge/FHNW-Projekt%205%202025-blue)](https://www.fhnw.ch)
+[![Baden 4.0](https://img.shields.io/badge/Baden-4.0%20Initiative-teal)](https://www.baden.ch/de/home/wirtschaft/baden-40.html/3454)
+[![Client: PowerPlant](https://img.shields.io/badge/Client-PowerPlant-orange)](https://www.powerplant-baden.ch/)
+[![Status: Work in Progress](https://img.shields.io/badge/Status-Work%20in%20Progress-gray)]()
 
-## Getting started
+---
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+## The Problem
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+In the Swiss innovation ecosystem, finding the right collaborator still relies almost entirely on **Vitamin B** — personal networks, Slack groups, and conference corridors. A firmware startup in Baden has no way to know that an FHNW researcher two streets away published exactly the work they need. A KMU looking for an Innosuisse co-applicant defaults to expensive consultants because the discovery mechanism simply doesn't exist.
 
-## Add your files
+BadenConnect is a digital version of walking into the office next door. Not LinkedIn. Not a job board. Something in between: a low-friction bulletin board backed by a semantic discovery engine that explains every match in plain language.
 
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+---
+
+## What BadenConnect Is
+
+Two surfaces, one data layer.
+
+### Half 1 — Inserat Board _(Ricardo-model)_
+
+A public feed of "looking for", "offering", and "open call" posts.
+
+- Readable **without login**
+- Tag-subscribable
+- Post in **under 2 minutes**
+
+### Half 2 — Discovery Engine
+
+Free-text semantic search across FHNW → Aargau → Switzerland.
+
+- Returns **ranked people and companies** with a text rationale and source evidence for every result
+- No percentage scores as the primary signal
+- Scope controls as re-ranking weights: FHNW first, then Aargau, then CH-wide
+
+---
+
+## Three Core Scenarios
+
+### Scenario 1 — Startup ↔ Expert _(Primary — Demo Focus)_
+
+**Persona:** Founder needs short-term embedded firmware help.
+
+**Today:** Vitamin B — co-founders, Slack groups, networking events, LinkedIn spam. 2–3 weeks, often gives up.
+
+**BadenConnect:** Posts inserat (2 min) → public, no login needed → engine surfaces matches with rationales (GitHub repos, company pages) → direct contact or someone reacts to the inserat.
+
+**Why first:** Norbert and Nitish explicitly asked to anchor here. Inserat alone beats Vitamin B even before matching is polished.
+
+---
+
+### Scenario 2 — Researcher → Industry Partner
+
+**Persona:** Norbert has a paper and needs a KMU to validate and co-write an Innosuisse proposal.
+
+**Today:** Ad-hoc LinkedIn, asks colleagues, conferences. Outbound discovery is broken.
+
+**BadenConnect:** Posts inserat describing the research opportunity → KMUs with matching tags get notified (solves awareness gap around Innosuisse) → reverse also works: company posts need, researcher's auto-built profile surfaces with a bridging-concept rationale.
+
+**Why second:** Closest to the original brief. The harvester stack (OpenAlex/ORCID/ROR/IRF) is most load-bearing here.
+
+---
+
+### Scenario 3 — Industry → Expert Under Time Pressure
+
+**Persona:** Project lead needs a 2-month multimodal mobility specialist.
+
+**Today:** Generic Google searches, info@ emails, defaults to expensive consultancies.
+
+**BadenConnect:** Free-text query → semantic search across academia and freelancers → FHNW first, then CH-wide → text rationale explains why each match is relevant → direct contact or post inserat.
+
+**Why third:** Important, but falls out of building Scenarios 1 and 2 well.
+
+---
+
+## Data Sources
+
+| Scope              | Source                                              | What it covers                    |
+| ------------------ | --------------------------------------------------- | --------------------------------- |
+| Companies          | LINDAS SPARQL → Handelsregister                     | Swiss company anchor layer        |
+| Researchers        | ORCID · OpenAlex · ROR                              | Publication graph, affiliations   |
+| FHNW outputs       | IRF FHNW via OAI-PMH                                | Institutional research repository |
+| On-demand (opt-in) | GitHub · LinkedIn · Google Scholar · personal sites | User-linked at registration       |
+
+> **Addressing the GitHub-only gap:** Developers with no academic papers but real, demonstrable skills are first-class citizens. GitHub profile enrichment is a core data source, not an afterthought.
+
+**Profiles are generated on-demand, not authored.** Registration = drop in a LinkedIn URL, ORCID iD, or GitHub handle — the system builds your profile. No manual form filling.
+
+---
+
+## UX Principles
+
+- **Evidence-forward, not score-forward.** Every match explains why with cited sources. No opaque percentage bars.
+- **Read without login.** The Inserat Board is fully public. Friction only at the moment of contact or posting.
+- **Post in under 2 minutes.** If it takes longer, the inserat primitive has failed.
+- **DE default / EN toggle.** Swiss context first. The multilingual embedding model handles cross-language matching transparently.
+- **Bulletin-board aesthetic.** Quiet. No LinkedIn gamification. No feed algorithms optimizing for engagement.
+
+---
+
+## Architecture
+
+The matching pipeline:
 
 ```
-cd existing_repo
-git remote add origin https://gitlab.fhnw.ch/iit-projektschiene/fs26/baden-connect.git
-git branch -M main
-git push -uf origin main
+Post / Query
+    ↓
+Embedding Retrieval  (multilingual-e5-large)
+    ↓
+Hybrid Search  (BM25 + pgvector)
+    ↓
+Reciprocal Rank Fusion  (scope weights: FHNW → Aargau → CH)
+    ↓
+LLM Rationale Generation  (top results + source evidence → plain-language explanation)
 ```
 
-## Integrate with your tools
+### Build Order (Common Foundation)
 
-* [Set up project integrations](https://gitlab.fhnw.ch/iit-projektschiene/fs26/baden-connect/-/settings/integrations)
+1. **Inserat Primitive** — Ricardo-style post model. Touches all three scenarios. Load-bearing first deliverable.
+2. **Handelsregister Entity Index** — LINDAS SPARQL backbone. All discovery is anchored here.
+3. **Researcher Profile Aggregation** — ORCID + OpenAlex + ROR + IRF FHNW (OAI-PMH) + opt-in GitHub/LinkedIn.
+4. **Semantic Matching** — `multilingual-e5-large` embeddings + pgvector. Hybrid BM25 + vector search. RRF reranking with geographic scope weights.
+5. **Rationale Generator** — Top ranked results passed to LLM with source evidence. Output: plain-language "why this match" with cited sources.
+6. **Lightweight Onboarding** — Integration links only. No manual profile forms.
 
-## Collaborate with your team
+---
 
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+## Tech Stack
 
-## Test and Deploy
+| Layer          | Choice                                 | Rationale                                                                                                                                                    |
+| -------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Frontend**   | React · ShadCN · Tailwind              | Zero custom CSS overhead. Keeps the bulletin-board aesthetic achievable in sprint time.                                                                      |
+| **Auth**       | Clerk                                  | Pre-built OAuth for GitHub + LinkedIn social login — the exact registration pattern the UX requires. Saves weeks of OAuth headache.                          |
+| **Backend**    | Spring Boot Modulith                   | Harvester, matching, and inserat logic in isolated modules. Start monolith, grow like microservices. JPA for CRUD, JDBC for raw pgvector queries.            |
+| **Database**   | PostgreSQL + pgvector                  | Single source of truth. Hybrid vector + relational filters in one query: "people like this AND in Aargau AND tagged Firmware." No separate vector DB sprawl. |
+| **Embeddings** | `multilingual-e5-large`                | Gold standard for DE/EN cross-lingual retrieval. Integrates via Spring AI with local inference (Ollama / TEI).                                               |
+| **Data Layer** | LINDAS SPARQL · OAI-PMH · OpenAlex API | Swiss-specific open data infrastructure. LINDAS anchors to Handelsregister. OAI-PMH covers IRF FHNW repository outputs.                                      |
 
-Use the built-in continuous integration in GitLab.
+> **Note on data residency:** Clerk is US-based SaaS. For an MVP this is a non-issue. For a government-funded FHNW production deployment, FADP compliance is a talking point worth raising early.
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
+---
 
-***
+## Team
 
-# Editing this README
+| Role       | Person                            |
+| ---------- | --------------------------------- |
+| Engineer   | Andrei Oleniuc                    |
+| Engineer   | Luca Nana                         |
+| Supervisor | Norbert Seyff (FHNW)              |
+| Supervisor | Nitish Patkar (FHNW)              |
+| Client     | PowerPlant · Baden 4.0 Initiative |
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+---
 
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+_FHNW Project 5 Thesis · Spring 2025 · Windisch, Aargau_
