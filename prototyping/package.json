@@ -1,0 +1,26 @@
+{
+  "name": "badenconnect-proto",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "migrate": "psql \"$DATABASE_URL\" -f db/migrations/002_unified_chunks.sql",
+    "ingest:websites": "tsx src/ingest/website_batch.ts",
+    "search": "tsx src/search/search.ts",
+    "eval": "tsx src/eval/run_eval.ts"
+  },
+  "dependencies": {
+    "@mozilla/readability": "^0.5.0",
+    "@types/cli-progress": "3.11.6",
+    "cli-progress": "3.12.0",
+    "jsdom": "^24.1.0",
+    "pg": "8.20.0"
+  },
+  "devDependencies": {
+    "@types/jsdom": "^21.1.7",
+    "@types/node": "25.8.0",
+    "@types/pg": "8.20.0",
+    "tsx": "4.22.0",
+    "typescript": "^5.9.3"
+  }
+}

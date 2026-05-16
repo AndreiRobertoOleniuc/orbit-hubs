@@ -1,0 +1,924 @@
+{
+  "timestamp": "2026-05-16T16:56:16.969Z",
+  "model": "jeffh/intfloat-multilingual-e5-large:f16",
+  "num_queries": 8,
+  "macro": {
+    "p_at_5": 0.1,
+    "p_at_10": 0.05,
+    "recall_at_10": 0.5,
+    "avg_latency_ms": 268.125
+  },
+  "per_query": [
+    {
+      "id": "q1",
+      "query": "CSS specification author and web standards expert",
+      "difficulty": "easy",
+      "expected_urls": [
+        "https://lea.verou.me/"
+      ],
+      "p_at_5": 0.2,
+      "p_at_10": 0.1,
+      "recall_at_10": 1,
+      "top_results": [
+        {
+          "rank": 1,
+          "entity_type": "person",
+          "entity_id": "5668355a-e0fb-4599-ab5e-47b7e29687d7",
+          "display_name": "Lea Verou",
+          "best_distance": 0.15526421530232581,
+          "via_label": "Lea Verou — section 1/1",
+          "via_url": "https://lea.verou.me/",
+          "urls": [
+            "https://lea.verou.me/"
+          ]
+        },
+        {
+          "rank": 2,
+          "entity_type": "person",
+          "entity_id": "309c9da1-1455-4b29-8d3e-d6e5c6d0d97e",
+          "display_name": "Julia Evans",
+          "best_distance": 0.17846863407902347,
+          "via_label": "Julia Evans — section 1/20",
+          "via_url": "https://jvns.ca/",
+          "urls": [
+            "https://jvns.ca/"
+          ]
+        },
+        {
+          "rank": 3,
+          "entity_type": "company",
+          "entity_id": "6857",
+          "display_name": "Steatec Rieser",
+          "best_distance": 0.1829037581311087,
+          "via_label": "Steatec Rieser",
+          "via_url": null,
+          "urls": []
+        },
+        {
+          "rank": 4,
+          "entity_type": "company",
+          "entity_id": "26634",
+          "display_name": "KK Corporate Consulting KLG",
+          "best_distance": 0.1874317663864279,
+          "via_label": "KK Corporate Consulting KLG",
+          "via_url": null,
+          "urls": []
+        },
+        {
+          "rank": 5,
+          "entity_type": "person",
+          "entity_id": "e9bf5ec0-16d7-43d5-a92a-879831b13ea3",
+          "display_name": "Evan You",
+          "best_distance": 0.1938353533357592,
+          "via_label": "Evan You — section 1/1",
+          "via_url": "https://evanyou.me/",
+          "urls": [
+            "https://evanyou.me/"
+          ]
+        },
+        {
+          "rank": 6,
+          "entity_type": "company",
+          "entity_id": "42636",
+          "display_name": "ACorp - Casado Gonzalez",
+          "best_distance": 0.19929997687109535,
+          "via_label": "ACorp - Casado Gonzalez",
+          "via_url": null,
+          "urls": []
+        },
+        {
+          "rank": 7,
+          "entity_type": "company",
+          "entity_id": "43214",
+          "display_name": "Isy Web KLG",
+          "best_distance": 0.20120299542423947,
+          "via_label": "Isy Web KLG",
+          "via_url": null,
+          "urls": []
+        },
+        {
+          "rank": 8,
+          "entity_type": "person",
+          "entity_id": "db8bb223-3938-48f4-bd15-6366c5107435",
+          "display_name": "Sarah Drasner",
+          "best_distance": 0.20199161604590254,
+          "via_label": "Sarah Drasner — section 1/1",
+          "via_url": "https://sarah.dev/",
+          "urls": [
+            "https://sarah.dev/"
+          ]
+        },
+        {
+          "rank": 9,
+          "entity_type": "person",
+          "entity_id": "1ada14db-b46c-4af4-bd72-75821e53e0a2",
+          "display_name": "Charity Majors",
+          "best_distance": 0.2022238435362197,
+          "via_label": "Charity Majors — section 38/58",
+          "via_url": "https://charity.wtf/",
+          "urls": [
+            "https://charity.wtf/"
+          ]
+        },
+        {
+          "rank": 10,
+          "entity_type": "company",
+          "entity_id": "34120",
+          "display_name": "Kevin Benz Gestaltung",
+          "best_distance": 0.20230761412405196,
+          "via_label": "Kevin Benz Gestaltung",
+          "via_url": null,
+          "urls": []
+        }
+      ],
+      "latency_ms": 533
+    },
+    {
+      "id": "q2",
+      "query": "creator of the Vue.js JavaScript framework",
+      "difficulty": "easy",
+      "expected_urls": [
+        "https://evanyou.me/"
+      ],
+      "p_at_5": 0.2,
+      "p_at_10": 0.1,
+      "recall_at_10": 1,
+      "top_results": [
+        {
+          "rank": 1,
+          "entity_type": "person",
+          "entity_id": "e9bf5ec0-16d7-43d5-a92a-879831b13ea3",
+          "display_name": "Evan You",
+          "best_distance": 0.12762848140185845,
+          "via_label": "Evan You — section 1/1",
+          "via_url": "https://evanyou.me/",
+          "urls": [
+            "https://evanyou.me/"
+          ]
+        },
+        {
+          "rank": 2,
+          "entity_type": "person",
+          "entity_id": "309c9da1-1455-4b29-8d3e-d6e5c6d0d97e",
+          "display_name": "Julia Evans",
+          "best_distance": 0.17095572068486709,
+          "via_label": "Julia Evans — section 1/20",
+          "via_url": "https://jvns.ca/",
+          "urls": [
+            "https://jvns.ca/"
+          ]
+        },
+        {
+          "rank": 3,
+          "entity_type": "person",
+          "entity_id": "89de5be7-4e88-4d19-8ea4-bc898b9ac204",
+          "display_name": "DHH",
+          "best_distance": 0.1787127451831686,
+          "via_label": "DHH — section 1/3",
+          "via_url": "https://dhh.dk/",
+          "urls": [
+            "https://dhh.dk/"
+          ]
+        },
+        {
+          "rank": 4,
+          "entity_type": "person",
+          "entity_id": "5668355a-e0fb-4599-ab5e-47b7e29687d7",
+          "display_name": "Lea Verou",
+          "best_distance": 0.18626510678179187,
+          "via_label": "Lea Verou — section 1/1",
+          "via_url": "https://lea.verou.me/",
+          "urls": [
+            "https://lea.verou.me/"
+          ]
+        },
+        {
+          "rank": 5,
+          "entity_type": "person",
+          "entity_id": "db8bb223-3938-48f4-bd15-6366c5107435",
+          "display_name": "Sarah Drasner",
+          "best_distance": 0.19504917582528813,
+          "via_label": "Sarah Drasner — section 1/1",
+          "via_url": "https://sarah.dev/",
+          "urls": [
+            "https://sarah.dev/"
+          ]
+        },
+        {
+          "rank": 6,
+          "entity_type": "person",
+          "entity_id": "e707ffde-670e-4a13-9d41-cfcba79e1025",
+          "display_name": "Dan Luu",
+          "best_distance": 0.20517557945053477,
+          "via_label": "Dan Luu — section 3/3",
+          "via_url": "https://danluu.com/",
+          "urls": [
+            "https://danluu.com/"
+          ]
+        },
+        {
+          "rank": 7,
+          "entity_type": "company",
+          "entity_id": "40397",
+          "display_name": "Wyttenbach ImBild360",
+          "best_distance": 0.21274368496255747,
+          "via_label": "Wyttenbach ImBild360",
+          "via_url": null,
+          "urls": []
+        },
+        {
+          "rank": 8,
+          "entity_type": "person",
+          "entity_id": "1ada14db-b46c-4af4-bd72-75821e53e0a2",
+          "display_name": "Charity Majors",
+          "best_distance": 0.21290682816077222,
+          "via_label": "Charity Majors — section 15/58",
+          "via_url": "https://charity.wtf/",
+          "urls": [
+            "https://charity.wtf/"
+          ]
+        },
+        {
+          "rank": 9,
+          "entity_type": "company",
+          "entity_id": "20890",
+          "display_name": "Studio Seven Design und Development by Ana Hlavinka Mlikota",
+          "best_distance": 0.2183300868128315,
+          "via_label": "Studio Seven Design und Development by Ana Hlavinka Mlikota",
+          "via_url": null,
+          "urls": []
+        },
+        {
+          "rank": 10,
+          "entity_type": "company",
+          "entity_id": "28337",
+          "display_name": "Victoria Nuyaksheva Sketching",
+          "best_distance": 0.21929947126429028,
+          "via_label": "Victoria Nuyaksheva Sketching",
+          "via_url": null,
+          "urls": []
+        }
+      ],
+      "latency_ms": 255
+    },
+    {
+      "id": "q3",
+      "query": "founder who built a popular Ruby web framework",
+      "difficulty": "medium",
+      "expected_urls": [
+        "https://dhh.dk/"
+      ],
+      "p_at_5": 0.2,
+      "p_at_10": 0.1,
+      "recall_at_10": 1,
+      "top_results": [
+        {
+          "rank": 1,
+          "entity_type": "person",
+          "entity_id": "89de5be7-4e88-4d19-8ea4-bc898b9ac204",
+          "display_name": "DHH",
+          "best_distance": 0.16773746305479242,
+          "via_label": "DHH — section 1/3",
+          "via_url": "https://dhh.dk/",
+          "urls": [
+            "https://dhh.dk/"
+          ]
+        },
+        {
+          "rank": 2,
+          "entity_type": "person",
+          "entity_id": "e9bf5ec0-16d7-43d5-a92a-879831b13ea3",
+          "display_name": "Evan You",
+          "best_distance": 0.2052182758366372,
+          "via_label": "Evan You — section 1/1",
+          "via_url": "https://evanyou.me/",
+          "urls": [
+            "https://evanyou.me/"
+          ]
+        },
+        {
+          "rank": 3,
+          "entity_type": "person",
+          "entity_id": "309c9da1-1455-4b29-8d3e-d6e5c6d0d97e",
+          "display_name": "Julia Evans",
+          "best_distance": 0.20895289600868905,
+          "via_label": "Julia Evans — section 13/20",
+          "via_url": "https://jvns.ca/",
+          "urls": [
+            "https://jvns.ca/"
+          ]
+        },
+        {
+          "rank": 4,
+          "entity_type": "person",
+          "entity_id": "e707ffde-670e-4a13-9d41-cfcba79e1025",
+          "display_name": "Dan Luu",
+          "best_distance": 0.21076707940383188,
+          "via_label": "Dan Luu — section 1/3",
+          "via_url": "https://danluu.com/",
+          "urls": [
+            "https://danluu.com/"
+          ]
+        },
+        {
+          "rank": 5,
+          "entity_type": "person",
+          "entity_id": "db8bb223-3938-48f4-bd15-6366c5107435",
+          "display_name": "Sarah Drasner",
+          "best_distance": 0.22170489917239367,
+          "via_label": "Sarah Drasner — section 1/1",
+          "via_url": "https://sarah.dev/",
+          "urls": [
+            "https://sarah.dev/"
+          ]
+        },
+        {
+          "rank": 6,
+          "entity_type": "person",
+          "entity_id": "5668355a-e0fb-4599-ab5e-47b7e29687d7",
+          "display_name": "Lea Verou",
+          "best_distance": 0.2219109012346029,
+          "via_label": "Lea Verou — section 1/1",
+          "via_url": "https://lea.verou.me/",
+          "urls": [
+            "https://lea.verou.me/"
+          ]
+        },
+        {
+          "rank": 7,
+          "entity_type": "person",
+          "entity_id": "1ada14db-b46c-4af4-bd72-75821e53e0a2",
+          "display_name": "Charity Majors",
+          "best_distance": 0.23036697171610288,
+          "via_label": "Charity Majors — section 33/58",
+          "via_url": "https://charity.wtf/",
+          "urls": [
+            "https://charity.wtf/"
+          ]
+        },
+        {
+          "rank": 8,
+          "entity_type": "person",
+          "entity_id": "f4adb688-1adb-4e96-84eb-628744e29dfd",
+          "display_name": "Kyle Kingsbury",
+          "best_distance": 0.23739798675945045,
+          "via_label": "Kyle Kingsbury — section 1/10",
+          "via_url": "https://aphyr.com/",
+          "urls": [
+            "https://aphyr.com/"
+          ]
+        }
+      ],
+      "latency_ms": 254
+    },
+    {
+      "id": "q4",
+      "query": "distributed systems testing and database consistency research",
+      "difficulty": "medium",
+      "expected_urls": [
+        "https://aphyr.com/"
+      ],
+      "p_at_5": 0,
+      "p_at_10": 0,
+      "recall_at_10": 0,
+      "top_results": [
+        {
+          "rank": 1,
+          "entity_type": "person",
+          "entity_id": "e707ffde-670e-4a13-9d41-cfcba79e1025",
+          "display_name": "Dan Luu",
+          "best_distance": 0.18110815601342822,
+          "via_label": "Dan Luu — section 2/3",
+          "via_url": "https://danluu.com/",
+          "urls": [
+            "https://danluu.com/"
+          ]
+        },
+        {
+          "rank": 2,
+          "entity_type": "person",
+          "entity_id": "1ada14db-b46c-4af4-bd72-75821e53e0a2",
+          "display_name": "Charity Majors",
+          "best_distance": 0.18278637080576898,
+          "via_label": "Charity Majors — section 33/58",
+          "via_url": "https://charity.wtf/",
+          "urls": [
+            "https://charity.wtf/"
+          ]
+        },
+        {
+          "rank": 3,
+          "entity_type": "person",
+          "entity_id": "309c9da1-1455-4b29-8d3e-d6e5c6d0d97e",
+          "display_name": "Julia Evans",
+          "best_distance": 0.18321567927665328,
+          "via_label": "Julia Evans — section 11/20",
+          "via_url": "https://jvns.ca/",
+          "urls": [
+            "https://jvns.ca/"
+          ]
+        },
+        {
+          "rank": 4,
+          "entity_type": "company",
+          "entity_id": "15813",
+          "display_name": "Schmid IT Consult",
+          "best_distance": 0.1963090646827178,
+          "via_label": "Schmid IT Consult",
+          "via_url": null,
+          "urls": []
+        },
+        {
+          "rank": 5,
+          "entity_type": "person",
+          "entity_id": "db8bb223-3938-48f4-bd15-6366c5107435",
+          "display_name": "Sarah Drasner",
+          "best_distance": 0.19989586366840817,
+          "via_label": "Sarah Drasner — section 1/1",
+          "via_url": "https://sarah.dev/",
+          "urls": [
+            "https://sarah.dev/"
+          ]
+        },
+        {
+          "rank": 6,
+          "entity_type": "company",
+          "entity_id": "12689",
+          "display_name": "Digasys Dieter Gasser",
+          "best_distance": 0.20412733116521797,
+          "via_label": "Digasys Dieter Gasser",
+          "via_url": null,
+          "urls": []
+        },
+        {
+          "rank": 7,
+          "entity_type": "person",
+          "entity_id": "89de5be7-4e88-4d19-8ea4-bc898b9ac204",
+          "display_name": "DHH",
+          "best_distance": 0.2050523865373185,
+          "via_label": "DHH — section 1/3",
+          "via_url": "https://dhh.dk/",
+          "urls": [
+            "https://dhh.dk/"
+          ]
+        },
+        {
+          "rank": 8,
+          "entity_type": "company",
+          "entity_id": "10385",
+          "display_name": "TIF Treuhand & Informatik Frey",
+          "best_distance": 0.20726138549188888,
+          "via_label": "TIF Treuhand & Informatik Frey",
+          "via_url": null,
+          "urls": []
+        },
+        {
+          "rank": 9,
+          "entity_type": "company",
+          "entity_id": "25791",
+          "display_name": "Romer Engineering",
+          "best_distance": 0.2078142705894982,
+          "via_label": "Romer Engineering",
+          "via_url": null,
+          "urls": []
+        },
+        {
+          "rank": 10,
+          "entity_type": "company",
+          "entity_id": "18803",
+          "display_name": "PSYMETRIX reichmuth infotechnik",
+          "best_distance": 0.2087173913949888,
+          "via_label": "PSYMETRIX reichmuth infotechnik",
+          "via_url": null,
+          "urls": []
+        }
+      ],
+      "latency_ms": 231
+    },
+    {
+      "id": "q5",
+      "query": "illustrierte Tech-Erklärungen und Debugging-Geschichten",
+      "difficulty": "medium-cross-lingual",
+      "expected_urls": [
+        "https://jvns.ca/",
+        "https://danluu.com/"
+      ],
+      "p_at_5": 0,
+      "p_at_10": 0,
+      "recall_at_10": 0,
+      "top_results": [
+        {
+          "rank": 1,
+          "entity_type": "company",
+          "entity_id": "45811",
+          "display_name": "CONSULTING LABER",
+          "best_distance": 0.14578085362161808,
+          "via_label": "CONSULTING LABER",
+          "via_url": null,
+          "urls": []
+        },
+        {
+          "rank": 2,
+          "entity_type": "company",
+          "entity_id": "30988",
+          "display_name": "Roland Flechsenhaar Engineering",
+          "best_distance": 0.14836492776697596,
+          "via_label": "Roland Flechsenhaar Engineering",
+          "via_url": null,
+          "urls": []
+        },
+        {
+          "rank": 3,
+          "entity_type": "company",
+          "entity_id": "10385",
+          "display_name": "TIF Treuhand & Informatik Frey",
+          "best_distance": 0.14970611029341974,
+          "via_label": "TIF Treuhand & Informatik Frey",
+          "via_url": null,
+          "urls": []
+        },
+        {
+          "rank": 4,
+          "entity_type": "company",
+          "entity_id": "5751",
+          "display_name": "Compdesign Zubler",
+          "best_distance": 0.15103670103313638,
+          "via_label": "Compdesign Zubler",
+          "via_url": null,
+          "urls": []
+        },
+        {
+          "rank": 5,
+          "entity_type": "company",
+          "entity_id": "1617",
+          "display_name": "NIC Newman Informatics & Consulting",
+          "best_distance": 0.15214360397650517,
+          "via_label": "NIC Newman Informatics & Consulting",
+          "via_url": null,
+          "urls": []
+        },
+        {
+          "rank": 6,
+          "entity_type": "company",
+          "entity_id": "24543",
+          "display_name": "RM Meier KmG",
+          "best_distance": 0.15318517776530716,
+          "via_label": "RM Meier KmG",
+          "via_url": null,
+          "urls": []
+        },
+        {
+          "rank": 7,
+          "entity_type": "company",
+          "entity_id": "4054",
+          "display_name": "DWT Dieter Weisskopf Treuhand",
+          "best_distance": 0.15492855478122514,
+          "via_label": "DWT Dieter Weisskopf Treuhand",
+          "via_url": null,
+          "urls": []
+        },
+        {
+          "rank": 8,
+          "entity_type": "company",
+          "entity_id": "9038",
+          "display_name": "MME Mark Meier Engineering",
+          "best_distance": 0.15524562897877436,
+          "via_label": "MME Mark Meier Engineering",
+          "via_url": null,
+          "urls": []
+        },
+        {
+          "rank": 9,
+          "entity_type": "company",
+          "entity_id": "35663",
+          "display_name": "Besson IT Solutions",
+          "best_distance": 0.15585729146134109,
+          "via_label": "Besson IT Solutions",
+          "via_url": null,
+          "urls": []
+        },
+        {
+          "rank": 10,
+          "entity_type": "company",
+          "entity_id": "43214",
+          "display_name": "Isy Web KLG",
+          "best_distance": 0.15593704606396175,
+          "via_label": "Isy Web KLG",
+          "via_url": null,
+          "urls": []
+        }
+      ],
+      "latency_ms": 217
+    },
+    {
+      "id": "q6",
+      "query": "engineering manager who writes candidly about leadership and observability",
+      "difficulty": "hard-semantic",
+      "expected_urls": [
+        "https://charity.wtf/"
+      ],
+      "p_at_5": 0.2,
+      "p_at_10": 0.1,
+      "recall_at_10": 1,
+      "top_results": [
+        {
+          "rank": 1,
+          "entity_type": "person",
+          "entity_id": "1ada14db-b46c-4af4-bd72-75821e53e0a2",
+          "display_name": "Charity Majors",
+          "best_distance": 0.17690333496027322,
+          "via_label": "Charity Majors — section 13/58",
+          "via_url": "https://charity.wtf/",
+          "urls": [
+            "https://charity.wtf/"
+          ]
+        },
+        {
+          "rank": 2,
+          "entity_type": "person",
+          "entity_id": "e707ffde-670e-4a13-9d41-cfcba79e1025",
+          "display_name": "Dan Luu",
+          "best_distance": 0.20480750600008735,
+          "via_label": "Dan Luu — section 3/3",
+          "via_url": "https://danluu.com/",
+          "urls": [
+            "https://danluu.com/"
+          ]
+        },
+        {
+          "rank": 3,
+          "entity_type": "person",
+          "entity_id": "309c9da1-1455-4b29-8d3e-d6e5c6d0d97e",
+          "display_name": "Julia Evans",
+          "best_distance": 0.21910348679606562,
+          "via_label": "Julia Evans — section 11/20",
+          "via_url": "https://jvns.ca/",
+          "urls": [
+            "https://jvns.ca/"
+          ]
+        },
+        {
+          "rank": 4,
+          "entity_type": "person",
+          "entity_id": "db8bb223-3938-48f4-bd15-6366c5107435",
+          "display_name": "Sarah Drasner",
+          "best_distance": 0.2227030963081149,
+          "via_label": "Sarah Drasner — section 1/1",
+          "via_url": "https://sarah.dev/",
+          "urls": [
+            "https://sarah.dev/"
+          ]
+        },
+        {
+          "rank": 5,
+          "entity_type": "person",
+          "entity_id": "f4adb688-1adb-4e96-84eb-628744e29dfd",
+          "display_name": "Kyle Kingsbury",
+          "best_distance": 0.23014906529019175,
+          "via_label": "Kyle Kingsbury — section 4/10",
+          "via_url": "https://aphyr.com/",
+          "urls": [
+            "https://aphyr.com/"
+          ]
+        },
+        {
+          "rank": 6,
+          "entity_type": "company",
+          "entity_id": "28241",
+          "display_name": "Ingenieurbüro Ahmadiyeh - AMD-Engineering",
+          "best_distance": 0.23043325197927,
+          "via_label": "Ingenieurbüro Ahmadiyeh - AMD-Engineering",
+          "via_url": null,
+          "urls": []
+        }
+      ],
+      "latency_ms": 222
+    },
+    {
+      "id": "q7",
+      "query": "prolific open source author maintaining many small npm packages",
+      "difficulty": "medium",
+      "expected_urls": [
+        "https://sindresorhus.com/"
+      ],
+      "p_at_5": 0,
+      "p_at_10": 0,
+      "recall_at_10": 0,
+      "top_results": [
+        {
+          "rank": 1,
+          "entity_type": "person",
+          "entity_id": "e9bf5ec0-16d7-43d5-a92a-879831b13ea3",
+          "display_name": "Evan You",
+          "best_distance": 0.18672158690561658,
+          "via_label": "Evan You — section 1/1",
+          "via_url": "https://evanyou.me/",
+          "urls": [
+            "https://evanyou.me/"
+          ]
+        },
+        {
+          "rank": 2,
+          "entity_type": "person",
+          "entity_id": "309c9da1-1455-4b29-8d3e-d6e5c6d0d97e",
+          "display_name": "Julia Evans",
+          "best_distance": 0.19364459274973456,
+          "via_label": "Julia Evans — section 1/20",
+          "via_url": "https://jvns.ca/",
+          "urls": [
+            "https://jvns.ca/"
+          ]
+        },
+        {
+          "rank": 3,
+          "entity_type": "person",
+          "entity_id": "1ada14db-b46c-4af4-bd72-75821e53e0a2",
+          "display_name": "Charity Majors",
+          "best_distance": 0.19899243337975114,
+          "via_label": "Charity Majors — section 17/58",
+          "via_url": "https://charity.wtf/",
+          "urls": [
+            "https://charity.wtf/"
+          ]
+        },
+        {
+          "rank": 4,
+          "entity_type": "person",
+          "entity_id": "5668355a-e0fb-4599-ab5e-47b7e29687d7",
+          "display_name": "Lea Verou",
+          "best_distance": 0.2076684208473274,
+          "via_label": "Lea Verou — section 1/1",
+          "via_url": "https://lea.verou.me/",
+          "urls": [
+            "https://lea.verou.me/"
+          ]
+        },
+        {
+          "rank": 5,
+          "entity_type": "person",
+          "entity_id": "e707ffde-670e-4a13-9d41-cfcba79e1025",
+          "display_name": "Dan Luu",
+          "best_distance": 0.21100086754309777,
+          "via_label": "Dan Luu — section 3/3",
+          "via_url": "https://danluu.com/",
+          "urls": [
+            "https://danluu.com/"
+          ]
+        },
+        {
+          "rank": 6,
+          "entity_type": "person",
+          "entity_id": "89de5be7-4e88-4d19-8ea4-bc898b9ac204",
+          "display_name": "DHH",
+          "best_distance": 0.2111235871088366,
+          "via_label": "DHH — section 1/3",
+          "via_url": "https://dhh.dk/",
+          "urls": [
+            "https://dhh.dk/"
+          ]
+        },
+        {
+          "rank": 7,
+          "entity_type": "person",
+          "entity_id": "db8bb223-3938-48f4-bd15-6366c5107435",
+          "display_name": "Sarah Drasner",
+          "best_distance": 0.21876101003553938,
+          "via_label": "Sarah Drasner — section 1/1",
+          "via_url": "https://sarah.dev/",
+          "urls": [
+            "https://sarah.dev/"
+          ]
+        }
+      ],
+      "latency_ms": 220
+    },
+    {
+      "id": "q8",
+      "query": "essayist writing about startups and Y Combinator",
+      "difficulty": "easy",
+      "expected_urls": [
+        "https://paulgraham.com/"
+      ],
+      "p_at_5": 0,
+      "p_at_10": 0,
+      "recall_at_10": 0,
+      "top_results": [
+        {
+          "rank": 1,
+          "entity_type": "person",
+          "entity_id": "e707ffde-670e-4a13-9d41-cfcba79e1025",
+          "display_name": "Dan Luu",
+          "best_distance": 0.17376891454307686,
+          "via_label": "Dan Luu — section 3/3",
+          "via_url": "https://danluu.com/",
+          "urls": [
+            "https://danluu.com/"
+          ]
+        },
+        {
+          "rank": 2,
+          "entity_type": "person",
+          "entity_id": "1ada14db-b46c-4af4-bd72-75821e53e0a2",
+          "display_name": "Charity Majors",
+          "best_distance": 0.18857676181722127,
+          "via_label": "Charity Majors — section 38/58",
+          "via_url": "https://charity.wtf/",
+          "urls": [
+            "https://charity.wtf/"
+          ]
+        },
+        {
+          "rank": 3,
+          "entity_type": "person",
+          "entity_id": "309c9da1-1455-4b29-8d3e-d6e5c6d0d97e",
+          "display_name": "Julia Evans",
+          "best_distance": 0.1924809566122423,
+          "via_label": "Julia Evans — section 1/20",
+          "via_url": "https://jvns.ca/",
+          "urls": [
+            "https://jvns.ca/"
+          ]
+        },
+        {
+          "rank": 4,
+          "entity_type": "person",
+          "entity_id": "e9bf5ec0-16d7-43d5-a92a-879831b13ea3",
+          "display_name": "Evan You",
+          "best_distance": 0.1960914674596611,
+          "via_label": "Evan You — section 1/1",
+          "via_url": "https://evanyou.me/",
+          "urls": [
+            "https://evanyou.me/"
+          ]
+        },
+        {
+          "rank": 5,
+          "entity_type": "person",
+          "entity_id": "89de5be7-4e88-4d19-8ea4-bc898b9ac204",
+          "display_name": "DHH",
+          "best_distance": 0.20123449274108185,
+          "via_label": "DHH — section 1/3",
+          "via_url": "https://dhh.dk/",
+          "urls": [
+            "https://dhh.dk/"
+          ]
+        },
+        {
+          "rank": 6,
+          "entity_type": "person",
+          "entity_id": "f4adb688-1adb-4e96-84eb-628744e29dfd",
+          "display_name": "Kyle Kingsbury",
+          "best_distance": 0.204239240902941,
+          "via_label": "Kyle Kingsbury — section 1/10",
+          "via_url": "https://aphyr.com/",
+          "urls": [
+            "https://aphyr.com/"
+          ]
+        },
+        {
+          "rank": 7,
+          "entity_type": "company",
+          "entity_id": "45834",
+          "display_name": "LumeE Akaslan",
+          "best_distance": 0.2055602656969573,
+          "via_label": "LumeE Akaslan",
+          "via_url": null,
+          "urls": []
+        },
+        {
+          "rank": 8,
+          "entity_type": "person",
+          "entity_id": "db8bb223-3938-48f4-bd15-6366c5107435",
+          "display_name": "Sarah Drasner",
+          "best_distance": 0.20911593192867328,
+          "via_label": "Sarah Drasner — section 1/1",
+          "via_url": "https://sarah.dev/",
+          "urls": [
+            "https://sarah.dev/"
+          ]
+        },
+        {
+          "rank": 9,
+          "entity_type": "company",
+          "entity_id": "42995",
+          "display_name": "DV Mächler KLG",
+          "best_distance": 0.21008504575743958,
+          "via_label": "DV Mächler KLG",
+          "via_url": null,
+          "urls": []
+        },
+        {
+          "rank": 10,
+          "entity_type": "company",
+          "entity_id": "44513",
+          "display_name": "Lüönd Marketing",
+          "best_distance": 0.21225642667829492,
+          "via_label": "Lüönd Marketing",
+          "via_url": null,
+          "urls": []
+        }
+      ],
+      "latency_ms": 213
+    }
+  ]
+}
