@@ -1,6 +1,16 @@
 // 02_seed.js — Embeds each person via Ollama and inserts into persons table
+import fs from "node:fs";
+import path from "node:path";
 import pkg from "pg";
 const { Client } = pkg;
+
+const DOCS_FILE = path.resolve("profile_documents.jsonl");
+const RAW_FILE = path.resolve("raw_profiles_300.json");
+
+const EMBEDDING_MODEL = "jeffh/intfloat-multilingual-e5-large:f16";
+// Keep the embedding model resident so we don't reload it between rows.
+// Accepts a duration string ("30m", "1h") or seconds. Use -1 to keep forever.
+const KEEP_ALIVE = "10m";
 
 const client = new Client({
     host: "localhost",
@@ -10,36 +20,32 @@ const client = new Client({
     password: "123456789",
 });
 
-const people = [
-    {
-        name: "Luca Nana",
-        github: null,
-        website: null,
-        description:
-            "Luca Nana ist ein erfahrener Systemingenieur mit einer fundierten Ausbildung in Informatik und Systemtechnik, ergänzt durch praktische Erfahrung in der Industrie und der Schweizer Armee. Seine technischen Stärken liegen in der Systemarchitektur, der Datenverwaltung (SQL Server) sowie der modernen Softwareentwicklung mit Tools wie Docker und Gitlab. Durch sein aktuelles Studium an der FHNW kombiniert er diese praktischen Fähigkeiten mit theoretischem Wissen im Bereich der Informatik. Diese Kombination aus industrieller Erfahrung und akademischer Tiefe macht ihn zu einem wertvollen Partner für Innovationen im digitalen Bereich. Eine sinnvolle Zusammenarbeit könnte insbesondere mit Forschungsinstituten im Bereich der vernetzten Systeme oder Technologie-Start-ups im Raum Baden oder der Deutschschweiz entstehen.",
-    },
-    {
-        name: "Andrei Oleniuc",
-        github: "https://github.com/AndreiRobertoOleniuc",
-        website: "https://andreioleniuc.com",
-        description:
-            "Andrei Oleniuc ist ein erfahrener Full Stack Engineer mit einem starken Hintergrund in Softwarearchitektur und Produktmanagement, der sich auf die Entwicklung skalierbarer digitaler Lösungen spezialisiert hat. Seine Expertise liegt in der Gestaltung und Umsetzung komplexer Anwendungen, unterstützt durch tiefgehende Kenntnisse in Java, React, Python sowie modernen DevOps-Praktiken wie GCP/GKE und CI/CD. Er hat nachweislich die Fähigkeit, technische Herausforderungen in produktive Lösungen umzuwandeln, was durch seine Arbeit an Forschungsplattformen und SaaS-Produkten unterstrichen wird. Diese Kombination aus technischer Tiefe und Produktverständnis macht ihn zu einem wertvollen Partner für Innovationsprojekte im Schweizer Raum. Eine sinnvolle Zusammenarbeit wäre besonders mit Forschungsinstituten wie der PHZH oder spezialisierten Technologieunternehmen im Baden-Ecosystem denkbar.",
-    },
-    {
-        name: "Nicolas Yates",
-        github: "https://github.com/nicolasstevenyates",
-        website: "https://www.nicolasyates.com/",
-        description:
-            "Nicolas Yates ist ein erfahrener Software Engineer mit Schwerpunkt auf Full-Stack-Entwicklung und Netzwerkautomatisierung, erworben in einem grossen Telekommunikationsumfeld wie Swisscom. Seine technischen Stärken liegen in der Beherrschung moderner Sprachen wie JavaScript, Java und Angular sowie in DevOps-Praktiken mittels Docker und GitLab CI. Er verfügt über fundierte Erfahrung in der Entwicklung von Software, die kritische Infrastrukturen verwaltet und Sicherheitsanalysen durchführt. Seine Expertise erstreckt sich von der Automatisierung komplexer Netzwerkverbindungen bis hin zur Anomalieerkennung und Dashboard-Entwicklung mit Tools wie Splunk. Für eine sinnvolle Zusammenarbeit eignen sich Forschungsgruppen im Bereich KI-gestützte Netzwerksicherheit oder Organisationen, die sich mit der Skalierung von Cloud-nativen Infrastrukturen in der Schweizer Innovationslandschaft beschäftigen.",
-    },
-    {
-        name: "Marvin von Rappard",
-        github: "https://github.com/marvinvr",
-        website: "https://marvinvr.ch",
-        description:
-            "Marvin von Rappard ist ein Full-Stack-Entwickler und Data Scientist mit einer tiefen Expertise in der Entwicklung von Machine-Learning-Plattformen und der Anwendung von Large Language Models (LLMs) im industriellen Kontext. Seine technischen Stärken liegen in der Kombination von Python, Go und TypeScript, ergänzt durch fundierte Kenntnisse in MLOps, Containerisierung (Docker/Kubernetes) und der Implementierung von RAG-Systemen. Er verfügt über Erfahrung in der Entwicklung von Enterprise-Software sowie in der akademischen Forschung im Bereich KI, was eine Brücke zwischen theoretischer Forschung und praktischer industrieller Anwendung schlägt. Für eine Zusammenarbeit wären Forschungsgruppen oder Organisationen im Bereich angewandter KI, Data Science oder die akademischen Einrichtungen wie die FHNW besonders sinnvoll. Er könnte ideal mit Forschungsinstituten oder Start-ups in der Region Baden zusammenarbeiten, die an der Operationalisierung von KI-Lösungen in der Industrie interessiert sind.",
-    },
-];
+function loadPeople() {
+    const docs = fs
+        .readFileSync(DOCS_FILE, "utf8")
+        .split("\n")
+        .filter(Boolean)
+        .map((l) => JSON.parse(l));
+
+    const rawByName = new Map();
+    if (fs.existsSync(RAW_FILE)) {
+        const raw = JSON.parse(fs.readFileSync(RAW_FILE, "utf8"));
+        for (const p of raw) rawByName.set(p.name, p);
+    }
+
+    return docs.map((d) => {
+        const raw = rawByName.get(d.name) || {};
+        const githubUrls = Array.isArray(raw.github)
+            ? raw.github.map((r) => r.name).join(", ")
+            : null;
+        return {
+            name: d.name,
+            github: githubUrls,
+            website: raw.website || null,
+            description: d.document,
+        };
+    });
+}
 
 // e5 models need "passage: " prefix for documents being stored
 async function getEmbedding(text) {
@@ -47,8 +53,9 @@ async function getEmbedding(text) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-            model: "jeffh/intfloat-multilingual-e5-large:f16",
+            model: EMBEDDING_MODEL,
             prompt: `passage: ${text}`,
+            keep_alive: KEEP_ALIVE,
         }),
     });
 
@@ -61,18 +68,23 @@ async function getEmbedding(text) {
 }
 
 async function main() {
+    const people = loadPeople();
+    console.log(`Loaded ${people.length} profile documents`);
+
     await client.connect();
     console.log("Connected to PostgreSQL\n");
 
+    let i = 0;
     for (const person of people) {
-        console.log(`Embedding: ${person.name}...`);
+        i++;
+        const start = Date.now();
+        console.log(`[${i}/${people.length}] Embedding: ${person.name}...`);
 
         const vector = await getEmbedding(person.description);
-        console.log(`  Vector dimensions: ${vector.length}`);
 
         await client.query(
             `INSERT INTO persons (name, github, website, description, embedding)
-       VALUES ($1, $2, $3, $4, $5::vector)`,
+             VALUES ($1, $2, $3, $4, $5::vector)`,
             [
                 person.name,
                 person.github,
@@ -82,11 +94,16 @@ async function main() {
             ]
         );
 
-        console.log(`  ✓ Inserted\n`);
+        const dt = ((Date.now() - start) / 1000).toFixed(2);
+        console.log(`  ✓ Inserted (${vector.length} dims, ${dt}s)`);
     }
 
-    console.log("All 4 people seeded. Run 03_search.js to test matching.");
+    console.log(`\nAll ${people.length} people seeded. Run 03_search.js to test matching.`);
     await client.end();
 }
 
-main().catch(console.error);
+main().catch(async (e) => {
+    console.error(e);
+    try { await client.end(); } catch {}
+    process.exit(1);
+});
