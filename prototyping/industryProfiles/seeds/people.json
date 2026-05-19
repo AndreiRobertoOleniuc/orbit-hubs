@@ -1,0 +1,34 @@
+[
+    {
+        "id": "per-marvin-vr",
+        "name": "Marvin von Rappard",
+        "github": "marvinvr",
+        "website": "https://marvinvr.ch",
+        "location": "Baden",
+        "scope": "aargau"
+    },
+    {
+        "id": "per-nicolas-yates",
+        "name": "Nicolas Yates",
+        "github": "nicolasstevenyates",
+        "website": "https://www.nicolasyates.com/",
+        "location": "Bern",
+        "scope": "aargau"
+    },
+    {
+        "id": "per-andrei-oleniuc",
+        "name": "Andrei Oleniuc",
+        "github": "AndreiRobertoOleniuc",
+        "website": null,
+        "location": "Baden",
+        "scope": "aargau"
+    },
+    {
+        "id": "per-luca-nana",
+        "name": "Luca Nana",
+        "github": "Luca-FH",
+        "website": null,
+        "location": "Olten",
+        "scope": "fhnw"
+    }
+]

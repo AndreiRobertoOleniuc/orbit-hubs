@@ -1,0 +1,10 @@
+{
+  "id": "ins-marvin-ml-review",
+  "owner_entity_id": "per-marvin-vr",
+  "title": "MLOps & LLM Architecture Review",
+  "body": "Ich unterstütze bei der Architektur von RAG-Systemen und dem Deployment von LLMs in Produktion. Fokus auf Go/Python Stacks und Kubernetes.",
+  "location": "Baden",
+  "scope": "aargau",
+  "valid_until": "2026-09-01",
+  "honorar_mode": "chf"
+}
