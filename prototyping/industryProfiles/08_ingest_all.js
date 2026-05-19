@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 import { ingestGitHub } from './08a_ingest_github.js';
 import { ingestWebsite } from './08b_ingest_website.js';
 import { ingestInserat } from './08d_ingest_inserat.js';
+import { ingestLinkedInCV } from './08c_ingest_linkedin_cv.js';
 import { summarizeEntity } from './08e_summarize_entity.js';
 
 dotenv.config();
@@ -62,23 +63,30 @@ async function main() {
                 try { await ingestWebsite(client, person.id, person.website); } catch (e) { console.error(`Website failed for ${person.name}:`, e.message); }
             }
 
-            // Ingest manual text files (e.g. users/Marvin/Marvin.txt)
+            // Ingest manual files (txt, pdf)
             const firstName = person.name.split(' ')[0];
-            const manualPath = path.join(process.cwd(), 'users', firstName, `${firstName}.txt`);
-            if (fs.existsSync(manualPath)) {
-                console.log(`[Manual] Ingesting text file: ${manualPath}`);
-                const { getEmbedding, chunkText } = await import('./08_utils.js');
-                const rawText = fs.readFileSync(manualPath, 'utf8');
-                const chunks = chunkText(rawText, 1000);
-                
-                for (let i = 0; i < chunks.length; i++) {
-                    console.log(`  - Processing chunk ${i+1}/${chunks.length}...`);
-                    const embedding = await getEmbedding(chunks[i]);
-                    await client.query(`
-                        INSERT INTO documents (id, entity_id, source_type, source_label, text, embedding)
-                        VALUES ($1, $2, $3, $4, $5, $6)
-                        ON CONFLICT (id) DO UPDATE SET text = EXCLUDED.text, embedding = EXCLUDED.embedding
-                    `, [`manual-${person.id}-chunk-${i}`, person.id, 'linkedin_cv', `Source Archive · ${person.name} (${i+1})`, chunks[i], JSON.stringify(embedding)]);
+            const userDir = path.join(process.cwd(), 'users', firstName);
+            if (fs.existsSync(userDir)) {
+                const files = fs.readdirSync(userDir);
+                for (const f of files) {
+                    const filePath = path.join(userDir, f);
+                    if (f.endsWith('.txt')) {
+                        console.log(`[Manual] Ingesting text file: ${filePath}`);
+                        const { getEmbedding, chunkText } = await import('./08_utils.js');
+                        const rawText = fs.readFileSync(filePath, 'utf8');
+                        const chunks = chunkText(rawText, 1000);
+                        for (let i = 0; i < chunks.length; i++) {
+                            const embedding = await getEmbedding(chunks[i]);
+                            await client.query(`
+                                INSERT INTO documents (id, entity_id, source_type, source_label, text, embedding)
+                                VALUES ($1, $2, $3, $4, $5, $6)
+                                ON CONFLICT (id) DO UPDATE SET text = EXCLUDED.text, embedding = EXCLUDED.embedding
+                            `, [`manual-${person.id}-${f}-chunk-${i}`, person.id, 'linkedin_cv', `Source Archive · ${f} (${i+1})`, chunks[i], JSON.stringify(embedding)]);
+                        }
+                    } else if (f.endsWith('.pdf')) {
+                        console.log(`[Manual] Ingesting PDF file: ${filePath}`);
+                        await ingestLinkedInCV(client, person.id, filePath);
+                    }
                 }
             }
             

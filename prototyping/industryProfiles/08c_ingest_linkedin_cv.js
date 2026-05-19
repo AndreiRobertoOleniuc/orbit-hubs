@@ -1,7 +1,7 @@
 // 08c_ingest_linkedin_cv.js — Ingest LinkedIn CV PDF
 import pkg from 'pg';
 const { Client } = pkg;
-import pdf from 'pdf-parse/lib/pdf-parse.js';
+import { PDFParse } from 'pdf-parse';
 import fs from 'node:fs';
 import dotenv from 'dotenv';
 import { getEmbedding } from './08_utils.js';
@@ -9,52 +9,57 @@ import { getEmbedding } from './08_utils.js';
 dotenv.config();
 
 const client = new Client({
-    host: process.env.DB_HOST,
+    host: "127.0.0.1",
     port: process.env.DB_PORT,
     database: process.env.DB_NAME,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
 });
 
-export async function ingestLinkedInCV(entityId, pdfPath) {
+export async function ingestLinkedInCV(client, entityId, pdfPath) {
     console.log(`[LinkedIn CV] Ingesting ${pdfPath} for ${entityId}...`);
     
     const dataBuffer = fs.readFileSync(pdfPath);
-    const data = await pdf(dataBuffer);
+    const parser = new PDFParse({ data: dataBuffer });
+    const result = await parser.getText();
+    await parser.destroy();
     
-    const fullText = data.text;
+    const fullText = result.text;
     
-    // Simple chunking by common section headers
-    const sections = fullText.split(/\n(?=(?:Experience|Education|Skills|Languages|Summary|Projects|Honors|Certifications|Volunteering|Interests)\n?)/i);
+    // Multilingual chunking (EN, DE, FR, ES, IT)
+    const sectionPattern = /\n(?=(?:Experience|Berufserfahrung|Expérience|Experiencia|Esperienza|Education|Ausbildung|Formation|Educación|Formazione|Skills|Kenntnisse|Compétences|Habilidades|Competenze|Languages|Sprachen|Langues|Idiomas|Lingue|Summary|Zusammenfassung|Résumé|Resumen|Riepilogo|Projects|Projekte|Proyectos|Progetti|Honors|Certifications|Zertifikate|Certificaciones|Certificazioni)\n?)/i;
+    const sections = fullText.split(sectionPattern);
+    
+    const { getEmbedding, chunkText } = await import('./08_utils.js');
     
     for (let i = 0; i < sections.length; i++) {
-        let sectionText = sections[i].trim();
-        if (!sectionText) continue;
+        let sectionRaw = sections[i].trim();
+        if (!sectionRaw) continue;
         
-        // Try to identify the section header
-        const lines = sectionText.split('\n');
+        const lines = sectionRaw.split('\n');
         const header = lines[0].trim();
-        const label = `LinkedIn CV · ${header || 'Section ' + (i+1)}`;
+        const chunks = chunkText(sectionRaw, 1000);
         
-        console.log(`  - Ingesting section: ${header || 'Introduction'}`);
-        
-        const embedding = await getEmbedding(sectionText);
-        const sectionId = `cv-${entityId}-${header.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'intro-' + i}`;
-        
-        await client.query(`
-            INSERT INTO documents (id, entity_id, source_type, source_url, source_label, text, embedding, meta)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            ON CONFLICT (id) DO UPDATE SET text = EXCLUDED.text, embedding = EXCLUDED.embedding, fetched_at = NOW()
-        `, [
-            sectionId,
-            entityId,
-            'linkedin_cv',
-            `linkedin-cv://uploaded/${pdfPath.split('/').pop()}`,
-            label,
-            sectionText,
-            JSON.stringify(embedding),
-            JSON.stringify({ section: header })
-        ]);
+        for (let j = 0; j < chunks.length; j++) {
+            console.log(`  - Ingesting section: ${header || 'Introduction'} (Part ${j+1})`);
+            const embedding = await getEmbedding(chunks[j]);
+            const sectionId = `cv-${entityId}-${header.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'intro'}-chunk-${i}-${j}`;
+            
+            await client.query(`
+                INSERT INTO documents (id, entity_id, source_type, source_url, source_label, text, embedding, meta)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                ON CONFLICT (id) DO UPDATE SET text = EXCLUDED.text, embedding = EXCLUDED.embedding, fetched_at = NOW()
+            `, [
+                sectionId,
+                entityId,
+                'linkedin_cv',
+                `linkedin-cv://uploaded/${pdfPath.split('/').pop()}`,
+                `LinkedIn CV · ${header || 'Section'} ${j > 0 ? `(${j+1})` : ''}`,
+                chunks[j],
+                JSON.stringify(embedding),
+                JSON.stringify({ section: header, part: j })
+            ]);
+        }
     }
 }
 
