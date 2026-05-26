@@ -35,7 +35,7 @@ Config (DB creds, model names, `GITHUB_PAT`) lives in `.env` (gitignored).
 ## Run (from this folder)
 
 ```bash
-npm run schema         # create/refresh the v10_ tables
+npm run schema         # create/refresh the v10_ tables — DROPs and recreates them (destructive; re-ingest after)
 npm run ingest:reset   # wipe + ingest seeds (GitHub, websites, CV PDFs, inline docs)
 npm run ingest         # idempotent re-ingest (skips re-embedding unchanged text)
 npm run search "embedded firmware security review zwei wochen"
