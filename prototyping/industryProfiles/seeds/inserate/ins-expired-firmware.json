@@ -1,0 +1,14 @@
+{
+  "id": "ins-expired-firmware",
+  "kind": "suche",
+  "title": "Suche Firmware-Security-Audit (abgelaufen)",
+  "description": "Suche kurzfristig Unterstützung für ein Embedded-Firmware-Security-Review an einem Cortex-M Produkt. Dieses Inserat ist absichtlich abgelaufen, um den Filter für abgelaufene Posts zu testen.",
+  "owner_entity_id": "per-sofia-keller",
+  "region": "aargau",
+  "location": "Brugg",
+  "honorar_mode": "chf",
+  "honorar_text": "nach Absprache",
+  "valid_until": "2025-01-01",
+  "status": "active",
+  "tags": ["security", "embedded", "firmware"]
+}

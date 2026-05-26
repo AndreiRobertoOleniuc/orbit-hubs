@@ -1,0 +1,14 @@
+{
+  "id": "ins-marc-secrev",
+  "kind": "biete",
+  "title": "Embedded Firmware Security Review — 2 Wochen Einsatz",
+  "description": "Ich biete ein zweiwöchiges Firmware-Security-Review für ARM Cortex-M Geräte an: Secure-Boot-Prüfung, Side-Channel-Analyse und ein priorisierter Härtungsbericht. Ideal für Startups, die vor dem Launch eine unabhängige Sicherheitsbewertung brauchen.",
+  "owner_entity_id": "per-marc-hofer",
+  "region": "fhnw",
+  "location": "Baden",
+  "honorar_mode": "chf",
+  "honorar_text": "180/h",
+  "valid_until": "2026-12-31",
+  "status": "active",
+  "tags": ["security", "embedded", "firmware", "cortex-m"]
+}
