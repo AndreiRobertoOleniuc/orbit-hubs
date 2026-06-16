@@ -57,8 +57,8 @@ class ModularityTests {
     }
 
     @Test
-    void authHasNoOrbitDependencies() {
-        assertDependenciesSubset("auth", Set.of());
+    void authOnlyDependsOnProfile() {
+        assertDependenciesSubset("auth", Set.of("profile"));
     }
 
     @Test

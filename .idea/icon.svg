@@ -1,0 +1,11 @@
+<svg width="100%" height="100%" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+<!-- Add this white background rectangle first -->
+<rect width="100%" height="100%" fill="white" />
+
+<!-- Your existing SVG elements go here -->
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 22 22" fill="none">
+  <circle cx="11" cy="11" r="4.2" stroke="#1b1b1f" stroke-width="1.8"></circle>
+  <ellipse cx="11" cy="11" rx="9.2" ry="3.6" stroke="#1b1b1f" stroke-width="1.3" transform="rotate(-24 11 11)" opacity="0.45"></ellipse>
+  <circle cx="18.6" cy="6.4" r="1.9" fill="#5B43D6"></circle>
+</svg>
+</svg>

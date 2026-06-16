@@ -5,3 +5,13 @@ spring:
     url: jdbc:postgresql://localhost:5432/badenconnect
     username: root
     password: 123456789
+  flyway:
+    enabled: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${CLERK_ISSUER_URI:https://fair-clam-16.clerk.accounts.dev}
+
+clerk:
+  azp-origin: ${CLERK_AZP_ORIGIN:http://localhost:5173}
