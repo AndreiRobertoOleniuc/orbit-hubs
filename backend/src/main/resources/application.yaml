@@ -1,3 +1,7 @@
 spring:
   application:
     name: backend
+  datasource:
+    url: jdbc:postgresql://localhost:5432/badenconnect
+    username: root
+    password: 123456789
