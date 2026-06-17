@@ -3,6 +3,7 @@ package com.orbit.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.orbit.domain.entity.Document;
+import com.orbit.domain.entity.DocumentChunk;
 import com.orbit.domain.entity.Entity;
 import com.orbit.domain.entity.Request;
 import com.orbit.domain.repository.DocumentRepository;
@@ -44,27 +45,30 @@ class JpaPersistenceSmokeTest {
     private EntityManager em;
 
     @Test
-    void documentEmbeddingRoundTripsThroughPgvector() {
+    void documentChunkEmbeddingRoundTripsThroughPgvector() {
         Entity person = new Entity("per-smoke-test", "person", "Smoke Tester");
         person.setScope("ch");
         entities.save(person);
 
         Document doc = new Document("doc-smoke-test", person);
-        doc.setText("embedded firmware security review");
         float[] embedding = new float[1024];
         embedding[0] = 0.5f;
         embedding[1023] = -0.25f;
-        doc.setEmbedding(embedding);
-        documents.save(doc);
+        doc.addChunk(0, "embedded firmware security review", embedding); // vector lives on the chunk now
+        documents.save(doc); // cascades to the chunk
 
         em.flush();
         em.clear();
 
         Document reloaded = documents.findById("doc-smoke-test").orElseThrow();
-        assertThat(reloaded.getEmbedding()).hasSize(1024);
-        assertThat(reloaded.getEmbedding()[0]).isEqualTo(0.5f);
-        assertThat(reloaded.getEmbedding()[1023]).isEqualTo(-0.25f);
         assertThat(reloaded.getEntity().getId()).isEqualTo("per-smoke-test");
+        assertThat(reloaded.getChunks()).hasSize(1);
+        DocumentChunk chunk = reloaded.getChunks().get(0);
+        assertThat(chunk.getChunkIndex()).isZero();
+        assertThat(chunk.getText()).isEqualTo("embedded firmware security review");
+        assertThat(chunk.getEmbedding()).hasSize(1024);
+        assertThat(chunk.getEmbedding()[0]).isEqualTo(0.5f);
+        assertThat(chunk.getEmbedding()[1023]).isEqualTo(-0.25f);
     }
 
     @Test
