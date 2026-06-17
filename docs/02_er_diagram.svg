@@ -1,0 +1,125 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 760" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif" role="img" aria-labelledby="title desc">
+  <title id="title">Orbit v2 entity-relationship diagram</title>
+  <desc id="desc">users claim entities; entities have documents (evidence), availability (1:1) and tags (n:n). documents own document_chunks (text + vector(1024) + FTS, 1:n) — the retrieval unit. requests carry tags (n:n) and tag_subscriptions link users to tags. requests own request_transitions, request_distributions and contact_handoffs.</desc>
+
+  <defs>
+    <marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L9,4.5 L0,9 Z" fill="#64748b"/>
+    </marker>
+    <style>
+      .box   { fill:#ffffff; stroke:#cbd5e1; stroke-width:1.5; rx:8; }
+      .demand{ fill:#eff6ff; stroke:#93c5fd; }
+      .supply{ fill:#f0fdf4; stroke:#86efac; }
+      .child { fill:#f8fafc; stroke:#cbd5e1; }
+      .tname { fill:#0f172a; font-size:14px; font-weight:600; }
+      .tnote { fill:#64748b; font-size:10.5px; }
+      .rel   { fill:#475569; font-size:10.5px; font-style:italic; }
+      .card  { fill:#475569; font-size:11px; font-weight:600; }
+      .edge  { stroke:#64748b; stroke-width:1.5; fill:none; }
+      .leg   { fill:#64748b; font-size:11px; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="880" height="760" fill="transparent"/>
+
+  <!-- ============ EDGES (drawn first, under boxes) ============ -->
+  <!-- users -> entities (claims) -->
+  <path class="edge" d="M150,108 L150,150" marker-end="url(#arrow)"/>
+  <text class="rel" x="158" y="133">claims (owner_user_id)</text>
+
+  <!-- documents -> entities (n .. 1) -->
+  <path class="edge" d="M560,188 L300,188" marker-end="url(#arrow)"/>
+  <text class="card" x="318" y="180">1</text>
+  <text class="card" x="535" y="180">n</text>
+  <text class="rel" x="360" y="206">documents → entities</text>
+
+  <!-- entities -> availability (1:1) -->
+  <path class="edge" d="M150,226 L150,300" marker-end="url(#arrow)"/>
+  <text class="rel" x="22" y="262">availability</text>
+  <text class="rel" x="22" y="276">(1:1, nullable)</text>
+
+  <!-- documents -> document_chunks (1:n) -->
+  <path class="edge" d="M660,206 L660,300" marker-end="url(#arrow)"/>
+  <text class="card" x="668" y="226">1</text>
+  <text class="card" x="668" y="294">n</text>
+  <text class="rel" x="668" y="262">chunks</text>
+
+  <!-- entities -> tags (entity_tags n:n) -->
+  <path class="edge" d="M250,196 C350,210 425,255 428,300" marker-end="url(#arrow)"/>
+  <text class="rel" x="270" y="244">entity_tags (n:n)</text>
+
+  <!-- tags -> requests (request_tags n:n) -->
+  <path class="edge" d="M428,372 C428,420 340,420 280,452" marker-end="url(#arrow)"/>
+  <text class="rel" x="300" y="420">request_tags (n:n)</text>
+
+  <!-- tag_subscriptions: users <-> tags -->
+  <path class="edge" d="M255,82 C440,90 500,180 460,318" stroke-dasharray="5 4" marker-end="url(#arrow)"/>
+  <text class="rel" x="285" y="112">tag_subscriptions (user ⇄ tag)</text>
+
+  <!-- requests -> 3 children (1:n) -->
+  <path class="edge" d="M150,528 L150,584" marker-end="url(#arrow)"/>
+  <text class="card" x="158" y="560">1:n</text>
+  <path class="edge" d="M210,505 C400,560 430,560 430,584" marker-end="url(#arrow)"/>
+  <path class="edge" d="M210,495 C660,540 700,540 700,584" marker-end="url(#arrow)"/>
+
+  <!-- ============ BOXES ============ -->
+  <!-- users -->
+  <rect class="box" x="60" y="60" width="180" height="48" rx="8"/>
+  <text class="tname" x="150" y="82" text-anchor="middle">users</text>
+  <text class="tnote" x="150" y="98" text-anchor="middle">login only when escalating</text>
+
+  <!-- entities -->
+  <rect class="box supply" x="60" y="150" width="190" height="56" rx="8"/>
+  <text class="tname" x="155" y="174" text-anchor="middle">entities</text>
+  <text class="tnote" x="155" y="190" text-anchor="middle">person | company</text>
+
+  <!-- documents -->
+  <rect class="box" x="560" y="150" width="200" height="56" rx="8"/>
+  <text class="tname" x="660" y="174" text-anchor="middle">documents</text>
+  <text class="tnote" x="660" y="190" text-anchor="middle">citable unit · metadata</text>
+
+  <!-- document_chunks -->
+  <rect class="box" x="560" y="300" width="200" height="56" rx="8"/>
+  <text class="tname" x="660" y="322" text-anchor="middle">document_chunks</text>
+  <text class="tnote" x="660" y="338" text-anchor="middle">text · vector(1024) + FTS</text>
+
+  <!-- availability -->
+  <rect class="box supply" x="60" y="300" width="180" height="48" rx="8"/>
+  <text class="tname" x="150" y="322" text-anchor="middle">availability</text>
+  <text class="tnote" x="150" y="338" text-anchor="middle">toggle + fields</text>
+
+  <!-- tags -->
+  <rect class="box" x="338" y="300" width="180" height="48" rx="8"/>
+  <text class="tname" x="428" y="322" text-anchor="middle">tags</text>
+  <text class="tnote" x="428" y="338" text-anchor="middle">slug + label</text>
+
+  <!-- requests -->
+  <rect class="box demand" x="60" y="452" width="200" height="56" rx="8"/>
+  <text class="tname" x="160" y="476" text-anchor="middle">requests (Anfrage)</text>
+  <text class="tnote" x="160" y="492" text-anchor="middle">embedding + lifecycle state</text>
+
+  <!-- request_transitions -->
+  <rect class="box child" x="60" y="584" width="190" height="56" rx="8"/>
+  <text class="tname" x="155" y="608" text-anchor="middle">request_transitions</text>
+  <text class="tnote" x="155" y="624" text-anchor="middle">lifecycle audit log</text>
+
+  <!-- request_distributions -->
+  <rect class="box child" x="335" y="584" width="190" height="56" rx="8"/>
+  <text class="tname" x="430" y="608" text-anchor="middle">request_distributions</text>
+  <text class="tnote" x="430" y="624" text-anchor="middle">who was notified + why</text>
+
+  <!-- contact_handoffs -->
+  <rect class="box child" x="610" y="584" width="190" height="56" rx="8"/>
+  <text class="tname" x="705" y="608" text-anchor="middle">contact_handoffs</text>
+  <text class="tnote" x="705" y="624" text-anchor="middle">one-time email</text>
+
+  <!-- ============ LEGEND ============ -->
+  <g transform="translate(60,690)">
+    <rect class="box supply" x="0" y="0" width="22" height="14" rx="3"/>
+    <text class="leg" x="30" y="11">supply (profile side)</text>
+    <rect class="box demand" x="190" y="0" width="22" height="14" rx="3"/>
+    <text class="leg" x="220" y="11">demand (request side)</text>
+    <line x1="400" y1="7" x2="430" y2="7" stroke="#64748b" stroke-width="1.5" stroke-dasharray="5 4"/>
+    <text class="leg" x="438" y="11">n:n join</text>
+  </g>
+</svg>
