@@ -30,7 +30,6 @@
 	<properties>
 		<java.version>21</java.version>
 		<spring-ai.version>2.0.0-M6</spring-ai.version>
-		<spring-modulith.version>2.0.6</spring-modulith.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -39,7 +38,12 @@
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-data-jdbc</artifactId>
+			<artifactId>spring-boot-starter-data-jpa</artifactId>
+		</dependency>
+		<!-- Hibernate's official pgvector support: maps float[] <-> vector(1024). -->
+		<dependency>
+			<groupId>org.hibernate.orm</groupId>
+			<artifactId>hibernate-vector</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -65,15 +69,6 @@
 			<groupId>org.springframework.ai</groupId>
 			<artifactId>spring-ai-starter-vector-store-pgvector</artifactId>
 		</dependency>
-		<dependency>
-			<groupId>org.springframework.modulith</groupId>
-			<artifactId>spring-modulith-starter-core</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.modulith</groupId>
-			<artifactId>spring-modulith-starter-jdbc</artifactId>
-		</dependency>
-
 		<!-- User starts Postgres manually, so Docker Compose is not needed at runtime. -->
 		<!--
 		<dependency>
@@ -98,23 +93,13 @@
 		</dependency>
 		-->
 		<dependency>
-			<groupId>org.springframework.modulith</groupId>
-			<artifactId>spring-modulith-actuator</artifactId>
-			<scope>runtime</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.modulith</groupId>
-			<artifactId>spring-modulith-observability</artifactId>
-			<scope>runtime</scope>
-		</dependency>
-		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-actuator-test</artifactId>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-data-jdbc-test</artifactId>
+			<artifactId>spring-boot-starter-data-jpa-test</artifactId>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
@@ -125,11 +110,6 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-webmvc-test</artifactId>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.modulith</groupId>
-			<artifactId>spring-modulith-starter-test</artifactId>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
@@ -147,13 +127,6 @@
 	</dependencies>
 	<dependencyManagement>
 		<dependencies>
-			<dependency>
-				<groupId>org.springframework.modulith</groupId>
-				<artifactId>spring-modulith-bom</artifactId>
-				<version>${spring-modulith.version}</version>
-				<type>pom</type>
-				<scope>import</scope>
-			</dependency>
 			<dependency>
 				<groupId>org.springframework.ai</groupId>
 				<artifactId>spring-ai-bom</artifactId>
