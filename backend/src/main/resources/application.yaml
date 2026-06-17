@@ -12,9 +12,6 @@ spring:
     hibernate:
       # Flyway owns the schema; Hibernate only validates against it, never mutates.
       ddl-auto: validate
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
   security:
     oauth2:
       resourceserver:
