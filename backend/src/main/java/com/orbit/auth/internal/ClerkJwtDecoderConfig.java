@@ -28,8 +28,7 @@ class ClerkJwtDecoderConfig {
             @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuerUri,
             @Value("${clerk.azp-origin}") String azpOrigin) {
 
-        String jwkSetUri = issuerUri.endsWith("/") ? issuerUri + ".well-known/jwks.json"
-                : issuerUri + "/.well-known/jwks.json";
+        String jwkSetUri = issuerUri.endsWith("/") ? issuerUri + ".well-known/jwks.json" : issuerUri + "/.well-known/jwks.json";
 
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
 
