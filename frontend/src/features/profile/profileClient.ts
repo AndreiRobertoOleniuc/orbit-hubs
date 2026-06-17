@@ -24,18 +24,13 @@ export const entityClient = {
     id: EntityId,
     availability: Availability
   ): Promise<Availability> {
-    return apiRequest<Availability>(
-      `/api/v1/entities/${id}/availability`,
-      {
-        method: "PUT",
-        body: availability,
-      }
-    )
+    return apiRequest<Availability>(`/api/v1/entities/${id}/availability`, {
+      method: "PUT",
+      body: availability,
+    })
   },
 
   getMatchingRequests(id: EntityId): Promise<RequestDto[]> {
-    return apiRequest<RequestDto[]>(
-      `/api/v1/entities/${id}/matching-requests`
-    )
+    return apiRequest<RequestDto[]>(`/api/v1/entities/${id}/matching-requests`)
   },
 }

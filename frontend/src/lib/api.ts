@@ -24,8 +24,7 @@ interface StateWithAuth {
   auth: { token: string | null }
 }
 
-const baseUrl =
-  `${import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080"}/api/v1`
+const baseUrl = `${import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080"}/api/v1`
 
 const baseQuery = fetchBaseQuery({
   baseUrl,
@@ -66,13 +65,13 @@ export const apiSlice = createApi({
       providesTags: ["Search"],
     }),
 
-    getBoard: builder.query<BoardResponse, BoardListParams | void>({
-      query: (params = {}) => {
+    getBoard: builder.query<BoardResponse, BoardListParams | undefined>({
+      query: (params) => {
         const qs = new URLSearchParams()
-        if (params.tag) qs.set("tag", params.tag)
-        if (params.scope) qs.set("scope", params.scope)
-        if (params.sort) qs.set("sort", params.sort)
-        if (params.page !== undefined) qs.set("page", String(params.page))
+        if (params?.tag) qs.set("tag", params.tag)
+        if (params?.scope) qs.set("scope", params.scope)
+        if (params?.sort) qs.set("sort", params.sort)
+        if (params?.page !== undefined) qs.set("page", String(params.page))
         const query = qs.toString()
         return `/board${query ? `?${query}` : ""}`
       },
@@ -137,10 +136,7 @@ export const apiSlice = createApi({
       invalidatesTags: ["Onboarding", "Profile"],
     }),
 
-    onboardOrganisation: builder.mutation<
-      EntityId,
-      OnboardingOrganisationDto
-    >({
+    onboardOrganisation: builder.mutation<EntityId, OnboardingOrganisationDto>({
       query: (body) => ({
         url: "/onboarding/organisation",
         method: "POST",

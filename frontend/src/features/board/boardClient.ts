@@ -10,8 +10,6 @@ export const boardClient = {
     if (params.page !== undefined) qs.set("page", String(params.page))
 
     const query = qs.toString()
-    return apiRequest<BoardResponse>(
-      `/api/v1/board${query ? `?${query}` : ""}`
-    )
+    return apiRequest<BoardResponse>(`/api/v1/board${query ? `?${query}` : ""}`)
   },
 }

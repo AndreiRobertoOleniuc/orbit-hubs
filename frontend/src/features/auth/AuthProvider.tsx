@@ -21,9 +21,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Keep latest Clerk references without re-triggering the effect.
   const clerkAuthRef = useRef(clerkAuth)
-  clerkAuthRef.current = clerkAuth
   const clerkUserRef = useRef(clerkUser)
-  clerkUserRef.current = clerkUser
+
+  useEffect(() => {
+    clerkAuthRef.current = clerkAuth
+    clerkUserRef.current = clerkUser
+  })
 
   useEffect(() => {
     if (DEV_JWT) {
@@ -54,7 +57,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const user = clerkUserRef.current
           ? {
               id: clerkUserRef.current.id,
-              email: clerkUserRef.current.primaryEmailAddress?.emailAddress ?? "",
+              email:
+                clerkUserRef.current.primaryEmailAddress?.emailAddress ?? "",
               displayName: clerkUserRef.current.fullName ?? undefined,
             }
           : null

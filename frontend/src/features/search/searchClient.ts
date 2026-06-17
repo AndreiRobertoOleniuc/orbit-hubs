@@ -14,10 +14,7 @@ export const searchClient = {
     })
   },
 
-  getRationale(
-    entityId: EntityId,
-    query: string
-  ): Promise<RationaleResponse> {
+  getRationale(entityId: EntityId, query: string): Promise<RationaleResponse> {
     const qs = new URLSearchParams({ query })
     return apiRequest<RationaleResponse>(
       `/api/v1/search/rationale/${entityId}?${qs.toString()}`

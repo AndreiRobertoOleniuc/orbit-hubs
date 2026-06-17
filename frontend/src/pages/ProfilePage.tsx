@@ -9,8 +9,8 @@ export function ProfilePage() {
       <p className="text-muted-foreground">
         {entityId ? (
           <>
-            Profil-ID: <code className="rounded bg-muted px-1">{entityId}</code>.
-            Hier erscheint die öffentliche Profilansicht.
+            Profil-ID: <code className="rounded bg-muted px-1">{entityId}</code>
+            . Hier erscheint die öffentliche Profilansicht.
           </>
         ) : (
           "Hier erscheint das eigene Profil."

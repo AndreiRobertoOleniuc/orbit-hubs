@@ -4,13 +4,14 @@ const API_BASE: string =
   import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080"
 
 export class ApiError extends Error {
-  constructor(
-    public status: number,
-    public statusText: string,
-    message: string
-  ) {
+  status: number
+  statusText: string
+
+  constructor(status: number, statusText: string, message: string) {
     super(message)
     this.name = "ApiError"
+    this.status = status
+    this.statusText = statusText
   }
 }
 

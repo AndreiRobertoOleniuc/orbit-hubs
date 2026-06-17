@@ -15,9 +15,7 @@ export const onboardingClient = {
     })
   },
 
-  onboardOrganisation(
-    request: OnboardingOrganisationDto
-  ): Promise<EntityId> {
+  onboardOrganisation(request: OnboardingOrganisationDto): Promise<EntityId> {
     return apiRequest<EntityId>("/api/v1/onboarding/organisation", {
       method: "POST",
       body: request,

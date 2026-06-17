@@ -30,8 +30,6 @@ export const requestClient = {
   },
 
   getDistributions(id: RequestId): Promise<DistributionDto[]> {
-    return apiRequest<DistributionDto[]>(
-      `/api/v1/requests/${id}/distributions`
-    )
+    return apiRequest<DistributionDto[]>(`/api/v1/requests/${id}/distributions`)
   },
 }

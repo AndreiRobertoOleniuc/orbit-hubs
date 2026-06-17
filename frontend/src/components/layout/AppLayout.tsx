@@ -5,11 +5,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/layout/ThemeToggle"
 import { useAuth } from "@/features/auth/useAuth"
-import {
-  SignInButton,
-  SignUpButton,
-  UserButton,
-} from "@clerk/react"
+import { SignInButton, SignUpButton, UserButton } from "@clerk/react"
 
 const navItems = [
   { to: "/search", label: "Suche" },
@@ -46,17 +42,17 @@ export function AppLayout() {
                 <Link to={item.to}>{item.label}</Link>
               </Button>
             ))}
-            <Button
-              variant={
-                pathname.startsWith("/profile") ? "secondary" : "ghost"
-              }
-              size="sm"
-              asChild
-            >
-              <Link to="/profile">
-                {isAuthenticated ? "Mein Profil" : "Profil"}
-              </Link>
-            </Button>
+            {isAuthenticated && (
+              <Button
+                variant={
+                  pathname.startsWith("/profile") ? "secondary" : "ghost"
+                }
+                size="sm"
+                asChild
+              >
+                <Link to="/profile">Mein Profil</Link>
+              </Button>
+            )}
           </nav>
 
           <div className="flex items-center gap-2">
@@ -96,9 +92,7 @@ export function AppLayout() {
               {navItems.map((item) => (
                 <Button
                   key={item.to}
-                  variant={
-                    isActive(item.to, pathname) ? "secondary" : "ghost"
-                  }
+                  variant={isActive(item.to, pathname) ? "secondary" : "ghost"}
                   size="sm"
                   asChild
                   className="justify-start"
@@ -107,19 +101,19 @@ export function AppLayout() {
                   <Link to={item.to}>{item.label}</Link>
                 </Button>
               ))}
-              <Button
-                variant={
-                  pathname.startsWith("/profile") ? "secondary" : "ghost"
-                }
-                size="sm"
-                asChild
-                className="justify-start"
-                onClick={() => setMobileOpen(false)}
-              >
-                <Link to="/profile">
-                  {isAuthenticated ? "Mein Profil" : "Profil"}
-                </Link>
-              </Button>
+              {isAuthenticated && (
+                <Button
+                  variant={
+                    pathname.startsWith("/profile") ? "secondary" : "ghost"
+                  }
+                  size="sm"
+                  asChild
+                  className="justify-start"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  <Link to="/profile">Mein Profil</Link>
+                </Button>
+              )}
             </nav>
           </div>
         )}
