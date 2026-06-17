@@ -1,0 +1,76 @@
+import { useEffect, useRef } from "react"
+import { useAuth as useClerkAuth, useUser } from "@clerk/react"
+
+import { setAuthStatus, setAuthUser, setToken } from "@/features/auth/authSlice"
+import { useAppDispatch } from "@/hooks/useAppDispatch"
+
+const DEV_JWT: string | undefined = import.meta.env.VITE_DEV_JWT
+
+/**
+ * Syncs the active auth provider into the Redux auth slice.
+ *
+ * Today this is Clerk React. If the project later swaps the provider,
+ * only this component changes; the rest of the app keeps calling `useAuth()`
+ * and reading from the slice.
+ */
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const dispatch = useAppDispatch()
+  const clerkAuth = useClerkAuth()
+  const { user: clerkUser, isLoaded: userLoaded } = useUser()
+  const syncingRef = useRef(false)
+
+  // Keep latest Clerk references without re-triggering the effect.
+  const clerkAuthRef = useRef(clerkAuth)
+  clerkAuthRef.current = clerkAuth
+  const clerkUserRef = useRef(clerkUser)
+  clerkUserRef.current = clerkUser
+
+  useEffect(() => {
+    if (DEV_JWT) {
+      dispatch(setToken(DEV_JWT))
+      dispatch(setAuthStatus("authenticated"))
+      return
+    }
+
+    if (!clerkAuth.isLoaded || !userLoaded) {
+      dispatch(setAuthStatus("loading"))
+      return
+    }
+
+    if (!clerkAuth.isSignedIn) {
+      dispatch(setToken(null))
+      dispatch(setAuthUser(null))
+      dispatch(setAuthStatus("unauthenticated"))
+      return
+    }
+
+    if (syncingRef.current) return
+    syncingRef.current = true
+
+    async function sync() {
+      try {
+        const token = await clerkAuthRef.current.getToken()
+        dispatch(setToken(token))
+        const user = clerkUserRef.current
+          ? {
+              id: clerkUserRef.current.id,
+              email: clerkUserRef.current.primaryEmailAddress?.emailAddress ?? "",
+              displayName: clerkUserRef.current.fullName ?? undefined,
+            }
+          : null
+        dispatch(setAuthUser(user))
+      } catch (error) {
+        console.error("Failed to sync auth token", error)
+        dispatch(setToken(null))
+        dispatch(setAuthUser(null))
+        dispatch(setAuthStatus("unauthenticated"))
+      } finally {
+        syncingRef.current = false
+      }
+    }
+
+    sync()
+  }, [clerkAuth.isLoaded, clerkAuth.isSignedIn, userLoaded, dispatch])
+
+  return children
+}
