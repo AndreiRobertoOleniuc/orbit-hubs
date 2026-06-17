@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react"
 import { useAuth as useClerkAuth, useUser } from "@clerk/react"
 
 import { setAuthStatus, setAuthUser, setToken } from "@/features/auth/authSlice"
-import { useAppDispatch } from "@/hooks/useAppDispatch"
+import { useAppDispatch } from "@/lib/hooks"
 
 const DEV_JWT: string | undefined = import.meta.env.VITE_DEV_JWT
 

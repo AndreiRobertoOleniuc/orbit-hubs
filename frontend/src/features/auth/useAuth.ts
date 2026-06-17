@@ -1,20 +1,13 @@
 import { useCallback } from "react"
 
-import {
-  selectAuthStatus,
-  selectAuthUser,
-  selectIsAuthenticated,
-  selectToken,
-} from "@/features/auth/authSelectors"
-import { clearSession } from "@/features/auth/authSlice"
-import { useAppDispatch } from "@/hooks/useAppDispatch"
-import { useAppSelector } from "@/hooks/useAppSelector"
+import { type AuthUser, clearSession } from "@/features/auth/authSlice"
+import { useAppDispatch, useAppSelector } from "@/lib/hooks"
 
 export interface AuthContextValue {
   token: string | null
   getToken: () => Promise<string | null>
   isAuthenticated: boolean
-  user: import("@/features/auth/authSlice").AuthUser | null
+  user: AuthUser | null
   status: "idle" | "loading" | "authenticated" | "unauthenticated"
   signOut: () => void
 }
@@ -28,10 +21,10 @@ export interface AuthContextValue {
  */
 export function useAuth(): AuthContextValue {
   const dispatch = useAppDispatch()
-  const token = useAppSelector(selectToken)
-  const isAuthenticated = useAppSelector(selectIsAuthenticated)
-  const user = useAppSelector(selectAuthUser)
-  const status = useAppSelector(selectAuthStatus)
+  const token = useAppSelector((state) => state.auth.token)
+  const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated)
+  const user = useAppSelector((state) => state.auth.user)
+  const status = useAppSelector((state) => state.auth.status)
 
   const getToken = useCallback(async () => token, [token])
   const signOut = useCallback(() => {
