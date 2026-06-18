@@ -40,20 +40,10 @@ const baseQuery = fetchBaseQuery({
 export const apiSlice = createApi({
   reducerPath: "api",
   baseQuery,
-  tagTypes: [
-    "Search",
-    "Board",
-    "Request",
-    "Entity",
-    "Profile",
-    "Availability",
-    "Subscription",
-    "Onboarding",
-  ],
+  refetchOnMountOrArgChange: true,
   endpoints: (builder) => ({
     search: builder.query<SearchResponse, SearchRequest>({
       query: (body) => ({ url: "/search", method: "POST", body }),
-      providesTags: ["Search"],
     }),
 
     getSearchRationale: builder.query<
@@ -62,7 +52,6 @@ export const apiSlice = createApi({
     >({
       query: ({ entityId, query }) =>
         `/search/rationale/${entityId}?query=${encodeURIComponent(query)}`,
-      providesTags: ["Search"],
     }),
 
     getBoard: builder.query<BoardResponse, BoardListParams | undefined>({
@@ -75,17 +64,14 @@ export const apiSlice = createApi({
         const query = qs.toString()
         return `/board${query ? `?${query}` : ""}`
       },
-      providesTags: ["Board"],
     }),
 
     createRequest: builder.mutation<RequestDto, CreateRequestDto>({
       query: (body) => ({ url: "/requests", method: "POST", body }),
-      invalidatesTags: ["Board", "Request"],
     }),
 
     getRequest: builder.query<RequestDto, RequestId>({
       query: (id) => `/requests/${id}`,
-      providesTags: (_result, _error, id) => [{ type: "Request", id }],
     }),
 
     patchRequestStatus: builder.mutation<
@@ -97,23 +83,14 @@ export const apiSlice = createApi({
         method: "PATCH",
         body,
       }),
-      invalidatesTags: (_result, _error, { id }) => [
-        { type: "Request", id },
-        "Board",
-      ],
     }),
 
     getRequestDistributions: builder.query<DistributionDto[], RequestId>({
       query: (id) => `/requests/${id}/distributions`,
-      providesTags: (_result, _error, id) => [{ type: "Request", id }],
     }),
 
     getEntity: builder.query<ProfileDto, EntityId>({
       query: (id) => `/entities/${id}`,
-      providesTags: (_result, _error, id) => [
-        { type: "Entity", id },
-        { type: "Profile", id },
-      ],
     }),
 
     updateEntity: builder.mutation<
@@ -125,15 +102,10 @@ export const apiSlice = createApi({
         method: "PATCH",
         body,
       }),
-      invalidatesTags: (_result, _error, { id }) => [
-        { type: "Entity", id },
-        { type: "Profile", id },
-      ],
     }),
 
     onboardPerson: builder.mutation<EntityId, OnboardingPersonDto>({
       query: (body) => ({ url: "/onboarding/person", method: "POST", body }),
-      invalidatesTags: ["Onboarding", "Profile"],
     }),
 
     onboardOrganisation: builder.mutation<EntityId, OnboardingOrganisationDto>({
@@ -142,24 +114,18 @@ export const apiSlice = createApi({
         method: "POST",
         body,
       }),
-      invalidatesTags: ["Onboarding", "Profile", "Entity"],
     }),
 
     getOnboardingStatus: builder.query<OnboardingStatusDto, EntityId>({
       query: (entityId) => `/onboarding/${entityId}/status`,
-      providesTags: (_result, _error, entityId) => [
-        { type: "Onboarding", id: entityId },
-      ],
     }),
 
     sendContact: builder.mutation<void, ContactRequest>({
       query: (body) => ({ url: "/contact", method: "POST", body }),
-      invalidatesTags: ["Request"],
     }),
 
     subscribeTag: builder.mutation<void, SubscriptionRequest>({
       query: (body) => ({ url: "/subscriptions", method: "POST", body }),
-      invalidatesTags: ["Subscription"],
     }),
 
     unsubscribeTag: builder.mutation<void, string>({
@@ -167,7 +133,6 @@ export const apiSlice = createApi({
         url: `/subscriptions/${tagSlug}`,
         method: "DELETE",
       }),
-      invalidatesTags: ["Subscription"],
     }),
   }),
 })
