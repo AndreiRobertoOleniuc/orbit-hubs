@@ -8,6 +8,11 @@ export type RequestId = string
 export type DocumentId = string
 export type UserId = string
 
+export interface MeDto {
+  userId: string
+  email: string
+}
+
 export type Scope = "all" | "fhnw" | "aargau" | "connected"
 export type PresenceMode = "onsite" | "hybrid" | "remote"
 export type EntityType = "person" | "company"
