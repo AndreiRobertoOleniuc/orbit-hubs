@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 760" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif" role="img" aria-labelledby="t d">
+  <title id="t">Orbit package / layer map (layered JPA monolith)</title>
+  <desc id="d">React SPA with Clerk SDK sends a JWT to a Spring security gate. Eight app/&lt;feature&gt; packages (auth, discovery, profile, request, onboarding, contact, notification, embedding) each hold their own Api + Dto + Service classes (web + service layer). They all sit on a single shared domain layer (domain.entity + domain.repository) over PostgreSQL 16 + pgvector. Boundaries are by package convention, not framework-enforced.</desc>
+  <defs>
+    <marker id="a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L9,4.5 L0,9 Z" fill="#64748b"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="920" height="760" fill="transparent"/>
+
+  <!-- Frontend -->
+  <rect x="330" y="20" width="260" height="56" rx="10" fill="rgb(241,245,249)" stroke="rgb(148,163,184)" stroke-width="1.5"/>
+  <text x="460" y="44" text-anchor="middle" fill="rgb(15,23,42)" font-size="14" font-weight="600">React SPA</text>
+  <text x="460" y="62" text-anchor="middle" fill="rgb(100,116,139)" font-size="10">Clerk React SDK · obtains JWT</text>
+
+  <path d="M460,76 L460,104" marker-end="url(#a)" fill="none" stroke="rgb(100,116,139)" stroke-width="1.4"/>
+  <text x="470" y="94" fill="rgb(71,85,105)" font-size="10.5" font-weight="600">JWT (Bearer)</text>
+
+  <!-- Security gate -->
+  <rect x="210" y="104" width="500" height="62" rx="10" fill="rgb(254,242,242)" stroke="rgb(248,113,113)" stroke-width="1.5"/>
+  <text x="460" y="128" text-anchor="middle" fill="rgb(15,23,42)" font-size="14" font-weight="600">security gate — auth + security/</text>
+  <text x="460" y="146" text-anchor="middle" fill="rgb(100,116,139)" font-size="10">ClerkJwtAuthenticationFilter · validates via Clerk JWKS · public vs auth routes</text>
+  <text x="460" y="159" text-anchor="middle" fill="rgb(100,116,139)" font-size="10">Spring Security config · publishes CurrentUser</text>
+
+  <path d="M460,166 L460,196" marker-end="url(#a)" fill="none" stroke="rgb(100,116,139)" stroke-width="1.4"/>
+  <text x="470" y="185" fill="rgb(71,85,105)" font-size="9.5" font-style="italic">SecurityContext</text>
+
+  <!-- app/<feature> layer band -->
+  <rect x="40" y="196" width="840" height="232" rx="12" fill="rgba(239,246,255,0.45)" stroke="rgb(191,219,254)" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="56" y="216" fill="rgb(37,99,235)" font-size="11" font-weight="700">app/ — feature packages · web + service layer (Api · Dto · Service)</text>
+
+  <!-- feature row 1 -->
+  <rect x="60" y="228" width="180" height="58" rx="9" fill="rgb(236,254,255)" stroke="rgb(103,232,249)" stroke-width="1.5"/>
+  <text x="150" y="252" text-anchor="middle" fill="rgb(15,23,42)" font-size="13" font-weight="600">discovery</text>
+  <text x="150" y="269" text-anchor="middle" fill="rgb(100,116,139)" font-size="9.5">Search (sync) · Rationale (lazy)</text>
+
+  <rect x="260" y="228" width="180" height="58" rx="9" fill="rgb(240,253,244)" stroke="rgb(134,239,172)" stroke-width="1.5"/>
+  <text x="350" y="252" text-anchor="middle" fill="rgb(15,23,42)" font-size="13" font-weight="600">profile</text>
+  <text x="350" y="269" text-anchor="middle" fill="rgb(100,116,139)" font-size="9.5">availability · tags (supply)</text>
+
+  <rect x="460" y="228" width="180" height="58" rx="9" fill="rgb(239,246,255)" stroke="rgb(147,197,253)" stroke-width="1.5"/>
+  <text x="550" y="252" text-anchor="middle" fill="rgb(15,23,42)" font-size="13" font-weight="600">request</text>
+  <text x="550" y="269" text-anchor="middle" fill="rgb(100,116,139)" font-size="9.5">lifecycle · distributions (demand)</text>
+
+  <rect x="660" y="228" width="180" height="58" rx="9" fill="rgb(239,246,255)" stroke="rgb(147,197,253)" stroke-width="1.5"/>
+  <text x="750" y="252" text-anchor="middle" fill="rgb(15,23,42)" font-size="13" font-weight="600">onboarding</text>
+  <text x="750" y="269" text-anchor="middle" fill="rgb(100,116,139)" font-size="9.5">sources · Zefix → profile</text>
+
+  <!-- feature row 2 -->
+  <rect x="60" y="298" width="180" height="58" rx="9" fill="rgb(239,246,255)" stroke="rgb(147,197,253)" stroke-width="1.5"/>
+  <text x="150" y="322" text-anchor="middle" fill="rgb(15,23,42)" font-size="13" font-weight="600">contact</text>
+  <text x="150" y="339" text-anchor="middle" fill="rgb(100,116,139)" font-size="9.5">one-time email hand-off</text>
+
+  <rect x="260" y="298" width="180" height="58" rx="9" fill="rgb(239,246,255)" stroke="rgb(147,197,253)" stroke-width="1.5"/>
+  <text x="350" y="322" text-anchor="middle" fill="rgb(15,23,42)" font-size="13" font-weight="600">notification</text>
+  <text x="350" y="339" text-anchor="middle" fill="rgb(100,116,139)" font-size="9.5">fan-out on distribute/contact</text>
+
+  <rect x="460" y="298" width="380" height="58" rx="9" fill="rgb(250,245,255)" stroke="rgb(216,180,254)" stroke-width="1.5"/>
+  <text x="650" y="322" text-anchor="middle" fill="rgb(15,23,42)" font-size="13" font-weight="600">embedding (shared)</text>
+  <text x="650" y="339" text-anchor="middle" fill="rgb(100,116,139)" font-size="9.5">EmbeddingService.embed(text, kind) · wraps OpenAI/Ollama behind 1 iface</text>
+
+  <text x="60" y="384" fill="rgb(100,116,139)" font-size="9.5" font-style="italic">controllers/ holds shared/cross-cutting REST endpoints</text>
+  <rect x="60" y="392" width="780" height="24" rx="7" fill="rgb(255,251,235)" stroke="rgb(252,211,77)" stroke-width="1.3"/>
+  <text x="450" y="408" text-anchor="middle" fill="rgb(120,53,15)" font-size="10" font-weight="600">controllers/ · cross-cutting REST controllers</text>
+
+  <path d="M460,428 L460,456" marker-end="url(#a)" fill="none" stroke="rgb(100,116,139)" stroke-width="1.4"/>
+  <text x="470" y="446" fill="rgb(71,85,105)" font-size="9.5" font-style="italic">calls repositories</text>
+
+  <!-- shared domain layer -->
+  <rect x="180" y="456" width="560" height="92" rx="12" fill="rgb(254,252,232)" stroke="rgb(250,204,21)" stroke-width="1.6"/>
+  <text x="460" y="480" text-anchor="middle" fill="rgb(15,23,42)" font-size="14" font-weight="700">domain/ — shared persistence layer</text>
+  <rect x="210" y="494" width="230" height="40" rx="8" fill="rgb(255,255,255)" stroke="rgb(250,204,21)" stroke-width="1.2"/>
+  <text x="325" y="518" text-anchor="middle" fill="rgb(120,53,15)" font-size="11" font-weight="600">domain.entity · JPA/Hibernate</text>
+  <rect x="480" y="494" width="230" height="40" rx="8" fill="rgb(255,255,255)" stroke="rgb(250,204,21)" stroke-width="1.2"/>
+  <text x="595" y="518" text-anchor="middle" fill="rgb(120,53,15)" font-size="11" font-weight="600">domain.repository · Spring Data</text>
+
+  <path d="M460,548 L460,580" marker-end="url(#a)" fill="none" stroke="rgb(100,116,139)" stroke-width="1.4"/>
+
+  <!-- data store -->
+  <rect x="330" y="580" width="260" height="58" rx="10" fill="rgb(245,243,255)" stroke="rgb(167,139,250)" stroke-width="1.5"/>
+  <text x="460" y="605" text-anchor="middle" fill="rgb(15,23,42)" font-size="14" font-weight="600">PostgreSQL 16 + pgvector</text>
+  <text x="460" y="623" text-anchor="middle" fill="rgb(100,116,139)" font-size="10">single shared schema · pgvector + FTS</text>
+
+  <!-- legend -->
+  <g transform="translate(40,672)">
+    <rect x="0" y="0" width="20" height="13" rx="3" fill="rgb(254,242,242)" stroke="rgb(248,113,113)" stroke-width="1.5"/>
+    <text x="26" y="10" fill="rgb(71,85,105)" font-size="9.5" font-style="italic">security gate</text>
+    <rect x="120" y="0" width="20" height="13" rx="3" fill="rgb(240,253,244)" stroke="rgb(134,239,172)" stroke-width="1.5"/>
+    <text x="146" y="10" fill="rgb(71,85,105)" font-size="9.5" font-style="italic">supply</text>
+    <rect x="210" y="0" width="20" height="13" rx="3" fill="rgb(239,246,255)" stroke="rgb(147,197,253)" stroke-width="1.5"/>
+    <text x="236" y="10" fill="rgb(71,85,105)" font-size="9.5" font-style="italic">demand / business</text>
+    <rect x="360" y="0" width="20" height="13" rx="3" fill="rgb(250,245,255)" stroke="rgb(216,180,254)" stroke-width="1.5"/>
+    <text x="386" y="10" fill="rgb(71,85,105)" font-size="9.5" font-style="italic">shared package</text>
+    <rect x="500" y="0" width="20" height="13" rx="3" fill="rgb(254,252,232)" stroke="rgb(250,204,21)" stroke-width="1.5"/>
+    <text x="526" y="10" fill="rgb(71,85,105)" font-size="9.5" font-style="italic">shared domain layer</text>
+    <rect x="660" y="0" width="20" height="13" rx="3" fill="rgb(245,243,255)" stroke="rgb(167,139,250)" stroke-width="1.5"/>
+    <text x="686" y="10" fill="rgb(71,85,105)" font-size="9.5" font-style="italic">data store</text>
+  </g>
+  <text x="40" y="710" fill="rgb(100,116,139)" font-size="9.5" font-style="italic">Layered JPA monolith: app/&lt;feature&gt; (web + service) → domain/ (entity + repository) → Postgres. One shared schema; boundaries by convention.</text>
+</svg>
