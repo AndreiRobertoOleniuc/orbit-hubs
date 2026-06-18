@@ -20,3 +20,12 @@ spring:
 
 clerk:
   azp-origin: ${CLERK_AZP_ORIGIN:http://localhost:5173}
+
+orbit:
+  embedding:
+    # Provider-agnostic embedding config (see EmbeddingProperties). Defaults target a
+    # local Ollama serving multilingual-e5-large at 1024 dims; override via env in other
+    # environments. Ollama is NOT in compose.yaml — point this at a running instance.
+    base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+    model: ${EMBEDDING_MODEL:jeffh/intfloat-multilingual-e5-large:f16}
+    dimensions: 1024
