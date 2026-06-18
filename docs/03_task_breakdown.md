@@ -1,7 +1,7 @@
 # Orbit — Task Breakdown (Kanban backlog)
 
 > **Status:** AP3 → AP7/AP8 bridge. This is the layer between *user stories* (what/why) and *commits* (how). Each card here is a pullable Kanban item: one owner, ~½–1 day, one PR.
-> **Reads from:** `01_user_stories_moscow.md` (the stories), `02_data_model_and_api.md` (tables + API contract).
+> **Reads from:** `01_user_stories_moscow.md` (the stories), `02_data_model.md` (the data model / tables).
 > **Convention:** every task references its parent story and carries its own Definition of Done.
 
 ## How this maps to your workflow

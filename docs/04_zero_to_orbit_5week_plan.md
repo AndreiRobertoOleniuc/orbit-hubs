@@ -3,7 +3,7 @@
 > **Constraint:** Build and deploy the Orbit MVP in **≤ 5 weeks** (not 11).  
 > **Strategy:** Use external SaaS for every undifferentiated heavy lift (auth, embeddings, LLM, email). Run the application on **k3s on a Raspberry Pi with 20 GB RAM**. AI models stay in the cloud.
 >
-> Companion docs: `01_user_stories_moscow.md`, `02_data_model_and_api.md`, `03_task_breakdown.md`, `spec/Orbit_Spec.md`, and `04_zero_to_orbit_implementation_plan.md` (the slower 11-week baseline).
+> Companion docs: `01_user_stories_moscow.md`, `02_data_model.md`, `03_task_breakdown.md`, `spec/Orbit_Spec.md`, and `04_zero_to_orbit_implementation_plan.md` (the slower 11-week baseline).
 
 ---
 

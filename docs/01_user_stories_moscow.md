@@ -2,7 +2,7 @@
 
 > **Status:** AP3 deliverable (Anforderungsanalyse). Living document — versioned in GitLab, refined as the MVP is built.
 > **Source:** `Orbit_Spec.md` (Problem / Akteure / Szenarien / Konzept / MVP-Abgrenzung) and the five high-fidelity flows (Z-Orbit-Flows).
-> **Companion docs:** `02_data_model_and_api.md` (what each story needs in the data layer), SystemDesign/ (architecture).
+> **Companion docs:** `02_data_model.md` (what each story needs in the data layer), SystemDesign/ (architecture).
 
 This backlog turns the Orbit concept into prioritized, testable user stories for the Kanban board. Prioritization uses **MoSCoW** (Must / Should / Could / Won't-this-MVP). Each story has an ID for traceability into the data model, API contract, and the Usability-Test plan (AP9).
 

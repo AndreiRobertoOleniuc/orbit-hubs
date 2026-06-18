@@ -1,9 +1,13 @@
-# Orbit — Data Model & API Contract (v2)
+# Orbit — Data Model (v2)
 
 > **Status:** AP3 / AP8 deliverable. The schema you code the Spring backend against.
+> **Scope:** **data model only.** The REST API contract is intentionally **not** frozen here
+> while the backend is still in flux — the endpoint surface is tracked by the frontend RTK Query
+> `apiSlice` (`lib/api.ts` / `types/api.ts`) and the stubbed `com.orbit.app.*` interfaces, and
+> will be pinned down once it stabilises.
 > **Supersedes:** the prototype `v10_*` schema in `prototyping/industryProfiles/10_schema.sql`.
 > **Aligns to:** SystemDesign architecture (React SPA → API gateway → Spring Boot modulith → PostgreSQL/pgvector + Ollama e5-large + Gemini Flash rationale).
-> **Companion:** `01_user_stories_moscow.md` (every story below is tagged with the tables/endpoints it needs).
+> **Companion:** `01_user_stories_moscow.md` (every story below is tagged with the tables it needs).
 
 ## 0. What changed from the prototype (v10 → v2) and why
 
@@ -256,83 +260,7 @@ The lifecycle is a graded core feature, so it is an explicit state machine, not 
 
 ---
 
-## 4. REST API contract
-
-Base path `/api/v1`. JSON. Auth via JWT bearer (frontend OAuth → token; Spring Security). **Public** endpoints need no token.
-
-### Discovery (module: discovery)
-
-```
-POST /api/v1/search                       (public)
-  body: { "query": string, "scope": "all|fhnw|aargau|connected", "presenceMode"?: string }
-  // scope hard-filters the candidate set: all=no filter; fhnw / aargau exclude out-of-scope rows
-  //   before ranking; connected is inert this MVP (treated as all). → US-SRCH-2
-  200:  { "results": [ {
-            "entityId": string, "type": "person|company", "name": string,
-            "headline": string, "scope": string, "distanceLabel": string,   // "12 Min. von FHNW Brugg"
-            "verified": boolean, "isOpen": boolean,
-            "rationaleAvailable": true,                                       // rationale is lazy
-            "citations": [ { "documentId": string, "label": string, "url": string } ]
-        } ] }
-  → US-SRCH-1, -2, -4, -5
-
-GET  /api/v1/search/rationale/{entityId}?query=...   (public, lazy on expand)
-  200: { "rationale": string, "citations": [ { "label", "url" } ] }          // Gemini Flash, cited
-  → US-SRCH-3  (QC-2)
-```
-
-### Requests / Anfrage lifecycle (module: request)
-
-```
-POST   /api/v1/requests                   (auth)   create from preserved query → status OPEN
-  body: { "title", "description", "scope", "presenceMode", "tags": [slug], "originatorType" }
-  → US-REQ-1
-
-GET    /api/v1/requests/{id}              (public) detail view → US-BOARD-3
-PATCH  /api/v1/requests/{id}/status       (auth, owner) { "to": "DISTRIBUTED|CONTACTED|CLOSED" }
-  → US-REQ-2 ; enforces §3 invariants; writes request_transitions
-GET    /api/v1/requests/{id}/distributions (auth, owner) list who was notified + reasons → US-REQ-3
-```
-
-### Board (module: request, read side)
-
-```
-GET /api/v1/board                         (public)
-  query: ?tag=&scope=&sort=newest|relevant&page=
-  200: paged list of OPEN/DISTRIBUTED requests with originatorType badge
-  → US-BOARD-1, -2, -5
-```
-
-### Profiles (module: profile)
-
-```
-GET    /api/v1/entities/{id}              (public) profile + cited docs + availability → US-PROF-1
-PATCH  /api/v1/entities/{id}              (auth, owner) edit tags/description → US-PROF-2
-PUT    /api/v1/entities/{id}/availability (auth, owner) toggle + structured fields → US-PROF-3
-GET    /api/v1/entities/{id}/matching-requests (auth, owner) open Anfragen matching my tags → US-PROF-4
-```
-
-### Onboarding (module: onboarding)
-
-```
-POST /api/v1/onboarding/person            (auth) { sources: [ {type, ref} ] } → triggers ingest → US-ONB-1
-POST /api/v1/onboarding/organisation      (auth) { handelsregisterUid | name } → Zefix match → verified=true → US-ONB-2
-GET  /api/v1/onboarding/{entityId}/status (auth) source_connections sync progress ("3 von 5") → US-PROF-6
-```
-
-### Contact + tags (modules: contact, profile)
-
-```
-POST /api/v1/contact                      (auth) { toEntityId, requestId?, message }
-  → emails recipient note + contact details; if requestId present and request is DISTRIBUTED → transition to CONTACTED
-  → US-CONTACT-1
-POST   /api/v1/subscriptions              (auth) { tagSlug }   → US-BOARD-4
-DELETE /api/v1/subscriptions/{tagSlug}    (auth)
-```
-
----
-
-## 5. Retrieval & ranking (production pipeline — confirms the prototype)
+## 4. Retrieval & ranking (production pipeline — confirms the prototype)
 
 The Node prototype was throwaway exploration of this exact pipeline; production rebuilds it in the Spring `discovery` module via Spring AI:
 
@@ -351,9 +279,9 @@ query ──▶ embed (Ollama e5-large, query: prefix → vector(1024))
 
 ---
 
-## 6. Open questions to resolve before/early in AP8
+## 5. Open questions to resolve before/early in AP8
 
-1. **Auth provider.** Repo CLAUDE.md mentions Clerk JWTs; Spring Security is on the classpath but unconfigured. Decide Clerk vs. plain Spring Security OAuth before the first `(auth)` endpoint.
+1. **Auth provider.** Repo CLAUDE.md mentions Clerk JWTs; Spring Security is on the classpath but unconfigured. Decide Clerk vs. plain Spring Security OAuth before the first authenticated endpoint.
 2. **Distribution trigger.** Is `OPEN → DISTRIBUTED` synchronous on create, or a scheduled job? (Affects the `notification` module + ingestion worker design.)
 3. **Distance computation.** `distanceLabel` — straight-line from lat/lng, or a routing API for "12 Min."? Straight-line is the cheap MVP default.
 4. **Ollama in compose.** `compose.yaml` ships only pgvector; Ollama must be added or pointed at an external instance before discovery runs end-to-end.
