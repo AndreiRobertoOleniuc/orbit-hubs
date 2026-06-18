@@ -102,3 +102,14 @@ Post / Query
 - `prototyping/` is a scratch area outside the build — not wired to backend or frontend.
 - `.llm-wiki/` is a generated knowledge wiki over this repo (reference, not a build target).
 - A parent `../CLAUDE.md` describes the broader thesis workspace and an older ESCO/`ch.fhnw.badenconnect` prototype phase; where it conflicts with this file (package name, Modulith, docker-compose autostart), **this file is current**.
+
+## LLM Wiki (project knowledge base)
+A self-maintaining wiki lives at .llm-wiki/. Its operating manual is
+.llm-wiki/WIKI_SCHEMA.md — read that first before reading or writing any wiki page.
+- Before non-trivial work: grep/read .llm-wiki/wiki/ for relevant prior pages and recall them.
+- After any meaningful task: proactively file a durable insight as a markdown page
+  under the right .llm-wiki/wiki/ subfolder, per WIKI_SCHEMA.md, using [[wikilinks]].
+  Don't wait to be asked.
+- To capture a source (URL/PDF/notes): follow the raw/ + wiki/sources/ flow in WIKI_SCHEMA.md.
+- Only do heavyweight ingestion or reorganization when I explicitly ask.
+Operate the wiki by editing files directly with your normal tools.
