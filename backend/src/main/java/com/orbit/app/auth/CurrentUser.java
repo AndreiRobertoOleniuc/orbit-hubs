@@ -12,6 +12,4 @@ public interface CurrentUser {
 
     Optional<String> email();
 
-    boolean owns(String entityId);
-
 }

@@ -8,9 +8,8 @@ import org.hibernate.annotations.Generated;
 import org.hibernate.generator.EventType;
 
 /**
- * Authenticated account. Maps table {@code users}. Mutual FK with {@link Entity}: a user may
- * claim one profile ({@code entity_id}), and an entity may be owned by one user
- * ({@code entities.owner_user_id}) — two independent columns, not inverse sides.
+ * Authenticated account. Maps table {@code users}. Provisioned just-in-time from verified
+ * Clerk claims; {@code id} is the Clerk subject.
  */
 @jakarta.persistence.Entity
 @Table(name = "users")
@@ -19,16 +18,11 @@ public class User {
     @Id
     private String id;
 
-    @Column(nullable = false)
+    @Column
     private String email;
 
     @Column(name = "display_name")
     private String displayName;
-
-    /** The profile this user claims; nullable until claimed. */
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "entity_id")
-    private Entity entity;
 
     @Generated(event = EventType.INSERT)
     @Column(name = "created_at", updatable = false)
@@ -65,14 +59,6 @@ public class User {
 
     public void setDisplayName(String displayName) {
         this.displayName = displayName;
-    }
-
-    public Entity getEntity() {
-        return entity;
-    }
-
-    public void setEntity(Entity entity) {
-        this.entity = entity;
     }
 
     public Instant getCreatedAt() {
