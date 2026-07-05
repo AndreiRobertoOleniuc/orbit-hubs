@@ -1,5 +1,10 @@
 package com.orbit.app.ingestion;
 
+import com.orbit.app.ingestion.dto.EntityProfile;
+import com.orbit.app.ingestion.dto.ExternalId;
+import com.orbit.app.ingestion.dto.RawContent;
+import com.orbit.app.ingestion.dto.SourceRef;
+
 import java.util.List;
 
 /**

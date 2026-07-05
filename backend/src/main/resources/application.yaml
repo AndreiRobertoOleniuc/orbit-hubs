@@ -19,6 +19,17 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: ${CLERK_ISSUER_URI:https://fair-clam-16.clerk.accounts.dev}
+  ai:
+    model:
+      chat: google-genai      # Use Google Gemini for chat (LLM summarization)
+      embedding: ollama       # Keep Ollama for embeddings (multilingual-e5-large)
+    google:
+      genai:
+        api-key: ${GEMINI_API_KEY}
+        chat:
+          model: gemini-2.5-flash-lite
+          temperature: 0.3
+          max-output-tokens: 500
 
 clerk:
   azp-origin: ${CLERK_AZP_ORIGIN:http://localhost:5173}
@@ -33,9 +44,5 @@ orbit:
     dimensions: 1024
   github:
     token: ${GITHUB_TOKEN:}
-  llm:
-    # Chat model for LLM-based summarization (same Ollama instance as embeddings)
-    base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
-    chat-model: ${OLLAMA_CHAT_MODEL:gpt-oss:20b-cloud}
-    temperature: 0.3
-    max-tokens: 500
+  openalex:
+    mailto: ${OPENALEX_MAILTO:andreioleniucroberto@gmail.com}

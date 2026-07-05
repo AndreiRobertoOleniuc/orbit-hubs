@@ -1,4 +1,4 @@
-package com.orbit.app.ingestion;
+package com.orbit.app.ingestion.dto;
 
 /**
  * A single chunk segment produced by the chunking service.

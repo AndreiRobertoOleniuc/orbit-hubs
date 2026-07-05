@@ -1,6 +1,4 @@
-package com.orbit.app.ingestion;
-
-import java.util.List;
+package com.orbit.app.ingestion.dto;
 
 /**
  * Result of an ingestion run for a single source.

@@ -11,8 +11,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.orbit.app.ingestion.IngestionOrchestrator;
-import com.orbit.app.ingestion.IngestionResult;
-import com.orbit.app.ingestion.SourceRef;
+import com.orbit.app.ingestion.dto.IngestionResult;
+import com.orbit.app.ingestion.dto.SourceRef;
 
 /**
  * REST API for triggering entity ingestion from external sources.
@@ -79,7 +79,17 @@ public class IngestionController {
     private String buildUrl(IngestionRequest request) {
         return switch (request.sourceType()) {
             case "github" -> "https://github.com/" + request.context().get("github_login");
-            case "orcid_pub" -> "https://orcid.org/" + request.context().get("orcid");
+            case "orcid_pub" -> {
+                String orcid = request.context().get("orcid");
+                if (orcid != null && !orcid.isBlank()) {
+                    yield "https://orcid.org/" + orcid;
+                }
+                String authorId = request.context().get("openalex_author_id");
+                if (authorId != null && !authorId.isBlank()) {
+                    yield "https://openalex.org/authors/" + authorId;
+                }
+                yield "unknown";
+            }
             default -> request.context().getOrDefault("url", "unknown");
         };
     }

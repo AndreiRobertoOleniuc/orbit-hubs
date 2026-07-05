@@ -13,12 +13,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
-import com.orbit.app.ingestion.EntityProfile;
-import com.orbit.app.ingestion.ExternalId;
+import com.orbit.app.ingestion.dto.EntityProfile;
+import com.orbit.app.ingestion.dto.ExternalId;
 import com.orbit.app.ingestion.IngestionException;
-import com.orbit.app.ingestion.RawContent;
+import com.orbit.app.ingestion.dto.RawContent;
 import com.orbit.app.ingestion.SourceAdapter;
-import com.orbit.app.ingestion.SourceRef;
+import com.orbit.app.ingestion.dto.SourceRef;
 import com.orbit.app.llm.LlmSummaryService;
 
 /**
@@ -82,8 +82,7 @@ public class GithubAdapter implements SourceAdapter {
 
         // 1. Fetch user profile (for entity creation)
         GithubUser user = fetchUser(username);
-        log.info("GitHub user {}: {} ({} repos, {} followers)",
-                username, user.displayName(), user.publicRepos(), user.followers());
+        log.info("GitHub user {}: {} ({} repos, {} followers)", username, user.displayName(), user.publicRepos(), user.followers());
 
         // 2. Try pinned repos first (via GraphQL — requires PAT)
         //    Pinned repos are the highest signal: the user explicitly chose to showcase them.
@@ -115,8 +114,7 @@ public class GithubAdapter implements SourceAdapter {
             }
         }
         
-        log.info("GitHub user {}: {} pinned + {} personal = {} total repos",
-                username, pinnedRepos.size(), allRepos.size() - pinnedRepos.size(), allRepos.size());
+        log.info("GitHub user {}: {} pinned + {} personal = {} total repos", username, pinnedRepos.size(), allRepos.size() - pinnedRepos.size(), allRepos.size());
 
         if (allRepos.isEmpty()) {
             log.warn("GitHub user {} has no public repos and no pinned repos", username);
@@ -219,8 +217,7 @@ public class GithubAdapter implements SourceAdapter {
 
         // Try LLM summarization first — produces clean, focused, searchable text
         if (readme != null && !readme.isBlank()) {
-            String summary = llmSummaryService.summarizeGithubRepo(
-                    repoName, description, language, topics, readme);
+            String summary = llmSummaryService.summarizeGithubRepo(repoName, description, language, topics, readme);
             if (summary != null && !summary.isBlank()) {
                 log.debug("LLM summary for {}: {} chars", repoName, summary.length());
                 return summary;
@@ -426,12 +423,12 @@ public class GithubAdapter implements SourceAdapter {
             List<GithubRepo> repos = new ArrayList<>();
             JsonNode items = node.path("items");
             for (JsonNode item : items) {
-                String ownerLogin = item.path("owner").path("login").asText();
-                String name = item.path("name").asText();
-                String description = item.path("description").asText("");
-                String language = item.path("language").asText("");
+                String ownerLogin = item.path("owner").path("login").asString();
+                String name = item.path("name").asString();
+                String description = item.path("description").asString("");
+                String language = item.path("language").asString("");
                 int stars = item.path("stargazers_count").asInt(0);
-                String pushedAt = item.path("pushed_at").asText("");
+                String pushedAt = item.path("pushed_at").asString("");
 
                 // Fetch topics — requires a separate API call per repo, or use the search result
                 // The search API doesn't include topics. We'd need GET /repos/{owner}/{repo}

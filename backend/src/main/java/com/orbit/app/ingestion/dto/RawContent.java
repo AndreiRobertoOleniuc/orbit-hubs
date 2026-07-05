@@ -1,4 +1,4 @@
-package com.orbit.app.ingestion;
+package com.orbit.app.ingestion.dto;
 
 import java.time.Instant;
 import java.util.Map;

@@ -1,4 +1,4 @@
-package com.orbit.app.embedding;
+package com.orbit.app.embedding.dto;
 
 /**
  * Placeholder DTO for embedding results shared with other modules.

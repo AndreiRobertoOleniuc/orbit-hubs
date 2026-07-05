@@ -1,4 +1,4 @@
-package com.orbit.app.search;
+package com.orbit.app.search.dto;
 
 import java.util.List;
 

@@ -1,4 +1,4 @@
-package com.orbit.app.auth;
+package com.orbit.app.auth.dto;
 
 /**
  * Placeholder DTO for authentication context that may be shared across modules.

@@ -10,6 +10,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import com.orbit.app.ingestion.dto.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
@@ -201,17 +202,15 @@ public class IngestionOrchestrator {
             return List.of(self.ingest(subSources.get(0)));
         }
 
-        log.info("Multi-source ingestion: {} → {} sub-sources (1 sequential + {} parallel)",
-                ref.url(), subSources.size(), subSources.size() - 1);
+        log.info("Multi-source ingestion: {} → {} sub-sources (1 sequential + {} parallel)", ref.url(), subSources.size(), subSources.size() - 1);
 
         List<IngestionResult> results = new ArrayList<>();
 
         // 1. Process first sub-source SEQUENTIALLY — creates the entity
         long startTime = System.currentTimeMillis();
-        IngestionResult first = self.ingest(subSources.get(0));
+        IngestionResult first = self.ingest(subSources.getFirst());
         results.add(first);
-        log.info("First sub-source processed in {}ms (entity created)",
-                System.currentTimeMillis() - startTime);
+        log.info("First sub-source processed in {}ms (entity created)", System.currentTimeMillis() - startTime);
 
         // 2. Process remaining sub-sources in PARALLEL
         List<SourceRef> remaining = subSources.subList(1, subSources.size());

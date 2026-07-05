@@ -3,6 +3,7 @@ package com.orbit.app.search;
 import java.util.List;
 import java.util.Map;
 
+import com.orbit.app.search.dto.SearchResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.PostMapping;
