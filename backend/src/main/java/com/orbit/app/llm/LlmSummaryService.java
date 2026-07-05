@@ -244,6 +244,71 @@ public class LlmSummaryService {
         return null;
     }
 
+    /**
+     * Generate a description for a GitHub repo that has no README.
+     * Uses just the repo name, description, language, and topics to produce
+     * 2-3 sentences of natural language for better embedding quality.
+     *
+     * @return the description, or null if all retries fail
+     */
+    public String describeGithubRepoFromMetadata(
+            String repoName,
+            String description,
+            String language,
+            List<String> topics) {
+
+        String topicsStr = topics != null && !topics.isEmpty()
+                ? String.join(", ", topics) : "none";
+        String descStr = description != null && !description.isBlank() ? description : "(no description provided)";
+        String langStr = language != null && !language.isBlank() ? language : "unknown";
+
+        String prompt = """
+                You are a technical summarizer for a semantic search system that matches experts to projects.
+
+                A GitHub repository has no README. Based on its name, description, language, and topics,
+                write 2-3 sentences about what this project likely does and what expertise it demonstrates.
+
+                Rules:
+                - Write in plain text (no markdown, no headers, no bullet points)
+                - Be concise and factual
+                - Only use information provided — do not invent specific features, frameworks, or details
+                - If the description is vague, keep your summary general (e.g. "utility tools for X")
+                - Start directly with what the project is
+
+                Repository: %s
+                Description: %s
+                Primary Language: %s
+                Topics: %s""".formatted(repoName, descStr, langStr, topicsStr);
+
+        for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                long start = System.currentTimeMillis();
+                String response = chatModel.call(new Prompt(prompt)).getResult().getOutput().getText();
+                long elapsed = System.currentTimeMillis() - start;
+
+                if (response != null && !response.isBlank()) {
+                    log.info("LLM metadata description for {} (attempt {}/{}, {}ms): {} chars",
+                            repoName, attempt, MAX_RETRIES, elapsed, response.length());
+                    return response.trim();
+                }
+            } catch (Exception e) {
+                log.warn("LLM metadata attempt {}/{} failed for {} ({}): {}",
+                        attempt, MAX_RETRIES, repoName, e.getClass().getSimpleName(), e.getMessage());
+                if (attempt < MAX_RETRIES) {
+                    try {
+                        Thread.sleep(2000L * attempt);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+        }
+
+        log.warn("All {} LLM attempts failed for {} metadata — falling back to mechanical", MAX_RETRIES, repoName);
+        return null;
+    }
+
     private String truncateReadme(String readme, int maxChars) {
         if (readme == null || readme.length() <= maxChars) return readme;
         return readme.substring(0, maxChars) + "\n[... README truncated ...]";

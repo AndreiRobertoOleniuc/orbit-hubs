@@ -227,11 +227,16 @@ public class GithubAdapter implements SourceAdapter {
             return buildMechanicalCoreText(meta);
         }
 
-        // No README — use description only
-        if (description != null && !description.isBlank()) {
-            return "Repo: " + repoName + "\nDescription: " + description;
+        // No README — ask Gemini to describe the repo from metadata only
+        String metaSummary = llmSummaryService.describeGithubRepoFromMetadata(repoName, description, language, topics);
+        if (metaSummary != null && !metaSummary.isBlank()) {
+            log.debug("LLM metadata description for {}: {} chars", repoName, metaSummary.length());
+            return metaSummary;
         }
-        return "Repo: " + repoName;
+
+        // Both LLM methods failed — ultimate fallback to mechanical format
+        log.warn("All LLM methods failed for {} — using mechanical fallback", repoName);
+        return buildMechanicalCoreText(meta);
     }
 
     /**

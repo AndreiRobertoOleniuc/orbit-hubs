@@ -38,6 +38,8 @@ public class ChunkingService {
     /**
      * Recursively split text into chunks of at most {@code maxTokens} tokens,
      * with {@code overlapTokens} overlap between consecutive chunks.
+     * After splitting, chunks below {@code MIN_CHUNK_TOKENS} are merged with
+     * the adjacent chunk to avoid tiny fragments with almost no semantic signal.
      */
     public List<ChunkSegment> recursiveSplit(String text, int maxTokens, int overlapTokens) {
         if (text == null || text.isBlank()) {
@@ -45,7 +47,8 @@ public class ChunkingService {
         }
 
         List<ChunkSegment> raw = splitRecursive(text.trim(), maxTokens, 0);
-        return applyOverlap(raw, overlapTokens, maxTokens);
+        List<ChunkSegment> merged = mergeTinyChunks(raw, maxTokens);
+        return applyOverlap(merged, overlapTokens, maxTokens);
     }
 
     private List<ChunkSegment> splitRecursive(String text, int maxTokens, int depth) {
@@ -225,6 +228,56 @@ public class ChunkingService {
             int end = wordPositions.get(wordPositions.size() - 1)[1];
             String chunkText = text.substring(start, end).trim();
             result.add(new ChunkSegment(chunkText, null, chunkTokens));
+        }
+
+        return result;
+    }
+
+    private static final int MIN_CHUNK_TOKENS = 30;
+
+    /**
+     * Merge chunks below {@code MIN_CHUNK_TOKENS} with the adjacent chunk.
+     * A tiny chunk is merged with the NEXT chunk if one exists, otherwise with
+     * the PREVIOUS chunk. The merged chunk keeps the larger chunk's section
+     * label. If merging would exceed {@code maxTokens}, the tiny chunk is
+     * left as-is (better tiny than oversize).
+     */
+    private List<ChunkSegment> mergeTinyChunks(List<ChunkSegment> chunks, int maxTokens) {
+        if (chunks.size() <= 1) return chunks;
+
+        List<ChunkSegment> result = new ArrayList<>();
+        int i = 0;
+        while (i < chunks.size()) {
+            ChunkSegment current = chunks.get(i);
+
+            if (current.tokenCount() < MIN_CHUNK_TOKENS && i + 1 < chunks.size()) {
+                ChunkSegment next = chunks.get(i + 1);
+                int mergedTokens = current.tokenCount() + next.tokenCount();
+
+                if (mergedTokens <= maxTokens) {
+                    String mergedText = current.text() + "\n" + next.text();
+                    String mergedSection = next.section() != null ? next.section() : current.section();
+                    result.add(new ChunkSegment(mergedText, mergedSection, mergedTokens));
+                    i += 2;
+                    continue;
+                }
+            }
+
+            if (current.tokenCount() < MIN_CHUNK_TOKENS && i == chunks.size() - 1 && !result.isEmpty()) {
+                int lastIdx = result.size() - 1;
+                ChunkSegment prev = result.get(lastIdx);
+                int mergedTokens = prev.tokenCount() + current.tokenCount();
+
+                if (mergedTokens <= maxTokens) {
+                    String mergedText = prev.text() + "\n" + current.text();
+                    result.set(lastIdx, new ChunkSegment(mergedText, prev.section(), mergedTokens));
+                    i++;
+                    continue;
+                }
+            }
+
+            result.add(current);
+            i++;
         }
 
         return result;

@@ -149,10 +149,10 @@ public class OpenAlexAdapter implements SourceAdapter {
             sb.append("## ").append(primaryTopic).append("\n\n");
         }
         if (title != null && !title.isBlank()) {
-            sb.append(title).append("\n\n");
+            sb.append(stripHtml(title)).append("\n\n");
         }
         if (abstractText != null && !abstractText.isBlank()) {
-            sb.append(abstractText);
+            sb.append(stripHtml(abstractText));
         }
         return sb.toString().trim();
     }
@@ -332,6 +332,14 @@ public class OpenAlexAdapter implements SourceAdapter {
             return fullId.substring("https://openalex.org/".length());
         }
         return fullId;
+    }
+
+    /**
+     * Strip HTML tags from text (e.g. <strong>, <em> from OpenAlex abstracts).
+     */
+    private static String stripHtml(String text) {
+        if (text == null) return "";
+        return text.replaceAll("<[^>]+>", "").trim();
     }
 
     /**
