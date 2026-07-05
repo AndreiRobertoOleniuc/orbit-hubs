@@ -585,6 +585,34 @@ latitude/longitude: from institution's geo location (if available)
 - **Hub candidate (Stage 3):** from `last_known_institutions[0]` — if the institution matches a known Swiss university/FHNW, suggest that hub.
 - **Affiliation (Stage 7):** from `affiliations[]` → academic affiliation kind + `entity_links` to the institution.
 
+#### Future fallback: ORCID-aware platforms beyond OpenAlex
+
+Some researchers have an ORCID iD but **few or no works indexed in OpenAlex**. This happens when:
+- Their field isn't well-covered by OpenAlex (e.g., arts, humanities, niche engineering)
+- They publish primarily in non-indexed venues (conference proceedings, working papers, technical reports)
+- Their ORCID profile lists works that OpenAlex hasn't matched yet
+
+Since ORCID is the universal researcher identifier, it can be used to query **other ORCID-aware APIs** as a fallback when OpenAlex returns ≤2 works:
+
+| Platform | API | What it adds | Auth |
+|---|---|---|---|
+| **ORCID Public API** | `GET https://pub.orcid.org/v3.0/{orcid}/works` | Works the researcher manually added to their ORCID profile (may not be in OpenAlex) | None (public read), `Accept: application/vnd.orcid+json` |
+| **Crossref** | `GET https://api.crossref.org/works?filter=orcid:{orcid}` | DOI-registered works linked to this ORCID | None (polite pool with `mailto`) |
+| **Europe PMC** | `GET https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=AUTHORID:{orcid}` | PubMed + preprints + data citations, ORCID-aware | None |
+| **Semantic Scholar** | `GET https://api.semanticscholar.org/graph/v1/author/search?query={orcid}` | AI/CS/biomed papers, citation counts, influential citations | API key recommended |
+| **DataCite** | `GET https://api.datacite.org/dois?query=creators.nameIdentifier:{orcid}` | Datasets, software, preprints with DOIs | None |
+
+**Enrichment strategy (future, not Stage 1):**
+1. Ingest via OpenAlex as usual (primary source)
+2. If OpenAlex returns ≤2 works → query ORCID Public API for their manually-curated work list
+3. For each ORCID work with a DOI → fetch metadata from Crossref (title, abstract, authors, venue)
+4. For each ORCID work with an arXiv/preprint ID → fetch from the preprint server
+5. Merge all works into the same entity (resolved by `orcid` identifier)
+
+This turns ORCID into a **meta-source**: one ORCID iD → query multiple scholarly APIs → consolidate into one entity's publication list. The `orcid_pub` source type stays as-is; the enrichment adds more `orcid_pub` sources (one per newly-discovered work) to the same entity.
+
+> **Note:** This is explicitly **future work** — not needed for Stage 1. The current OpenAlex adapter already covers the majority of Swiss researchers with ORCID. The fallback is for the long tail of researchers whose work isn't well-indexed by OpenAlex alone.
+
 ---
 
 ### 3.4 Personal Website (`source_type = "personal_site"`)
@@ -703,11 +731,482 @@ If the personal website is the first source for an entity, the profile is minima
 
 ---
 
+---
+
+### 3.5 Zefix — Swiss Commercial Register (`source_type = "zefix"`)
+
+#### What we fetch
+
+A lookup in the **Zefix Public REST API** — the Swiss central business name index maintained by the Federal Registry of Commerce (FRC). This is a **harvested** source (`provenance = "harvested"`, `consent_basis = "public_data"`) — all data is publicly available under the OGD open-use license.
+
+**Authentication:** HTTP Basic Auth. The user provides `ZEFIX_USER` and `ZEFIX_KEY` environment variables (set in `~/.zprofile`). The API returns `CompanyFull` objects with the registered purpose (Zweck), legal form, address, status, and more.
+
+**Base URL:** `https://www.zefix.admin.ch/ZefixPublicREST`
+
+**API endpoints used:**
+
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/api/v1/company/search` | POST | Search by company name (with wildcards) |
+| `/api/v1/company/uid/{id}` | GET | Get full company details by UID (e.g. `CHE107721785`) |
+| `/api/v1/legalForm` | GET | List legal forms (AG, GmbH, etc.) — reference data |
+
+**Search request body** (`CompanySearchQuery`):
+```json
+{
+  "name": "Qube AG",
+  "activeOnly": true
+}
+```
+- `name` (required, min 3 chars): begin of company name, `*` can be used as wildcard
+- `canton`: 2-char canton code (e.g. `"BE"`, `"ZH"`) — optional
+- `activeOnly`: boolean — filter to active companies only
+- Returns: `CompanyShort[]` (name, uid, ehraid, legalSeat, status, legalForm)
+
+**Company detail response** (`CompanyFull`):
+```json
+{
+  "name": "Qube AG",
+  "uid": "CHE107721785",
+  "ehraid": 348639,
+  "legalSeat": "Bern",
+  "canton": "BE",
+  "status": "ACTIVE",
+  "legalForm": { "uid": "0151", "name": { "de": "Aktiengesellschaft" } },
+  "purpose": "Die Entwicklung, Herstellung und der Vertrieb von Software...",
+  "address": { "street": "Engehaldenstrasse", "houseNumber": "53", "swissZipCode": "3012", "city": "Bern" },
+  "capitalNominal": "100000",
+  "capitalCurrency": "CHF",
+  "cantonalExcerptWeb": "https://...",
+  "branchOffices": [],
+  "oldNames": []
+}
+```
+
+#### Two input modes
+
+**Mode 1: Direct UID lookup** (preferred when the UID is known):
+```
+POST /api/v1/ingestion
+{
+  "sourceType": "zefix",
+  "context": { "zefix_uid": "CHE107721785" }
+}
+```
+→ `GET /api/v1/company/uid/CHE107721785` → full company details
+
+**Mode 2: Name search** (when only the company name is known):
+```
+POST /api/v1/ingestion
+{
+  "sourceType": "zefix",
+  "context": { "company_name": "Qube AG" }
+}
+```
+→ `POST /api/v1/company/search` with `{"name": "Qube AG", "activeOnly": true}`
+→ If exactly 1 result → fetch full details by UID
+→ If multiple results → return list to user for selection (onboarding flow)
+→ If 0 results → return error
+
+#### discoverSources()
+
+Zefix is a **single-source** adapter — one company = one source. `discoverSources()` returns a single-element list (the default).
+
+If the search returns multiple companies, the adapter stores all results in metadata but only fetches the first (or the user-selected one). The remaining results can be used for onboarding disambiguation.
+
+#### fetch()
+
+1. Determine lookup method from context:
+   - If `zefix_uid` present → `GET /api/v1/company/uid/{uid}`
+   - If `company_name` present → `POST /api/v1/company/search` → take first result → `GET /api/v1/company/uid/{uid}`
+2. Parse `CompanyFull` JSON response
+3. Return `RawContent` with:
+   - `text` = the `purpose` field (the Zweck — registered purpose text)
+   - `metadata` = full company object (name, uid, legalForm, address, canton, status, capital)
+
+#### High-signal core text construction
+
+The Zweck (registered purpose) is the **only text we embed**. It's the legally registered description of what the company does — typically 2-10 sentences of dense, substantive text.
+
+```
+## {company_name}
+{purpose_text}
+```
+
+The `##` heading ensures ChunkingService sets the company name as the chunk's `section` field.
+
+**Why only the Zweck?** Other Zefix fields (legal form, address, capital) are structured data — they go into entity metadata, not into the embedding. The Zweck is the only free-text field that describes what the company actually does. It's typically short enough to be a single chunk.
+
+**Edge case: empty Zweck.** Some companies have a very short or missing purpose. If `purpose` is blank or < 20 chars, we build the core text from:
+```
+## {company_name}
+{legalForm.name.de} based in {legalSeat}, {canton}.
+{purpose_or_empty}
+```
+
+#### External IDs
+
+| id_type | id_value | Notes |
+|---|---|---|
+| `zefix_uid` | `CHE-107.721.785` | The UID — Switzerland's universal company identifier. Normalized from `CHE107721785` to `CHE-NNN.NNN.NNN` format for consistency |
+
+The UID is the primary cross-source identifier — it can be matched against other sources (e.g., a company website that references the UID, or a manually entered entity).
+
+#### Label
+
+`{company_name}` (e.g. `"Qube AG"`) — the primary business name from the Zefix response.
+
+#### Derive profile
+
+```
+entityType: "organization"
+displayName: {company_name}
+headline: {legalForm.shortName.de} based in {legalSeat}     // e.g. "AG based in Bern"
+orgName: {company_name}
+metadata: {
+  "zefix_uid": {uid},
+  "zefix_ehraid": {ehraid},
+  "legal_form": {legalForm.uid},
+  "legal_form_name": {legalForm.name.de},
+  "canton": {canton},
+  "legal_seat": {legalSeat},
+  "status": {status},
+  "capital_nominal": {capitalNominal},
+  "capital_currency": {capitalCurrency},
+  "cantonal_excerpt_url": {cantonalExcerptWeb},
+  "address": {address object}
+}
+```
+
+#### What Zefix uniquely provides (for later stages)
+
+- **HR-verified badge (Stage 7):** Zefix-matched organizations get `hr_verified = true`. This is the strongest trust signal — the data comes from the official Swiss commercial register.
+- **Home region (Stage 3):** The `canton` and `legalSeat` fields map directly to Swiss regions. This is the most reliable geocoding signal for organizations.
+- **Affiliation kind (Stage 7):** The `legalForm` field determines `affiliation_kind` — AG/GmbH/etc. maps to "Firma" (company).
+- **Entity links (Stage 7):** `branchOffices` and `headOffices` can create Person↔Org or Org↔Org links.
+- **Tags (Stage 6):** The Zweck text can be analyzed to derive industry/activity tags.
+
+#### Configuration
+
+```yaml
+orbit:
+  zefix:
+    base-url: https://www.zefix.admin.ch/ZefixPublicREST
+    user: ${ZEFIX_USER}      # Zefix API username (email)
+    key: ${ZEFIX_KEY}        # Zefix API password/key
+```
+
+Environment variables `ZEFIX_USER` and `ZEFIX_KEY` set in `~/.zprofile`.
+
+#### Error handling
+
+| Error | Action |
+|---|---|
+| 401 Unauthorized | Log error: invalid Zefix credentials. Return ERROR. |
+| 404 Not Found | Company not found (wrong UID or name). Return ERROR. |
+| Empty purpose | Fall back to legalForm + seat as core text. |
+| Rate limited (429) | Retry with exponential backoff (3 attempts). |
+| Multiple search results | Store all in metadata; ingest the first (or user-selected) one. |
+
+---
+
+### 3.6 Company Website (`source_type = "company_site"`)
+
+#### What we fetch
+
+A polite multi-page crawl of a company's website, starting from the root URL. Unlike personal websites (which are typically small, 3-5 pages), company websites can be **much larger** — with content split across dozens of pages (about, products, services, team, portfolio, case studies, blog, careers).
+
+This is a **harvested** source (`provenance = "harvested"`, `consent_basis = "public_data"`).
+
+#### The multi-page crawl challenge
+
+Company websites vary enormously in structure. We need a strategy that works for:
+
+1. **Small company sites** (1-5 pages): simple — crawl everything.
+2. **Medium company sites** (10-50 pages): prioritize high-value pages, limit total pages.
+3. **Large enterprise sites** (100+ pages): aggressive prioritization, strict page cap.
+
+**Crawl strategy: priority-first BFS with page-type scoring**
+
+Instead of crawling everything and filtering later, we **score each discovered URL** and only fetch the highest-value pages. This keeps the crawl fast and focused.
+
+```
+1. Start at {url} (e.g. https://acme.ch)
+2. Fetch the homepage
+3. Extract all internal links → score each by URL pattern
+4. Sort links by score (descending)
+5. Fetch top-N pages (N = 10 for companies)
+6. For each page: extract main content → strip boilerplate
+7. Build core text from all extracted pages
+```
+
+**URL priority scoring:**
+
+| URL Pattern | Score | Rationale |
+|---|---|---|
+| `/about`, `/ueber-uns`, `/a-propos` | 100 | About page — highest identity/skill signal |
+| `/team`, `/mitarbeiter` | 95 | Team page — people, roles, expertise |
+| `/services`, `/leistungen`, `/prestations` | 90 | Services — what they do |
+| `/products`, `/produkte` | 85 | Products — technical depth |
+| `/portfolio`, `/projekte`, `/projects` | 80 | Portfolio — demonstrated work |
+| `/expertise`, `/kompetenzen` | 80 | Expertise page |
+| `/solutions`, `/loesungen` | 75 | Solutions |
+| `/case-studies`, `/referenzen` | 70 | Case studies |
+| `/contact`, `/kontakt` | 30 | Contact — low signal, but has address |
+| `/careers`, `/jobs`, `/stellen` | 25 | Careers — low signal for discovery |
+| `/blog`, `/news` | 20 | Blog — noisy, but sometimes has tech content |
+| `/impressum`, `/imprint`, `/legal` | 10 | Legal — required by law, low signal |
+| Root `/` (homepage) | 50 | Already fetched, but good fallback |
+| Everything else | 15 | Unknown — might be useful |
+
+**Crawl configuration for companies:**
+
+| Parameter | Value | Rationale |
+|---|---|---|
+| Max pages | 10 | Enough to cover about+team+services+products+portfolio without crawling the entire site |
+| Max depth | 2 | Homepage → section pages → maybe one level deeper |
+| Politeness delay | 1 second | Same as personal sites |
+| User-Agent | `Orbit-Discovery/1.0 (mailto:contact@orbit.ch)` | Identify ourselves |
+| robots.txt | Respect `Disallow` rules | Ethical crawling |
+| Total content cap | 8000 chars | After extraction, truncate to 8000 chars to keep embedding manageable |
+| Skip non-HTML | `.pdf`, `.jpg`, `.png`, `.zip`, `.docx?`, `.xlsx?` | Don't try to parse binaries as HTML |
+| Strip fragments | `#section` → removed before dedup | Prevent re-fetching same page with different anchors |
+
+#### Boilerplate removal — the critical quality step
+
+Company websites have more boilerplate than personal sites: cookie banners, navigation menus, footer with legal links, contact forms, testimonial carousels, newsletter signup forms, social media embeds.
+
+**Layered extraction strategy (3 layers):**
+
+**Layer 1: Remove known noise containers**
+```java
+// Remove elements that never carry useful content for discovery
+doc.select("script, style, noscript, iframe, svg, canvas").remove();
+doc.select("nav, header, footer, aside").remove();
+doc.select("[role='navigation'], [role='banner'], [role='contentinfo']").remove();
+
+// Remove by class/ID patterns (common boilerplate)
+doc.select("[class*='nav'], [class*='menu'], [class*='sidebar']").remove();
+doc.select("[class*='footer'], [class*='cookie'], [class*='banner']").remove();
+doc.select("[class*='popup'], [class*='modal'], [class*='overlay']").remove();
+doc.select("[class*='ad-'], [class*='adsense'], [class*='sponsor']").remove();
+doc.select("[class*='newsletter'], [class*='signup'], [class*='subscribe']").remove();
+doc.select("[class*='social'], [class*='share'], [class*='breadcrumb']").remove();
+doc.select("[class*='testimonial'], [class*='carousel'], [class*='slider']").remove();
+doc.select("[id*='cookie'], [id*='banner'], [id*='popup']").remove();
+```
+
+**Layer 2: Find the main content container**
+```java
+// Priority order: semantic HTML → common class patterns → fallback to body
+Element main = doc.selectFirst("main, article, [role='main']");
+if (main == null) main = doc.selectFirst(
+    "[class*='content'], [class*='main-content'], [class*='page-content'], " +
+    "[class*='entry-content'], [class*='post-content'], " +
+    "#content, #main, #primary"
+);
+if (main == null) main = doc.body();  // last resort
+```
+
+**Layer 3: Extract structured text with headings**
+```java
+// Walk the DOM, preserving heading structure for ChunkingService sections
+StringBuilder text = new StringBuilder();
+for (Element el : main.children()) {
+    String tag = el.tagName();
+    if (tag.matches("h[1-6]")) {
+        text.append("## ").append(el.text()).append("\n\n");
+    } else if (tag.equals("p") || tag.equals("li") || tag.equals("dd")) {
+        String t = el.text().trim();
+        if (!t.isEmpty()) text.append(t).append("\n\n");
+    } else if (tag.equals("ul") || tag.equals("ol")) {
+        for (Element li : el.select("li")) {
+            String t = li.text().trim();
+            if (!t.isEmpty()) text.append("- ").append(t).append("\n");
+        }
+        text.append("\n");
+    } else if (tag.equals("div") || tag.equals("section")) {
+        // Recurse into divs to find nested content
+        text.append(extractStructured(el));
+    }
+}
+```
+
+**Why structured extraction (not just `.text()`)?**
+`Jsoup.parse(html).text()` returns a flat string with all text concatenated. This destroys heading boundaries that ChunkingService relies on for `splitBySections()`. By walking the DOM and inserting `##` before headings, we preserve the section structure that makes chunking produce good `section` labels.
+
+**JS-rendered sites:** Same strategy as personal sites — try static fetch first. If extracted text < 200 chars, flag as `fetch_status = "js_required"` and skip. A headless browser (Playwright/Selenium) is a future enhancement, not Stage 1.
+
+#### High-signal core text construction
+
+```
+=== COMPANY WEBSITE: {domain} ===
+
+## About
+{about_page_text}
+
+## Team
+{team_page_text}
+
+## Services
+{services_page_text}
+
+## Products
+{products_page_text}
+
+## Portfolio
+{portfolio_page_text}
+
+[repeat for each crawled page, ordered by priority score]
+```
+
+Each page's `## {page_title}` becomes a chunk section. If a page has sub-headings (`###`), they're preserved within the section.
+
+**Content deduplication:** Some pages share text (e.g. footer text appears on every page). Since we strip nav/footer/aside before extraction, this is mostly handled. But if the same paragraph appears on multiple pages, we keep the first occurrence and skip duplicates.
+
+**Content cap:** After concatenating all pages, truncate to 8000 chars. This ensures the chunking service produces ~20 chunks max (at 400 tokens/chunk), keeping embedding fast.
+
+#### External IDs
+
+| id_type | id_value | Notes |
+|---|---|---|
+| `domain` | `acme.ch` | Extracted from URL, normalized (strip `www.`, `https://`) |
+
+The domain is the same identifier type used by `personal_site`. If a company has both a Zefix entry and a website, the Zefix UID takes priority for entity resolution — the domain is a secondary identifier.
+
+#### Label
+
+`{domain}` (e.g. `acme.ch`)
+
+#### Derive profile
+
+```
+entityType: "organization"
+displayName: {og:site_name} or {page_title} or {domain}
+headline: extracted from <h1> on homepage, or meta description
+orgName: {og:site_name} or {page_title}
+metadata: {
+  "domain": {domain},
+  "crawl_pages": [list of crawled URLs],
+  "crawl_page_count": N,
+  "og_site_name": {og:site_name},
+  "og_description": {og:description},
+  "meta_description": {meta description}
+}
+```
+
+If the company website is the first source, we get a minimal profile. It gets enriched when the Zefix source is ingested (same entity, matched by domain or manual link).
+
+#### What company websites uniquely provide (for later stages)
+
+- **Team names → entity_links (Stage 7):** The team page often lists employees with names and roles. These can be extracted as candidate Person↔Org links.
+- **Services/products → tags (Stage 6):** The services and products pages are rich sources of skill/industry tags.
+- **Address → home_region (Stage 3):** The contact/impressum page often has the company address, which can be geocoded.
+
+#### Shared infrastructure with PersonalWebsiteAdapter
+
+The company website adapter shares most of its boilerplate removal logic with `PersonalWebsiteAdapter`. The key differences are:
+
+| Aspect | Personal Website | Company Website |
+|---|---|---|
+| Max pages | 5 | 10 |
+| Content cap | 6000 chars | 8000 chars |
+| URL priority scoring | Simple (about, projects, bio) | Extended (about, team, services, products, portfolio, etc.) |
+| entityType | "person" | "organization" |
+| Team extraction | No | Yes — team page names → entity_links candidates |
+
+The shared logic (HTTP fetch, Jsoup parsing, boilerplate removal, structured extraction) should be extracted into a common base class or utility: `WebsiteContentExtractor`.
+
+---
+
+### 3.7 Manual Text (`source_type = "manual_text"`)
+
+#### What we fetch
+
+The user **types 2-3 sentences** describing themselves or their organization. This is a user-supplied, self-declared source — `provenance = "user_supplied"`, `consent_basis = "self_declared"`. It's the simplest adapter: no API calls, no crawling, no PDF parsing. The text IS the content.
+
+This is primarily used for the **demand side** (Anfrage) — a company posting a request needs a minimal profile, even without GitHub/LinkedIn/ORCID. It's also the fallback for people who have no online presence.
+
+#### discoverSources()
+
+Single-source adapter — returns the input `SourceRef` unchanged (default implementation).
+
+#### fetch()
+
+No fetching needed — the text is already in the context.
+
+```java
+@Override
+public RawContent fetch(SourceRef ref) {
+    String text = ref.context().get("text");
+    Map<String, Object> metadata = new HashMap<>(ref.context());
+    return new RawContent(text, metadata, Instant.now());
+}
+```
+
+#### High-signal core text construction
+
+The text IS the high-signal core — there's nothing to strip. We wrap it in a section heading for consistency:
+
+```
+## Eigene Beschreibung
+{user_typed_text}
+```
+
+Typically this produces exactly **1 chunk** (2-3 sentences = ~50-100 tokens, well under the 400-token limit).
+
+#### External IDs
+
+**None.** Manual text provides no external identifiers — it attaches to an existing entity (the signed-in user's entity) or creates a minimal one.
+
+If this is the first source for a new entity (demand-side onboarding), entity resolution relies on the user being signed in — the entity is created with their account.
+
+#### Label
+
+`"Eigene Beschreibung"` (as specified in the reference doc §4.1)
+
+#### Derive profile
+
+```
+entityType: "person" (default for demand-side onboarding)
+displayName: {from user account, not from text}
+headline: first sentence of the text (truncated to 100 chars)
+orgName: null
+metadata: {}
+```
+
+If the user already has an entity (from other sources), the manual text is added as a new source to the existing entity — no profile derivation needed.
+
+#### Privacy & consent
+
+Manual text is explicitly **self-declared** — the user wrote it themselves. `consent_basis = "self_declared"`. No PII concerns beyond what the user voluntarily provides.
+
+#### Configuration
+
+No configuration needed — no API keys, no external services.
 ## 4. Entity Resolution Strategy
 
 ### 4.1 The problem
 
-The same person may provide a GitHub profile, a LinkedIn PDF, an ORCID iD, and a personal website. These four sources must all land on **one entity row**. The resolution mechanism is `entity_identifiers` — each source extracts external IDs, and `findEntityByAnyId(ids)` checks whether any of those IDs already exist.
+The same person or organization may provide a GitHub profile, a LinkedIn PDF, an ORCID iD, a personal website, a Zefix entry (for companies), and a company website. These sources must all land on **one entity row**. The resolution mechanism is `entity_identifiers` — each source extracts external IDs, and `findEntityByAnyId(ids)` checks whether any of those IDs already exist.
+
+**ID types by source:**
+
+| Source | External IDs | Notes |
+|---|---|---|
+| GitHub | `github_login` | One per user — shared across all repos |
+| LinkedIn PDF | `linkedin_url` | Parsed from the PDF's URL line |
+| ORCID/OpenAlex | `orcid`, `openalex_author_id`, `doi` | ORCID is primary, openalex_author_id is always available |
+| Personal Website | `domain` | Registrable — can match GitHub `blog` field |
+| Zefix | `zefix_uid` | CHE-NNN.NNN.NNN — Switzerland's universal company identifier |
+| Company Website | `domain` | Same ID type as personal website — can match Zefix address domain |
+| Manual Text | none | Attaches to signed-in user's entity |
+
+**Cross-source matching paths:**
+- GitHub `blog` field → `domain` (matches personal_site or company_site)
+- LinkedIn PDF website URL → `domain` (matches personal_site or company_site)
+- ORCID profile website URL → `domain` (matches personal_site or company_site)
+- Zefix address city → company_site domain (indirect — requires geocoding or name matching)
 
 ### 4.2 Resolution flow
 
@@ -1022,9 +1521,9 @@ To add a new source type (e.g., `zefix`, `company_site`, `google_scholar`, `rese
 | `linkedin_pdf` | ✅ This plan | `LinkedInPdfAdapter` |
 | `orcid_pub` | ✅ This plan | `OpenAlexOrcidAdapter` (per-work) |
 | `personal_site` | ✅ This plan | `PersonalWebsiteAdapter` |
-| `zefix` | Future (Stage 3) | `ZefixAdapter` |
-| `company_site` | Future | `CompanyWebsiteAdapter` |
-| `manual_text` | Future (Demand min profile) | `ManualTextAdapter` |
+| `zefix` | ✅ Designed (§3.5) | `ZefixAdapter` — Zefix REST API, Basic Auth, Zweck embedding |
+| `company_site` | ✅ Designed (§3.6) | `CompanyWebsiteAdapter` — multi-page priority crawl, layered boilerplate removal |
+| `manual_text` | ✅ Designed (§3.7) | `ManualTextAdapter` — user-typed text, no fetching |
 
 ### 7.3 Extending the onboarding UI
 
@@ -1068,11 +1567,14 @@ We build this together in a single session. The order is load-bearing — each s
 - [ ] `IngestionOrchestrator` (the full `ingestSource()` algorithm)
 - [ ] `ContentQualityFilter` (pre-embedding gates)
 
-### Step 3 — Adapters (all four)
-- [ ] `GithubAdapter` (REST API: user profile → entity, per-repo sources + READMEs)
-- [ ] `LinkedInPdfAdapter` (PDFBox + section parser)
-- [ ] `OpenAlexOrcidAdapter` (OpenAlex API + abstract reconstruction, per-work sources)
+### Step 3 — Adapters
+- [x] `GithubAdapter` (REST API: user profile → entity, per-repo sources + READMEs) ✅
+- [x] `OpenAlexOrcidAdapter` (OpenAlex API + abstract reconstruction, per-work sources) ✅
+- [x] `LinkedInPdfAdapter` (PDFBox + section parser, multi-language EN/DE headers — §3.2) ✅
 - [ ] `PersonalWebsiteAdapter` (Jsoup crawl + boilerplate stripping)
+- [ ] `ZefixAdapter` (Zefix REST API, Basic Auth, Zweck embedding — §3.5)
+- [ ] `CompanyWebsiteAdapter` (multi-page priority crawl, layered boilerplate removal — §3.6)
+- [ ] `ManualTextAdapter` (user-typed text, no fetching — §3.7)
 
 ### Step 4 — Entity Resolution
 - [ ] `findEntityByAnyId` with cross-source domain matching
@@ -1109,6 +1611,9 @@ We build this together in a single session. The order is load-bearing — each s
 | OpenAlex API | ~100k req/day (with mailto) | Exponential backoff on 429; batch work IDs with `\|` operator |
 | LinkedIn PDF | N/A (user upload) | File size limit 5MB; parse synchronously |
 | Personal website | Site-dependent | 1s delay between requests; respect robots.txt |
+| Zefix REST API | No published limit | HTTP Basic Auth; 1s delay between requests; retry on 429 |
+| Company website | Site-dependent | 1s delay; max 10 pages; respect robots.txt |
+| Manual text | N/A (user input) | Validate non-empty, max 500 chars |
 
 ### 9.3 Error handling matrix
 

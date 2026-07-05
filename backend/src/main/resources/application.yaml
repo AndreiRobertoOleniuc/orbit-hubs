@@ -46,3 +46,6 @@ orbit:
     token: ${GITHUB_TOKEN:}
   openalex:
     mailto: ${OPENALEX_MAILTO:andreioleniucroberto@gmail.com}
+  zefix:
+    user: ${ZEFIX_USER:}
+    key: ${ZEFIX_KEY:}

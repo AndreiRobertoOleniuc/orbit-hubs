@@ -108,6 +108,79 @@ public class LlmSummaryService {
         return null;
     }
 
+    /**
+     * Clean a Swiss commercial register purpose (Zweck) by removing legal boilerplate.
+     * <p>
+     * Swiss company purposes follow a standard pattern:
+     * <ol>
+     *   <li>One substantive sentence describing what the company actually does</li>
+     *   <li>Several sentences of legal boilerplate about branches, subsidiaries,
+     *       real estate, financing, guarantees — identical across most companies</li>
+     * </ol>
+     * <p>
+     * We use Gemini to extract only the substantive business description, producing
+     * clean text for high-quality semantic embeddings.
+     *
+     * @param companyName the company name (for context)
+     * @param rawZweck the raw purpose text from Zefix
+     * @return cleaned purpose text, or the raw text if LLM fails
+     */
+    public String cleanZweck(String companyName, String rawZweck) {
+        if (rawZweck == null || rawZweck.isBlank()) return "";
+        if (rawZweck.length() < 50) return rawZweck.trim();
+
+        String prompt = """
+                You are extracting the substantive business purpose from a Swiss commercial register entry.
+
+                The following text is the registered purpose (Zweck) of a Swiss company. It contains:
+                1. A substantive description of what the company actually does (usually the first sentence)
+                2. Legal boilerplate about branches, subsidiaries, real estate, financing, and guarantees — REMOVE ALL OF THIS
+
+                Extract ONLY the substantive business description — what the company actually does.
+                Remove all standard legal clauses about:
+                - Establishing branches or subsidiaries ("Zweigniederlassungen", "Tochtergesellschaften")
+                - Acquiring/selling real estate ("Grundeigentum erwerben")
+                - Financing and guarantees ("Finanzierungen", "Garantien", "Bürgschaften")
+                - Participating in other companies ("sich an anderen Unternehmen beteiligen")
+                - Generic "all business related to the purpose" clauses
+
+                Write in plain text (no markdown, no headers). Keep the original language (German/French/Italian).
+                Be concise — typically 1-3 sentences. Do not add any information not in the original text.
+
+                Company: %s
+
+                Zweck:
+                %s""".formatted(companyName, rawZweck);
+
+        for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                long start = System.currentTimeMillis();
+                String response = chatModel.call(new Prompt(prompt)).getResult().getOutput().getText();
+                long elapsed = System.currentTimeMillis() - start;
+
+                if (response != null && !response.isBlank()) {
+                    log.info("Zweck cleanup for {} (attempt {}/{}, {}ms): {} chars → {} chars",
+                            companyName, attempt, MAX_RETRIES, elapsed, rawZweck.length(), response.length());
+                    return response.trim();
+                }
+            } catch (Exception e) {
+                log.warn("Zweck cleanup attempt {}/{} failed for {} ({}): {}",
+                        attempt, MAX_RETRIES, companyName, e.getClass().getSimpleName(), e.getMessage());
+                if (attempt < MAX_RETRIES) {
+                    try {
+                        Thread.sleep(2000L * attempt);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+        }
+
+        log.warn("All {} LLM attempts failed for Zweck cleanup of {} — using raw text", MAX_RETRIES, companyName);
+        return rawZweck.trim();
+    }
+
     private String truncateReadme(String readme, int maxChars) {
         if (readme == null || readme.length() <= maxChars) return readme;
         return readme.substring(0, maxChars) + "\n[... README truncated ...]";
