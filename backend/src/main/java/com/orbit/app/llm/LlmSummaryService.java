@@ -181,6 +181,69 @@ public class LlmSummaryService {
         return rawZweck.trim();
     }
 
+    /**
+     * Expand a short manual text entry into a richer description for better embedding quality.
+     * <p>
+     * When a user types something like "React Dev", the embedding has very little
+     * semantic signal. This method uses Gemini to expand it into a descriptive
+     * paragraph — but only elaborates on what the user wrote. It does NOT invent
+     * specific skills, companies, years of experience, or credentials not in
+     * the original text.
+     *
+     * @param shortText the user's short text (e.g. "React Dev")
+     * @param name optional name of the person/org (for context, not added to output)
+     * @return expanded descriptive text, or null if LLM fails
+     */
+    public String enrichManualText(String shortText, String name) {
+        if (shortText == null || shortText.isBlank()) return null;
+
+        String contextName = name != null && !name.isBlank() ? name : "the person";
+
+        String prompt = """
+                You are expanding a short self-description into a richer profile paragraph for a semantic search system.
+
+                The user wrote a very brief description of themselves. Expand it into 2-4 sentences that:
+                - Elaborate on what the user actually wrote (e.g. "React Dev" → "React developer experienced in building web applications using React, JavaScript/TypeScript, and modern frontend development practices.")
+                - Stay faithful to the original — do NOT invent specific skills, companies, years of experience, projects, or credentials not mentioned in the original text
+                - Add general context about the field/role only (e.g. "building web applications" for a React developer, "data analysis and visualization" for a data analyst)
+                - Write in plain text (no markdown, no bullet points, no headers)
+                - Keep the same language as the original (German, English, French, etc.)
+
+                Write in third person ("He/She is..." or "The person is..." or just start with the role name).
+                Be concise and factual. Do not add information beyond reasonable field-level context.
+
+                Original text by %s:
+                %s""".formatted(contextName, shortText);
+
+        for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                long start = System.currentTimeMillis();
+                String response = chatModel.call(new Prompt(prompt)).getResult().getOutput().getText();
+                long elapsed = System.currentTimeMillis() - start;
+
+                if (response != null && !response.isBlank()) {
+                    log.info("Manual text enrichment (attempt {}/{}, {}ms): {} chars → {} chars",
+                            attempt, MAX_RETRIES, elapsed, shortText.length(), response.length());
+                    return response.trim();
+                }
+            } catch (Exception e) {
+                log.warn("Manual text enrichment attempt {}/{} failed ({}): {}",
+                        attempt, MAX_RETRIES, e.getClass().getSimpleName(), e.getMessage());
+                if (attempt < MAX_RETRIES) {
+                    try {
+                        Thread.sleep(2000L * attempt);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+        }
+
+        log.warn("All {} LLM attempts failed for manual text enrichment — using raw text", MAX_RETRIES);
+        return null;
+    }
+
     private String truncateReadme(String readme, int maxChars) {
         if (readme == null || readme.length() <= maxChars) return readme;
         return readme.substring(0, maxChars) + "\n[... README truncated ...]";

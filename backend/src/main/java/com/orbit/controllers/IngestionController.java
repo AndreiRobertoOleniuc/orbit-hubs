@@ -56,11 +56,12 @@ public class IngestionController {
         log.info("Ingestion request: sourceType={}, context={}", request.sourceType(), request.context());
 
         String url = buildUrl(request);
+        String[] provenance = provenanceFor(request.sourceType());
         SourceRef ref = new SourceRef(
                 url,
                 request.sourceType(),
-                "harvested",
-                "public_data",
+                provenance[0],
+                provenance[1],
                 request.context()
         );
 
@@ -160,6 +161,18 @@ public class IngestionController {
         );
     }
 
+    /**
+     * Return [provenance, consentBasis] for a given source type.
+     */
+    private String[] provenanceFor(String sourceType) {
+        return switch (sourceType) {
+            case "github", "orcid_pub", "zefix" -> new String[]{"harvested", "public_data"};
+            case "linkedin_pdf" -> new String[]{"user_supplied", "user_consent"};
+            case "manual_text" -> new String[]{"user_supplied", "self_declared"};
+            default -> new String[]{"harvested", "public_data"};
+        };
+    }
+
     private String buildUrl(IngestionRequest request) {
         return switch (request.sourceType()) {
             case "github" -> "https://github.com/" + request.context().get("github_login");
@@ -187,6 +200,10 @@ public class IngestionController {
                 }
                 String companyName = request.context().get("company_name");
                 yield companyName != null ? "zefix:name:" + companyName : "zefix:unknown";
+            }
+            case "manual_text" -> {
+                String text = request.context().get("text");
+                yield text != null ? "manual:text:" + sha256Hex(text.getBytes()) : "manual:text:unknown";
             }
             default -> request.context().getOrDefault("url", "unknown");
         };
