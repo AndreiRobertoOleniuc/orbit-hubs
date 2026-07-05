@@ -7,6 +7,8 @@ spring:
     password: 123456789
   flyway:
     enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
   jpa:
     open-in-view: false
     hibernate:
@@ -29,3 +31,11 @@ orbit:
     base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
     model: ${EMBEDDING_MODEL:jeffh/intfloat-multilingual-e5-large:f16}
     dimensions: 1024
+  github:
+    token: ${GITHUB_TOKEN:}
+  llm:
+    # Chat model for LLM-based summarization (same Ollama instance as embeddings)
+    base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+    chat-model: ${OLLAMA_CHAT_MODEL:gpt-oss:20b-cloud}
+    temperature: 0.3
+    max-tokens: 500

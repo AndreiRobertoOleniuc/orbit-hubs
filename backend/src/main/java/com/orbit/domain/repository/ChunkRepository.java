@@ -1,0 +1,19 @@
+package com.orbit.domain.repository;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import com.orbit.domain.entity.Chunk;
+
+public interface ChunkRepository extends JpaRepository<Chunk, Long> {
+
+    /**
+     * Delete all chunks for a source before re-chunking.
+     * Called during the re-chunk step of the ingestion pipeline.
+     */
+    @Modifying
+    @Query("delete from Chunk c where c.sourceId = :sourceId")
+    void deleteBySourceId(@Param("sourceId") Long sourceId);
+}
