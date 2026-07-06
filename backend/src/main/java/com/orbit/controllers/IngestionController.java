@@ -19,6 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 import com.orbit.app.ingestion.IngestionOrchestrator;
 import com.orbit.app.ingestion.dto.IngestionResult;
 import com.orbit.app.ingestion.dto.SourceRef;
+import com.orbit.app.ingestion.website.WebsiteContentExtractor;
 
 /**
  * REST API for triggering entity ingestion from external sources.
@@ -169,6 +170,7 @@ public class IngestionController {
             case "github", "orcid_pub", "zefix" -> new String[]{"harvested", "public_data"};
             case "linkedin_pdf" -> new String[]{"user_supplied", "user_consent"};
             case "manual_text" -> new String[]{"user_supplied", "self_declared"};
+            case "personal_site", "company_site" -> new String[]{"harvested", "public_data"};
             default -> new String[]{"harvested", "public_data"};
         };
     }
@@ -204,6 +206,10 @@ public class IngestionController {
             case "manual_text" -> {
                 String text = request.context().get("text");
                 yield text != null ? "manual:text:" + sha256Hex(text.getBytes()) : "manual:text:unknown";
+            }
+            case "personal_site", "company_site" -> {
+                String url = request.context().get("url");
+                yield url != null ? request.sourceType() + ":" + WebsiteContentExtractor.normalizeDomain(url) : "unknown";
             }
             default -> request.context().getOrDefault("url", "unknown");
         };

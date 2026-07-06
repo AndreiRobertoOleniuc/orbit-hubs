@@ -142,6 +142,8 @@ public class OpenAlexAdapter implements SourceAdapter {
         String primaryTopic = (String) meta.get("work_primary_topic");
         String title = (String) meta.get("work_title");
         String abstractText = (String) meta.get("work_abstract");
+        String year = (String) meta.get("work_year");
+        String citedBy = String.valueOf(meta.getOrDefault("work_cited_by", ""));
 
         StringBuilder sb = new StringBuilder();
         // Prepend primary_topic as ## heading → ChunkingService sets it as chunk section
@@ -153,6 +155,22 @@ public class OpenAlexAdapter implements SourceAdapter {
         }
         if (abstractText != null && !abstractText.isBlank()) {
             sb.append(stripHtml(abstractText));
+        } else {
+            // No abstract — enrich with metadata so the chunk isn't tiny
+            // (a bare title + topic heading is only ~15 tokens)
+            StringBuilder enrich = new StringBuilder();
+            if (year != null && !year.isBlank() && !"null".equals(year)) {
+                enrich.append("Published in ").append(year).append(".");
+            }
+            if (!citedBy.isBlank() && !"null".equals(citedBy) && !"0".equals(citedBy)) {
+                enrich.append(" Cited by ").append(citedBy).append(".");
+            }
+            if (primaryTopic != null && !primaryTopic.isBlank()) {
+                enrich.append(" Research area: ").append(primaryTopic).append(".");
+            }
+            if (!enrich.isEmpty()) {
+                sb.append(enrich);
+            }
         }
         return sb.toString().trim();
     }

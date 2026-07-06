@@ -28,6 +28,7 @@ public class LlmSummaryService {
 
     private static final int MAX_RETRIES = 3;
     private static final int README_MAX_CHARS = 6000;
+    private static final int WEBSITE_MAX_CHARS = 8000;
 
     private final ChatModel chatModel;
 
@@ -307,6 +308,113 @@ public class LlmSummaryService {
 
         log.warn("All {} LLM attempts failed for {} metadata — falling back to mechanical", MAX_RETRIES, repoName);
         return null;
+    }
+
+    /**
+     * Summarize website content (personal or company) into clean, searchable text
+     * for embedding. Replaces the fragile CSS-selector boilerplate removal with
+     * semantic understanding — Gemini strips navigation, footer, marketing fluff
+     * and produces a focused description of what the person/company does.
+     *
+     * @param domain       website domain (e.g. "apiax.com")
+     * @param siteName     page title or og:site_name (may be null)
+     * @param entityType   "person" or "organization" — guides the summary focus
+     * @param rawText      concatenated raw text from all crawled pages
+     * @return clean summary text, or null if all retries fail
+     */
+    public String summarizeWebsiteContent(
+            String domain,
+            String siteName,
+            String entityType,
+            String rawText) {
+
+        if (rawText == null || rawText.isBlank()) return null;
+        String truncated = truncateText(rawText, WEBSITE_MAX_CHARS);
+        String siteStr = siteName != null && !siteName.isBlank() ? siteName : domain;
+
+        boolean isCompany = "organization".equalsIgnoreCase(entityType);
+
+        String prompt = isCompany ? """
+                You are a content summarizer for a semantic search system that matches companies to projects and experts.
+
+                Below is the raw text extracted from the website of %s.
+                Write a concise but comprehensive summary (200-500 words) of what this company does.
+
+                Focus on:
+                - What the company does (their core business, services, products)
+                - Their industry and domain expertise
+                - Key technologies, methods, or approaches they use
+                - Team size, locations, and markets they serve
+                - Any specific products or solutions mentioned
+
+                Rules:
+                - Write in plain text (no markdown, no headers, no bullet points)
+                - Be factual — only use information from the text below
+                - Skip navigation menus, cookie notices, contact forms, social media links
+                - Skip marketing slogans and testimonials
+                - If the text is in German, write the summary in German
+                - Start directly with what the company does
+
+                Website: %s
+                Raw text:
+                %s""".formatted(siteStr, siteStr, truncated) : """
+                You are a content summarizer for a semantic search system that matches experts to projects.
+
+                Below is the raw text extracted from the personal website of %s.
+                Write a concise but comprehensive summary (200-500 words) about this person.
+
+                Focus on:
+                - Who they are (name, role, profession)
+                - Their skills, expertise, and areas of work
+                - Notable projects, services, or offerings
+                - Their experience and background
+                - Location and availability if mentioned
+
+                Rules:
+                - Write in plain text (no markdown, no headers, no bullet points)
+                - Be factual — only use information from the text below
+                - Skip navigation menus, cookie notices, contact forms, social media links
+                - Skip testimonials and reviews from others
+                - If the text is in German, write the summary in German
+                - Start directly with who they are and what they do
+
+                Website: %s
+                Raw text:
+                %s""".formatted(siteStr, siteStr, truncated);
+
+        for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                long start = System.currentTimeMillis();
+                String response = chatModel.call(new Prompt(prompt)).getResult().getOutput().getText();
+                long elapsed = System.currentTimeMillis() - start;
+
+                if (response != null && !response.isBlank()) {
+                    log.info("LLM website summary for {} (attempt {}/{}, {}ms): {} chars",
+                            domain, attempt, MAX_RETRIES, elapsed, response.length());
+                    return response.trim();
+                }
+                log.warn("LLM returned empty response for {} (attempt {}/{})", domain, attempt, MAX_RETRIES);
+            } catch (Exception e) {
+                log.warn("LLM website attempt {}/{} failed for {} ({}): {}",
+                        attempt, MAX_RETRIES, domain, e.getClass().getSimpleName(), e.getMessage());
+                if (attempt < MAX_RETRIES) {
+                    try {
+                        Thread.sleep(2000L * attempt);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+        }
+
+        log.warn("All {} LLM attempts failed for website {} — falling back to raw text", MAX_RETRIES, domain);
+        return null;
+    }
+
+    private String truncateText(String text, int maxChars) {
+        if (text == null || text.length() <= maxChars) return text;
+        return text.substring(0, maxChars) + "\n[... content truncated ...]";
     }
 
     private String truncateReadme(String readme, int maxChars) {
