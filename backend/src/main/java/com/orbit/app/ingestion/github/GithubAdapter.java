@@ -151,7 +151,8 @@ public class GithubAdapter implements SourceAdapter {
                     "github",
                     "harvested",
                     "public_data",
-                    context
+                    context,
+                    ref.ownerId()
             ));
         }
 

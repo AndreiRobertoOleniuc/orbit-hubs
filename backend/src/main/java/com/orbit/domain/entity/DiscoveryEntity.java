@@ -42,6 +42,9 @@ public class DiscoveryEntity {
     @Column(name = "longitude")
     private Double longitude;
 
+    @Column(name = "owner_id")
+    private String ownerId;
+
     @Column(name = "status", nullable = false)
     private String status = "active";
 
@@ -85,6 +88,14 @@ public class DiscoveryEntity {
 
     public String getOrgName() {
         return orgName;
+    }
+
+    public String getOwnerId() {
+        return ownerId;
+    }
+
+    public void setOwnerId(String ownerId) {
+        this.ownerId = ownerId;
     }
 
     public Double getLatitude() {

@@ -8,3 +8,30 @@ export interface MeDto {
   userId: string
   email: string
 }
+
+// ─── Ingestion ───
+
+export interface IngestionRequestDto {
+  sourceType: string
+  context: Record<string, string>
+}
+
+export type IngestionResultStatus = "INGESTED" | "SKIPPED" | "ERROR"
+
+export interface IngestionResultDto {
+  entityId: number | null
+  sourceId: number | null
+  chunkCount: number
+  status: IngestionResultStatus
+}
+
+export interface IngestionResponseDto {
+  sourceType: string
+  sources: number
+  ingested: number
+  skipped: number
+  errors: number
+  totalChunks: number
+  results: IngestionResultDto[]
+  error?: string
+}

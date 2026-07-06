@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.orbit.app.auth.CurrentUser;
 import com.orbit.app.ingestion.IngestionOrchestrator;
 import com.orbit.app.ingestion.dto.IngestionResult;
 import com.orbit.app.ingestion.dto.SourceRef;
@@ -34,9 +35,11 @@ public class IngestionController {
     private static final Logger log = LoggerFactory.getLogger(IngestionController.class);
 
     private final IngestionOrchestrator orchestrator;
+    private final CurrentUser currentUser;
 
-    public IngestionController(IngestionOrchestrator orchestrator) {
+    public IngestionController(IngestionOrchestrator orchestrator, CurrentUser currentUser) {
         this.orchestrator = orchestrator;
+        this.currentUser = currentUser;
     }
 
     /**
@@ -54,7 +57,8 @@ public class IngestionController {
      */
     @PostMapping
     public Map<String, Object> ingest(@RequestBody IngestionRequest request) {
-        log.info("Ingestion request: sourceType={}, context={}", request.sourceType(), request.context());
+        String ownerId = currentUser.userId().orElse(null);
+        log.info("Ingestion request from user {}: sourceType={}, context={}", ownerId, request.sourceType(), request.context());
 
         String url = buildUrl(request);
         String[] provenance = provenanceFor(request.sourceType());
@@ -63,7 +67,8 @@ public class IngestionController {
                 request.sourceType(),
                 provenance[0],
                 provenance[1],
-                request.context()
+                request.context(),
+                ownerId
         );
 
         List<IngestionResult> results = orchestrator.ingestMulti(ref);
@@ -104,6 +109,7 @@ public class IngestionController {
 
             // 2. Build SourceRef with content-hash-based idempotency URL
             //    Re-uploading the same PDF → same hash → dedup skip
+            String ownerId = currentUser.userId().orElse(null);
             Map<String, String> context = new HashMap<>();
             context.put("file_path", tempFile.toString());
 
@@ -112,7 +118,8 @@ public class IngestionController {
                     "linkedin_pdf",
                     "user_supplied",
                     "user_consent",
-                    context
+                    context,
+                    ownerId
             );
 
             // 3. Ingest

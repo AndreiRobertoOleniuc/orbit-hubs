@@ -1,6 +1,10 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react"
 
-import type { MeDto } from "@/types/api"
+import type {
+  IngestionRequestDto,
+  IngestionResponseDto,
+  MeDto,
+} from "@/types/api"
 
 interface StateWithAuth {
   auth: { token: string | null }
@@ -27,7 +31,34 @@ export const apiSlice = createApi({
     getMe: builder.query<MeDto, void>({
       query: () => "/me",
     }),
+
+    // ─── Ingestion ───
+
+    ingestSource: builder.mutation<IngestionResponseDto, IngestionRequestDto>({
+      query: (body) => ({
+        url: "/ingestion",
+        method: "POST",
+        body,
+      }),
+    }),
+
+    uploadLinkedInPdf: builder.mutation<IngestionResponseDto, File>({
+      query: (file) => {
+        const formData = new FormData()
+        formData.append("file", file)
+        return {
+          url: "/ingestion/linkedin-pdf",
+          method: "POST",
+          body: formData,
+        }
+      },
+    }),
   }),
 })
 
-export const { useGetMeQuery, useLazyGetMeQuery } = apiSlice
+export const {
+  useGetMeQuery,
+  useLazyGetMeQuery,
+  useIngestSourceMutation,
+  useUploadLinkedInPdfMutation,
+} = apiSlice

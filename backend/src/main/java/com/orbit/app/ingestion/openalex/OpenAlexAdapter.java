@@ -118,7 +118,8 @@ public class OpenAlexAdapter implements SourceAdapter {
                     "orcid_pub",
                     "harvested",
                     "public_data",
-                    context
+                    context,
+                    ref.ownerId()
             ));
         }
 

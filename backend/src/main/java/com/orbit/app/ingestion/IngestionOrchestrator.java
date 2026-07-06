@@ -122,6 +122,7 @@ public class IngestionOrchestrator {
                     profile.displayName(),
                     profile.headline(),
                     profile.orgName());
+            entity.setOwnerId(ref.ownerId());
             if (profile.latitude() != null) entity.setLatitude(profile.latitude());
             if (profile.longitude() != null) entity.setLongitude(profile.longitude());
             entity = entities.save(entity);
