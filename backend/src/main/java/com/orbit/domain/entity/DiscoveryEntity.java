@@ -36,6 +36,14 @@ public class DiscoveryEntity {
     @Column(name = "org_name")
     private String orgName;
 
+    /**
+     * Rich, LLM-generated competence description (3-5 sentences). Re-generated
+     * after each ingestion, aggregating ALL sources of the entity. Separate
+     * from {@code headline} which is a short one-liner set at creation time.
+     */
+    @Column(name = "summary", columnDefinition = "text")
+    private String summary;
+
     @Column(name = "latitude")
     private Double latitude;
 
@@ -88,6 +96,14 @@ public class DiscoveryEntity {
 
     public String getOrgName() {
         return orgName;
+    }
+
+    public String getSummary() {
+        return summary;
+    }
+
+    public void setSummary(String summary) {
+        this.summary = summary;
     }
 
     public String getOwnerId() {

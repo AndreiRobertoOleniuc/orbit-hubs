@@ -3,6 +3,7 @@ import { Navigate, useNavigate, useSearchParams } from "react-router-dom"
 import { Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { WizardDots } from "@/components/WizardDots"
 import type { SourceDraft, SourceKind } from "@/features/ingestion/types"
 import { IngestionRunView } from "@/features/onboarding/IngestionRunView"
 import { FirmStep } from "@/features/onboarding/steps/FirmStep"
@@ -16,29 +17,8 @@ import type {
 import { useIngestionRun } from "@/features/onboarding/useIngestionRun"
 import { useAuth } from "@/features/auth/useAuth"
 import { useGetMyEntitiesQuery } from "@/lib/api"
-import { cn } from "@/lib/utils"
 
 type WizardStep = "type" | "firm" | "sources"
-
-function WizardDots({ total, current }: { total: number; current: number }) {
-  return (
-    <div
-      className="flex items-center gap-2"
-      aria-label={`Schritt ${current + 1} von ${total}`}
-    >
-      {Array.from({ length: total }, (_, i) => (
-        <span
-          key={i}
-          className={cn(
-            "size-2 rounded-full bg-border transition-colors",
-            i < current && "bg-primary/40",
-            i === current && "bg-primary"
-          )}
-        />
-      ))}
-    </div>
-  )
-}
 
 /**
  * The onboarding state machine. The mode ("supply" | "demand") comes from the

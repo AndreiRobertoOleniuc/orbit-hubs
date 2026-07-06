@@ -19,7 +19,10 @@ import com.orbit.app.ingestion.IngestionException;
 import com.orbit.app.ingestion.dto.RawContent;
 import com.orbit.app.ingestion.SourceAdapter;
 import com.orbit.app.ingestion.dto.SourceRef;
+import com.orbit.app.ingestion.github.dto.GithubRepo;
+import com.orbit.app.ingestion.github.dto.GithubUser;
 import com.orbit.app.llm.LlmSummaryService;
+import com.orbit.app.util.JsonUtils;
 
 /**
  * GitHub adapter — ingests a user's top repositories as per-repo sources.
@@ -355,7 +358,7 @@ public class GithubAdapter implements SourceAdapter {
             List<GithubRepo> repos = new ArrayList<>();
             JsonNode nodes = response.path("data").path("user").path("pinnedItems").path("nodes");
             for (JsonNode node : nodes) {
-                String nameWithOwner = node.path("nameWithOwner").asText();
+                String nameWithOwner = node.path("nameWithOwner").asString();
                 String[] parts = nameWithOwner.split("/", 2);
                 String owner = parts[0];
                 String name = parts.length > 1 ? parts[1] : nameWithOwner;
@@ -363,17 +366,17 @@ public class GithubAdapter implements SourceAdapter {
                 List<String> topics = new ArrayList<>();
                 JsonNode topicNodes = node.path("repositoryTopics").path("nodes");
                 for (JsonNode tn : topicNodes) {
-                    topics.add(tn.path("topic").path("name").asText());
+                    topics.add(tn.path("topic").path("name").asString());
                 }
                 
                 repos.add(new GithubRepo(
                         owner,
                         name,
-                        node.path("description").asText(""),
-                        node.path("primaryLanguage").path("name").asText(""),
+                        node.path("description").asString(""),
+                        node.path("primaryLanguage").path("name").asString(""),
                         topics,
                         node.path("stargazerCount").asInt(0),
-                        node.path("pushedAt").asText("")
+                        node.path("pushedAt").asString("")
                 ));
             }
             return repos;
@@ -383,9 +386,9 @@ public class GithubAdapter implements SourceAdapter {
         }
     }
 
-    /** Escape a string for embedding in a JSON string value. */
+    /** Escape and quote a string for embedding as a JSON string value. */
     private static String escapeJson(String text) {
-        return "\"" + text.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n") + "\"";
+        return "\"" + JsonUtils.escapeJson(text) + "\"";
     }
 
     private GithubUser fetchUser(String username) throws IngestionException {
@@ -396,12 +399,12 @@ public class GithubAdapter implements SourceAdapter {
             }
             JsonNode node = request.retrieve().body(JsonNode.class);
             return new GithubUser(
-                    node.path("login").asText(),
-                    node.path("name").asText(node.path("login").asText()),
-                    node.path("bio").asText(""),
-                    node.path("company").asText(""),
-                    node.path("location").asText(""),
-                    node.path("blog").asText(""),
+                    node.path("login").asString(),
+                    node.path("name").asString(node.path("login").asString()),
+                    node.path("bio").asString(""),
+                    node.path("company").asString(""),
+                    node.path("location").asString(""),
+                    node.path("blog").asString(""),
                     node.path("public_repos").asInt(0),
                     node.path("followers").asInt(0)
             );
@@ -460,17 +463,17 @@ public class GithubAdapter implements SourceAdapter {
             List<String> topics = new ArrayList<>();
             JsonNode topicsNode = node.path("topics");
             for (JsonNode t : topicsNode) {
-                topics.add(t.asText());
+                topics.add(t.asString());
             }
 
             return new GithubRepo(
                     owner,
-                    node.path("name").asText(),
-                    node.path("description").asText(""),
-                    node.path("language").asText(""),
+                    node.path("name").asString(),
+                    node.path("description").asString(""),
+                    node.path("language").asString(""),
                     topics,
                     node.path("stargazers_count").asInt(0),
-                    node.path("pushed_at").asText("")
+                    node.path("pushed_at").asString("")
             );
         } catch (Exception e) {
             throw new IngestionException("Failed to fetch repo " + owner + "/" + repo, e);
@@ -519,27 +522,4 @@ public class GithubAdapter implements SourceAdapter {
 
         return stripped;
     }
-
-    // ─── Value objects ───
-
-    record GithubUser(
-            String login,
-            String displayName,
-            String bio,
-            String company,
-            String location,
-            String blog,
-            int publicRepos,
-            int followers
-    ) {}
-
-    record GithubRepo(
-            String ownerLogin,
-            String name,
-            String description,
-            String language,
-            List<String> topics,
-            int stargazersCount,
-            String pushedAt
-    ) {}
 }

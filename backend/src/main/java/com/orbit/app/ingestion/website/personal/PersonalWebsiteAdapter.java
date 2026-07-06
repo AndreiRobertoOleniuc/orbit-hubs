@@ -16,7 +16,7 @@ import com.orbit.app.ingestion.dto.ExternalId;
 import com.orbit.app.ingestion.dto.RawContent;
 import com.orbit.app.ingestion.dto.SourceRef;
 import com.orbit.app.ingestion.website.WebsiteContentExtractor;
-import com.orbit.app.ingestion.website.WebsiteContentExtractor.PageResult;
+import com.orbit.app.ingestion.website.dto.PageResult;
 import com.orbit.app.llm.LlmSummaryService;
 
 /**

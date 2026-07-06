@@ -1,86 +1,13 @@
 import { useState } from "react"
 import { Link, Outlet, useLocation } from "react-router-dom"
 import { Menu } from "lucide-react"
-import { SignInButton, SignUpButton, UserButton } from "@clerk/react"
 
 import { OrbitLogo } from "@/components/branding/OrbitLogo"
+import { AuthControls } from "@/components/layout/AuthControls"
+import { NavLinks } from "@/components/layout/NavLinks"
 import { ThemeToggle } from "@/components/layout/ThemeToggle"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/features/auth/useAuth"
-
-interface NavItem {
-  to: string
-  label: string
-  authOnly?: boolean
-}
-
-/** Only surfaces that actually exist — no placeholder tabs. */
-const NAV_ITEMS: NavItem[] = [
-  { to: "/", label: "Start" },
-  { to: "/profile", label: "Mein Profil", authOnly: true },
-]
-
-function isActive(path: string, pathname: string): boolean {
-  if (path === "/") return pathname === "/"
-  return pathname === path || pathname.startsWith(`${path}/`)
-}
-
-function NavLinks({
-  pathname,
-  isAuthenticated,
-  onNavigate,
-  className,
-}: {
-  pathname: string
-  isAuthenticated: boolean
-  onNavigate?: () => void
-  className?: string
-}) {
-  return (
-    <>
-      {NAV_ITEMS.filter((item) => !item.authOnly || isAuthenticated).map(
-        (item) => (
-          <Button
-            key={item.to}
-            variant={isActive(item.to, pathname) ? "secondary" : "ghost"}
-            size="sm"
-            asChild
-            className={className}
-            onClick={onNavigate}
-          >
-            <Link to={item.to}>{item.label}</Link>
-          </Button>
-        )
-      )}
-    </>
-  )
-}
-
-function AuthControls() {
-  const { isAuthenticated } = useAuth()
-  if (isAuthenticated) return <UserButton />
-  return (
-    <>
-      {/* Land on the start page after auth: it routes to onboarding or profile. */}
-      <SignInButton
-        mode="modal"
-        forceRedirectUrl="/"
-        signUpForceRedirectUrl="/"
-      >
-        <Button variant="outline" size="sm">
-          Anmelden
-        </Button>
-      </SignInButton>
-      <SignUpButton
-        mode="modal"
-        forceRedirectUrl="/"
-        signInForceRedirectUrl="/"
-      >
-        <Button size="sm">Registrieren</Button>
-      </SignUpButton>
-    </>
-  )
-}
 
 export function AppLayout() {
   const { pathname } = useLocation()

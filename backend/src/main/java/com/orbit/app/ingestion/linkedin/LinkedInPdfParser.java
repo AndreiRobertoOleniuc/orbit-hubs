@@ -9,6 +9,10 @@ import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.orbit.app.ingestion.linkedin.dto.MainContent;
+import com.orbit.app.ingestion.linkedin.dto.NameBlock;
+import com.orbit.app.ingestion.linkedin.dto.SectionHeader;
+import com.orbit.app.ingestion.linkedin.dto.SidebarData;
 import com.orbit.app.ingestion.linkedin.dto.ParsedLinkedInProfile;
 
 /**
@@ -115,13 +119,13 @@ public class LinkedInPdfParser {
         String currentCompany = extractCurrentCompany(main.experienceText);
 
         log.debug("Parsed LinkedIn profile: name={}, headline={}, linkedInUrl={}, skills={}, companies={}",
-                nameBlock.name, nameBlock.headline, sidebar.linkedInUrl,
+                nameBlock.name(), nameBlock.headline(), sidebar.linkedInUrl,
                 sidebar.topSkills.size(), currentCompany);
 
         return new ParsedLinkedInProfile(
-                nameBlock.name,
-                nameBlock.headline,
-                nameBlock.location,
+                nameBlock.name(),
+                nameBlock.headline(),
+                nameBlock.location(),
                 sidebar.email,
                 sidebar.phone,
                 sidebar.linkedInUrl,
@@ -233,8 +237,8 @@ public class LinkedInPdfParser {
         // Find the first main section header
         int firstMainHeaderIdx = -1;
         for (SectionHeader h : headers) {
-            if (MAIN_SECTIONS.contains(h.sectionKey)) {
-                firstMainHeaderIdx = h.lineIndex;
+            if (MAIN_SECTIONS.contains(h.sectionKey())) {
+                firstMainHeaderIdx = h.lineIndex();
                 break;
             }
         }
@@ -266,8 +270,8 @@ public class LinkedInPdfParser {
             // Fallback: use the line right after the last sidebar header
             int lastSidebarEnd = 0;
             for (SectionHeader h : headers) {
-                if (SIDEBAR_SECTIONS.contains(h.sectionKey)) {
-                    lastSidebarEnd = h.lineIndex;
+                if (SIDEBAR_SECTIONS.contains(h.sectionKey())) {
+                    lastSidebarEnd = h.lineIndex();
                 }
             }
             nameIdx = lastSidebarEnd + 1;
@@ -295,7 +299,7 @@ public class LinkedInPdfParser {
         // We find it by locating the name in the lines list
         int nameIdx = -1;
         for (int i = 0; i < lines.size(); i++) {
-            if (lines.get(i).equals(nameBlock.name)) {
+            if (lines.get(i).equals(nameBlock.name())) {
                 nameIdx = i;
                 break;
             }
@@ -304,7 +308,7 @@ public class LinkedInPdfParser {
         // Parse each sidebar section
         for (int i = 0; i < headers.size(); i++) {
             SectionHeader h = headers.get(i);
-            if (!SIDEBAR_SECTIONS.contains(h.sectionKey)) continue;
+            if (!SIDEBAR_SECTIONS.contains(h.sectionKey())) continue;
 
             // Find the end of this section's content
             int sectionEnd;
@@ -312,24 +316,24 @@ public class LinkedInPdfParser {
                 // Next header is also a sidebar header → content ends at next header
                 // But if the next header is a main header, content ends at the name line
                 SectionHeader next = headers.get(i + 1);
-                if (SIDEBAR_SECTIONS.contains(next.sectionKey)) {
-                    sectionEnd = next.lineIndex;
+                if (SIDEBAR_SECTIONS.contains(next.sectionKey())) {
+                    sectionEnd = next.lineIndex();
                 } else {
                     // Next is a main header → this is the last sidebar section
                     // Content ends at the name line
-                    sectionEnd = nameIdx >  0 ? nameIdx : next.lineIndex;
+                    sectionEnd = nameIdx >  0 ? nameIdx : next.lineIndex();
                 }
             } else {
                 sectionEnd = nameIdx > 0 ? nameIdx : lines.size();
             }
 
             // Extract content lines for this section
-            int start = Math.min(h.lineIndex + 1, sectionEnd);
+            int start = Math.min(h.lineIndex() + 1, sectionEnd);
             int end = Math.min(sectionEnd, lines.size());
             if (start >= end) continue;
             List<String> sectionLines = lines.subList(start, end);
 
-            switch (h.sectionKey) {
+            switch (h.sectionKey()) {
                 case "contact" -> parseContactSection(sectionLines, sidebar);
                 case "top_skills" -> sidebar.topSkills = extractListItems(sectionLines);
                 case "languages" -> sidebar.languages = extractListItems(sectionLines);
@@ -406,21 +410,21 @@ public class LinkedInPdfParser {
 
         for (int i = 0; i < headers.size(); i++) {
             SectionHeader h = headers.get(i);
-            if (!MAIN_SECTIONS.contains(h.sectionKey)) continue;
+            if (!MAIN_SECTIONS.contains(h.sectionKey())) continue;
 
             // Find the end of this section
             int sectionEnd;
             if (i + 1 < headers.size()) {
-                sectionEnd = headers.get(i + 1).lineIndex;
+                sectionEnd = headers.get(i + 1).lineIndex();
             } else {
                 sectionEnd = lines.size();
             }
 
             // Extract content lines
-            List<String> sectionLines = lines.subList(h.lineIndex + 1, sectionEnd);
+            List<String> sectionLines = lines.subList(h.lineIndex() + 1, sectionEnd);
             String sectionText = String.join("\n", sectionLines).trim();
 
-            switch (h.sectionKey) {
+            switch (h.sectionKey()) {
                 case "summary" -> main.summary = sectionText;
                 case "experience" -> main.experienceText = sectionText;
                 case "education" -> main.educationText = sectionText;
@@ -445,26 +449,4 @@ public class LinkedInPdfParser {
         return firstLine;
     }
 
-    // ─── Internal types ───
-
-    private record SectionHeader(String headerText, String sectionKey, int lineIndex) {}
-
-    private static class NameBlock {
-        final String name, headline, location;
-        NameBlock(String name, String headline, String location) {
-            this.name = name; this.headline = headline; this.location = location;
-        }
-    }
-
-    private static class SidebarData {
-        String email, phone, linkedInUrl, personalWebsite;
-        List<String> topSkills = List.of();
-        List<String> languages = List.of();
-    }
-
-    private static class MainContent {
-        String summary = "";
-        String experienceText = "";
-        String educationText = "";
-    }
 }

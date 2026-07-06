@@ -49,16 +49,34 @@ export interface EntitySourceDto {
   fetchedAt: string | null
 }
 
+export type TagOrigin = "derived" | "manual"
+
+export interface EntityTagDto {
+  id: number
+  slug: string
+  label: string
+  origin: TagOrigin
+}
+
+export interface ResyncResponseDto {
+  entity: EntityDto
+  ingested: number
+  skipped: number
+  errors: number
+}
+
 export interface EntityDto {
   id: number
   entityType: EntityType
   displayName: string
   headline: string | null
   orgName: string | null
+  summary: string | null
   status: string
   metadata: Record<string, unknown> | null
   createdAt: string | null
   sources: EntitySourceDto[]
+  tags: EntityTagDto[]
 }
 
 // ─── Zefix (Handelsregister autocomplete) ───

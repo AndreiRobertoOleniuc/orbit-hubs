@@ -1,12 +1,12 @@
 import { useState } from "react"
-import { Check, RefreshCw } from "lucide-react"
+import { Check, Plus, RefreshCw, X } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
-import {
-  PlannedSourceCard,
-  SourceCard,
-  SourceGlyph,
-} from "@/features/ingestion/SourceCard"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { SourceGlyph } from "@/components/SourceGlyph"
+import { PlannedSourceCard } from "@/features/ingestion/PlannedSourceCard"
+import { SourceCard } from "@/features/ingestion/SourceCard"
 import { KIND_TO_SOURCE_TYPES } from "@/features/ingestion/requests"
 import {
   ORG_PLANNED,
@@ -18,13 +18,19 @@ import type { SourceKind } from "@/features/ingestion/types"
 import { useSourceIngestion } from "@/features/ingestion/useSourceIngestion"
 import { NachweisList } from "@/features/profile/NachweisList"
 import { ProfileHeader } from "@/features/profile/ProfileHeader"
-import { ProfileSectionCard } from "@/features/profile/PublicProfileView"
+import { ProfileSectionCard } from "@/features/profile/ProfileSectionCard"
 import { builtFromLabels } from "@/features/profile/profileUtils"
+import {
+  useResyncEntityMutation,
+  useUpdateEntitySummaryMutation,
+  useUpdateEntityTagsMutation,
+} from "@/lib/api"
 import type { EntityDto } from "@/types/api"
 
 /**
- * The private own-profile view: Kompetenzen, linked sources (with the ability
- * to link more — re-runs the ingestion pipeline) and Nachweise.
+ * The private own-profile view: Kompetenzen (rich summary + editable tags),
+ * linked sources (with the ability to link more — re-runs ingestion), and
+ * Nachweise.
  */
 export function OwnProfileView({ entity }: { entity: EntityDto }) {
   const isOrgEntity = entity.entityType === "organization"
@@ -37,9 +43,25 @@ export function OwnProfileView({ entity }: { entity: EntityDto }) {
   const [busyKind, setBusyKind] = useState<SourceKind | null>(null)
   const [addError, setAddError] = useState<string | null>(null)
 
+  // Tag editing state
+  const [editingTags, setEditingTags] = useState(false)
+  const [tagDraft, setTagDraft] = useState<string[]>([])
+  const [newTag, setNewTag] = useState("")
+  const [updateTags] = useUpdateEntityTagsMutation()
+
+  // Summary editing state
+  const [editingSummary, setEditingSummary] = useState(false)
+  const [summaryDraft, setSummaryDraft] = useState("")
+  const [updateSummary] = useUpdateEntitySummaryMutation()
+
+  // Resync state
+  const [resyncing, setResyncing] = useState(false)
+  const [resyncMessage, setResyncMessage] = useState<string | null>(null)
+  const [resyncEntity] = useResyncEntityMutation()
+
   const linkedSource = (kind: SourceKind) =>
     entity.sources.some((s) =>
-      KIND_TO_SOURCE_TYPES[kind].includes(s.sourceType)
+      KIND_TO_SOURCE_TYPES[kind].includes(s.sourceType),
     )
       ? { kind, value: "verknüpft" }
       : undefined
@@ -54,29 +76,221 @@ export function OwnProfileView({ entity }: { entity: EntityDto }) {
     setBusyKind(null)
   }
 
+  const startEditTags = () => {
+    setTagDraft(entity.tags.map((t) => t.label))
+    setEditingTags(true)
+  }
+
+  const commitTag = () => {
+    const v = newTag.trim()
+    if (v && !tagDraft.includes(v)) {
+      setTagDraft([...tagDraft, v])
+    }
+    setNewTag("")
+  }
+
+  const saveTags = async () => {
+    await updateTags({ entityId: entity.id, tags: tagDraft }).unwrap()
+    setEditingTags(false)
+  }
+
+  const startEditSummary = () => {
+    setSummaryDraft(entity.summary ?? entity.headline ?? "")
+    setEditingSummary(true)
+  }
+
+  const saveSummary = async () => {
+    await updateSummary({
+      entityId: entity.id,
+      summary: summaryDraft,
+    }).unwrap()
+    setEditingSummary(false)
+  }
+
+  const handleResync = async () => {
+    setResyncing(true)
+    setResyncMessage(null)
+    try {
+      const result = await resyncEntity(entity.id).unwrap()
+      const parts: string[] = []
+      if (result.ingested > 0) parts.push(`${result.ingested} aktualisiert`)
+      if (result.skipped > 0) parts.push(`${result.skipped} unverändert`)
+      if (result.errors > 0) parts.push(`${result.errors} fehlgeschlagen`)
+      setResyncMessage(parts.length > 0 ? `✓ ${parts.join(", ")}` : "✓ Profil aktualisiert")
+    } catch {
+      setResyncMessage("Resync fehlgeschlagen — versuche es später erneut.")
+    }
+    setResyncing(false)
+    setTimeout(() => setResyncMessage(null), 5000)
+  }
+
   return (
     <div className="space-y-5">
       <ProfileHeader entity={entity} />
 
       <ProfileSectionCard title="Kompetenzen">
-        <div className="space-y-3">
-          {entity.headline ? (
-            <p className="text-[15px] leading-relaxed">{entity.headline}</p>
+        <div className="space-y-4">
+          {/* Summary paragraph */}
+          {editingSummary ? (
+            <div className="space-y-2">
+              <textarea
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-[15px] leading-relaxed"
+                rows={4}
+                value={summaryDraft}
+                autoFocus
+                onChange={(e) => setSummaryDraft(e.target.value)}
+              />
+              <div className="flex justify-end gap-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setEditingSummary(false)}
+                >
+                  Abbrechen
+                </Button>
+                <Button size="sm" onClick={() => void saveSummary()}>
+                  Speichern
+                </Button>
+              </div>
+            </div>
           ) : (
-            <p className="text-sm text-muted-foreground">
-              Noch keine Quellen verknüpft — dieses Profil wurde manuell
-              erstellt.
-            </p>
+            <div className="space-y-2">
+              {entity.summary ? (
+                <p className="text-[15px] leading-relaxed">{entity.summary}</p>
+              ) : entity.headline ? (
+                <p className="text-[15px] leading-relaxed">{entity.headline}</p>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Noch keine Quellen verknüpft — dieses Profil wurde manuell
+                  erstellt.
+                </p>
+              )}
+              <button
+                className="text-xs text-primary hover:underline"
+                onClick={startEditSummary}
+              >
+                Text anpassen
+              </button>
+            </div>
           )}
-          <p className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span>
-              Erstellt aus:{" "}
-              {builtFrom.length > 0
-                ? builtFrom.join(", ")
-                : "manueller Eingabe"}
-            </span>
-            {isLoading && <RefreshCw className="size-3.5 animate-spin" />}
-          </p>
+
+          {/* Tags */}
+          {editingTags ? (
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                {tagDraft.map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-sm text-primary"
+                  >
+                    {tag}
+                    <button
+                      onClick={() =>
+                        setTagDraft(tagDraft.filter((t) => t !== tag))
+                      }
+                      className="text-primary/60 hover:text-primary"
+                      aria-label={`Entfernen: ${tag}`}
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </span>
+                ))}
+                <span className="inline-flex items-center gap-1">
+                  <Input
+                    placeholder="Kompetenz hinzufügen"
+                    value={newTag}
+                    onChange={(e) => setNewTag(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault()
+                        commitTag()
+                      }
+                    }}
+                    className="h-7 w-40 text-sm"
+                  />
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2"
+                    onClick={commitTag}
+                    disabled={!newTag.trim()}
+                  >
+                    <Plus className="size-3" />
+                  </Button>
+                </span>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setEditingTags(false)}
+                >
+                  Abbrechen
+                </Button>
+                <Button size="sm" onClick={() => void saveTags()}>
+                  Speichern
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {entity.tags.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {entity.tags.map((tag) => (
+                    <span
+                      key={tag.id}
+                      className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-sm text-primary"
+                    >
+                      {tag.label}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Noch keine Tags abgeleitet — verknüpfe weitere Quellen.
+                </p>
+              )}
+              <button
+                className="text-xs text-primary hover:underline"
+                onClick={startEditTags}
+              >
+                Tags anpassen
+              </button>
+              <p className="text-xs text-muted-foreground">
+                Tags werden aus deinen Quellen abgeleitet — du kannst sie hier
+                manuell ergänzen oder entfernen.
+              </p>
+            </div>
+          )}
+
+          {/* Built-from line + resync button */}
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>
+                Erstellt aus:{" "}
+                {builtFrom.length > 0
+                  ? builtFrom.join(", ")
+                  : "manueller Eingabe"}
+              </span>
+              {(isLoading || resyncing) && (
+                <RefreshCw className="size-3.5 animate-spin" />
+              )}
+              <button
+                className="flex items-center gap-1 text-xs text-primary hover:underline disabled:opacity-50"
+                onClick={() => void handleResync()}
+                disabled={resyncing || isLoading}
+                title="Quellen neu auswerten — aktualisiert Kompetenzen und Nachweise aus allen verknüpften Quellen"
+              >
+                <RefreshCw
+                  className={resyncing ? "size-3.5 animate-spin" : "size-3.5"}
+                />
+                Quellen neu auswerten
+              </button>
+            </div>
+            {resyncMessage && (
+              <p className="text-xs text-muted-foreground">{resyncMessage}</p>
+            )}
+          </div>
         </div>
       </ProfileSectionCard>
 

@@ -1,16 +1,14 @@
 package com.orbit.app.ingestion.website;
 
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
+import com.orbit.app.ingestion.website.dto.PageResult;
+import com.orbit.app.ingestion.website.dto.ScoredLink;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -40,18 +38,6 @@ public class WebsiteContentExtractor {
             "Orbit-Discovery/1.0 (mailto:contact@orbit.ch)";
     private static final Duration POLITENESS_DELAY = Duration.ofMillis(1000);
     private static final int FETCH_TIMEOUT_MS = 10_000;
-
-    /**
-     * Result of fetching a single page.
-     */
-    public record PageResult(
-            String url,
-            String title,
-            String text,           // extracted structured text (with ## headings)
-            int score,             // URL priority score
-            boolean ok             // false = fetch failed or empty content
-    ) {
-    }
 
     // ─── Public API ───
 
@@ -338,8 +324,6 @@ public class WebsiteContentExtractor {
     }
 
     // ─── Link discovery + scoring ───
-
-    private record ScoredLink(String url, int score) {}
 
     private List<ScoredLink> discoverLinks(Document doc, String domain, Set<String> visited) {
         List<ScoredLink> links = new ArrayList<>();

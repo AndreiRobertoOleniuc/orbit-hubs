@@ -1,5 +1,7 @@
 package com.orbit.domain.repository;
 
+import java.util.List;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -16,4 +18,14 @@ public interface ChunkRepository extends JpaRepository<Chunk, Long> {
     @Modifying
     @Query("delete from Chunk c where c.sourceId = :sourceId")
     void deleteBySourceId(@Param("sourceId") Long sourceId);
+
+
+    /**
+     * Lightweight query: load only chunk content + source_id for an entity,
+     * avoiding the expensive vector(1024) embedding column. Used by the
+     * enrichment service to gather source text for the LLM without loading
+     * embeddings into memory.
+     */
+    @Query("select c.content, c.sourceId from Chunk c where c.entityId = :entityId order by c.sourceId asc, c.chunkIndex asc")
+    List<Object[]> findContentByEntityId(@Param("entityId") Long entityId);
 }

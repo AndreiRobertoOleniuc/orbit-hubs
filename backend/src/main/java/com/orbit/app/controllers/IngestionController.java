@@ -1,8 +1,7 @@
-package com.orbit.controllers;
+package com.orbit.app.controllers;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +20,8 @@ import com.orbit.app.ingestion.IngestionOrchestrator;
 import com.orbit.app.ingestion.dto.IngestionResult;
 import com.orbit.app.ingestion.dto.SourceRef;
 import com.orbit.app.ingestion.website.WebsiteContentExtractor;
+import com.orbit.app.util.HashUtils;
+import com.orbit.app.controllers.dto.IngestionRequest;
 
 /**
  * REST API for triggering entity ingestion from external sources.
@@ -103,7 +104,7 @@ public class IngestionController {
         Path tempFile = null;
         try {
             byte[] pdfBytes = file.getBytes();
-            String contentHash = sha256Hex(pdfBytes);
+            String contentHash = HashUtils.sha256Hex(pdfBytes);
             tempFile = Files.createTempFile("orbit-linkedin-", ".pdf");
             Files.write(tempFile, pdfBytes);
 
@@ -212,7 +213,7 @@ public class IngestionController {
             }
             case "manual_text" -> {
                 String text = request.context().get("text");
-                yield text != null ? "manual:text:" + sha256Hex(text.getBytes()) : "manual:text:unknown";
+                yield text != null ? "manual:text:" + HashUtils.sha256Hex(text.getBytes()) : "manual:text:unknown";
             }
             case "personal_site", "company_site" -> {
                 String url = request.context().get("url");
@@ -222,22 +223,4 @@ public class IngestionController {
         };
     }
 
-    public record IngestionRequest(
-            String sourceType,
-            Map<String, String> context
-    ) {}
-
-    private static String sha256Hex(byte[] bytes) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(bytes);
-            StringBuilder hex = new StringBuilder();
-            for (byte b : hash) {
-                hex.append(String.format("%02x", b));
-            }
-            return hex.toString();
-        } catch (Exception e) {
-            throw new RuntimeException("SHA-256 not available", e);
-        }
-    }
 }

@@ -5,9 +5,9 @@ import type {
   IngestionRequestDto,
   IngestionResponseDto,
   MeDto,
+  ResyncResponseDto,
   ZefixCompanyDto,
 } from "@/types/api"
-
 interface StateWithAuth {
   auth: { token: string | null }
 }
@@ -76,6 +76,45 @@ export const apiSlice = createApi({
       },
       invalidatesTags: ["MyEntities"],
     }),
+
+    // ─── Entity tag & summary editing ───
+
+    updateEntityTags: builder.mutation<EntityDto, { entityId: number; tags: string[] }>({
+      query: ({ entityId, tags }) => ({
+        url: `/entities/${entityId}/tags`,
+        method: "PUT",
+        body: { tags },
+      }),
+      invalidatesTags: (_result, _error, { entityId }) => [
+        { type: "Entity", id: entityId },
+        "MyEntities",
+      ],
+    }),
+
+    updateEntitySummary: builder.mutation<EntityDto, { entityId: number; summary: string }>({
+      query: ({ entityId, summary }) => ({
+        url: `/entities/${entityId}/summary`,
+        method: "PUT",
+        body: { summary },
+      }),
+      invalidatesTags: (_result, _error, { entityId }) => [
+        { type: "Entity", id: entityId },
+        "MyEntities",
+      ],
+    }),
+
+    // ─── Entity resync (re-ingest all sources + re-enrich) ───
+
+    resyncEntity: builder.mutation<ResyncResponseDto, number>({
+      query: (entityId) => ({
+        url: `/entities/${entityId}/resync`,
+        method: "POST",
+      }),
+      invalidatesTags: (_result, _error, entityId) => [
+        { type: "Entity", id: entityId },
+        "MyEntities",
+      ],
+    }),
   }),
 })
 
@@ -87,4 +126,7 @@ export const {
   useLazySearchZefixQuery,
   useIngestSourceMutation,
   useUploadLinkedInPdfMutation,
+  useUpdateEntityTagsMutation,
+  useUpdateEntitySummaryMutation,
+  useResyncEntityMutation,
 } = apiSlice

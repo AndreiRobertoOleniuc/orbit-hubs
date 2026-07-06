@@ -4,11 +4,9 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  PlannedSourceCard,
-  SourceCard,
-  SourceGlyph,
-} from "@/features/ingestion/SourceCard"
+import { SourceGlyph } from "@/components/SourceGlyph"
+import { PlannedSourceCard } from "@/features/ingestion/PlannedSourceCard"
+import { SourceCard } from "@/features/ingestion/SourceCard"
 import {
   DEMAND_SOURCES,
   ORG_PLANNED,

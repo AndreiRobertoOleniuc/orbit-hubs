@@ -2,8 +2,10 @@ import { useNavigate } from "react-router-dom"
 import { CircleCheck, CircleX, Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { SourceGlyph } from "@/features/ingestion/SourceCard"
+import { SourceGlyph } from "@/components/SourceGlyph"
+import { ProfilePreview } from "@/features/onboarding/ProfilePreview"
 import type { JobState, RunPhase } from "@/features/onboarding/useIngestionRun"
+import { useGetMyEntitiesQuery } from "@/lib/api"
 
 interface IngestionRunViewProps {
   phase: Exclude<RunPhase, "idle">
@@ -11,7 +13,7 @@ interface IngestionRunViewProps {
   supply: boolean
 }
 
-/** Live per-source ingestion progress, then the completion screen. */
+/** Live per-source ingestion progress, then the completion screen with profile preview. */
 export function IngestionRunView({
   phase,
   jobs,
@@ -19,6 +21,15 @@ export function IngestionRunView({
 }: IngestionRunViewProps) {
   const navigate = useNavigate()
   const failed = jobs.filter((j) => j.status === "error")
+
+  // After ingestion completes, fetch the entity to show the profile preview.
+  // The ingestion mutations invalidate "MyEntities" so this refetches automatically.
+  const { data: myEntities, isLoading: entitiesLoading } = useGetMyEntitiesQuery(
+    undefined,
+    { skip: phase !== "done" },
+  )
+
+  const entity = myEntities?.[0]
 
   return (
     <div className="mx-auto max-w-xl py-10">
@@ -79,22 +90,42 @@ export function IngestionRunView({
         ))}
       </div>
 
+      {/* Profile preview — appears after all sources are ingested */}
       {phase === "done" && (
-        <div className="mt-8 flex flex-col items-center gap-3">
-          {failed.length > 0 && (
-            <p className="text-sm text-muted-foreground">
-              {failed.length} Quelle{failed.length > 1 ? "n" : ""} konnte
-              {failed.length > 1 ? "n" : ""} nicht gelesen werden — du kannst
-              sie später in deinem Profil erneut verlinken.
-            </p>
+        <>
+          {entitiesLoading ? (
+            <div className="mt-6 flex justify-center">
+              <Loader2 className="size-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : entity ? (
+            <div className="mt-6">
+              <p className="mb-3 text-sm text-muted-foreground">
+                Wir haben dein Profil aus deinen Quellen abgeleitet — prüfe es
+                und passe es an, falls nötig.
+              </p>
+              <ProfilePreview
+                entity={entity}
+                onConfirm={() => navigate("/profile")}
+              />
+            </div>
+          ) : (
+            <div className="mt-8 flex flex-col items-center gap-3">
+              {failed.length > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  {failed.length} Quelle{failed.length > 1 ? "n" : ""} konnte
+                  {failed.length > 1 ? "n" : ""} nicht gelesen werden — du
+                  kannst sie später in deinem Profil erneut verlinken.
+                </p>
+              )}
+              <Button className="min-w-60" onClick={() => navigate("/profile")}>
+                Profil ansehen
+              </Button>
+              <Button variant="ghost" onClick={() => navigate("/")}>
+                Zur Startseite
+              </Button>
+            </div>
           )}
-          <Button className="min-w-60" onClick={() => navigate("/profile")}>
-            Profil ansehen
-          </Button>
-          <Button variant="ghost" onClick={() => navigate("/")}>
-            Zur Startseite
-          </Button>
-        </div>
+        </>
       )}
     </div>
   )

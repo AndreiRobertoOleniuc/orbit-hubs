@@ -1,6 +1,6 @@
 import { ExternalLink } from "lucide-react"
 
-import { SourceGlyph } from "@/features/ingestion/SourceCard"
+import { SourceGlyph } from "@/components/SourceGlyph"
 import {
   externalUrl,
   sourceTypeInfo,

@@ -1,8 +1,9 @@
 package com.orbit.app.llm;
 
-import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 
+import com.orbit.app.ingestion.dto.SourceContent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.model.ChatModel;
@@ -410,6 +411,229 @@ public class LlmSummaryService {
 
         log.warn("All {} LLM attempts failed for website {} — falling back to raw text", MAX_RETRIES, domain);
         return null;
+    }
+
+    // ─── Entity-level competence enrichment (post-ingestion) ───
+
+    private static final int SUMMARY_MAX_SOURCE_CHARS = 1200;
+    private static final int TAGS_MAX_SOURCE_CHARS = 1000;
+
+    /**
+     * Generate a rich competence description for an entity, aggregating ALL
+     * its sources. Called after each ingestion so the summary gets richer
+     * as more sources are added.
+     * <p>
+     * Produces 3-5 sentences in German (or the dominant source language)
+     * that describe what the person or organization does, their expertise,
+     * and notable evidence from their sources.
+     *
+     * @param entityName  display name of the entity
+     * @param entityType   "person" or "organization"
+     * @param headline     the existing short headline (may be null)
+     * @param sourceContents  list of (sourceType, label, coreText) tuples — one per source
+     * @return the generated summary, or null if all retries fail
+     */
+    public String generateCompetenceSummary(
+            String entityName,
+            String entityType,
+            String headline,
+            List<SourceContent> sourceContents) {
+
+        if (sourceContents.isEmpty()) return null;
+
+        boolean isOrg = "organization".equalsIgnoreCase(entityType);
+        StringBuilder sourcesBlock = new StringBuilder();
+        for (SourceContent sc : sourceContents) {
+            String text = truncateText(sc.coreText(), SUMMARY_MAX_SOURCE_CHARS);
+            sourcesBlock.append("--- Quelle: ").append(sc.sourceType())
+                    .append(" (Label: ").append(sc.label() != null ? sc.label() : "-").append(") ---\n")
+                    .append(text).append("\n\n");
+        }
+
+        String prompt;
+        if (isOrg) {
+            prompt = """
+                    You are writing a competence profile for a Swiss matching platform that connects organizations with experts and projects.
+
+                    Below are the extracted contents from ALL sources of the organization "%s".
+                    Write a rich, factual competence description in 3-5 sentences that covers:
+                    - What the organization does (core business, services, products)
+                    - Their industry domain and technical expertise
+                    - Key technologies, methods, or specializations
+                    - Notable projects, references, or achievements mentioned in the sources
+
+                    Rules:
+                    - Write in German if the sources are predominantly German; otherwise match the dominant language
+                    - Write in plain text (no markdown, no headers, no bullet points)
+                    - Be factual — only use information from the sources below
+                    - Do NOT invent specific details not present in the sources
+                    - Start directly with what the organization does — no introductory filler
+                    - If sources are sparse, keep it concise but still informative
+
+                    Entity: %s
+                    Current headline: %s
+
+                    Sources:
+                    %s""".formatted(entityName, entityName, headline != null ? headline : "(none)", sourcesBlock);
+        } else {
+            prompt = """
+                    You are writing a competence profile for a Swiss matching platform that connects experts with projects.
+
+                    Below are the extracted contents from ALL sources of "%s".
+                    Write a rich, factual competence description in 3-5 sentences that covers:
+                    - Who they are (role, profession, current position)
+                    - Their skills, expertise, and areas of work
+                    - Notable projects, publications, or achievements
+                    - Technologies and methods they work with
+
+                    Rules:
+                    - Write in German if the sources are predominantly German; otherwise match the dominant language
+                    - Write in plain text (no markdown, no headers, no bullet points)
+                    - Be factual — only use information from the sources below
+                    - Do NOT invent specific details not present in the sources
+                    - Start directly with who they are and what they do — no introductory filler
+                    - If sources are sparse, keep it concise but still informative
+
+                    Entity: %s
+                    Current headline: %s
+
+                    Sources:
+                    %s""".formatted(entityName, entityName, headline != null ? headline : "(none)", sourcesBlock);
+        }
+
+        for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                long start = System.currentTimeMillis();
+                String response = chatModel.call(new Prompt(prompt)).getResult().getOutput().getText();
+                long elapsed = System.currentTimeMillis() - start;
+
+                if (response != null && !response.isBlank()) {
+                    log.info("Competence summary for {} (attempt {}/{}, {}ms): {} chars",
+                            entityName, attempt, MAX_RETRIES, elapsed, response.length());
+                    return response.trim();
+                }
+            } catch (Exception e) {
+                log.warn("Competence summary attempt {}/{} failed for {} ({}): {}",
+                        attempt, MAX_RETRIES, entityName, e.getClass().getSimpleName(), e.getMessage());
+                if (attempt < MAX_RETRIES) {
+                    try {
+                        Thread.sleep(2000L * attempt);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+        }
+
+        log.warn("All {} LLM attempts failed for competence summary of {} — keeping existing", MAX_RETRIES, entityName);
+        return null;
+    }
+
+    /**
+     * Derive competence tags (Kompetenzen) from an entity's sources. The LLM
+     * analyses ALL source contents and returns a list of short, specific tags
+         * that describe the entity's skills, expertise, and domain.
+     * <p>
+     * Tags are normalized to a slug for the controlled vocabulary. The caller
+     * is responsible for upserting into the tags table and entity_tags with
+     * origin='derived'.
+     *
+     * @param entityName  display name (for context)
+     * @param entityType  "person" or "organization"
+     * @param sourceContents  list of (sourceType, label, coreText) tuples
+     * @param maxTags     maximum number of tags to derive (default 8)
+     * @return list of tag labels (e.g. ["Embedded", "C/C++", "IoT"]), or empty on failure
+     */
+    public List<String> deriveTags(
+            String entityName,
+            String entityType,
+            List<SourceContent> sourceContents,
+            int maxTags) {
+
+        if (sourceContents.isEmpty()) return List.of();
+
+        boolean isOrg = "organization".equalsIgnoreCase(entityType);
+        StringBuilder sourcesBlock = new StringBuilder();
+        for (SourceContent sc : sourceContents) {
+            String text = truncateText(sc.coreText(), TAGS_MAX_SOURCE_CHARS);
+            sourcesBlock.append("--- Quelle: ").append(sc.sourceType())
+                    .append(" (Label: ").append(sc.label() != null ? sc.label() : "-").append(") ---\n")
+                    .append(text).append("\n\n");
+        }
+
+        String prompt = """
+                You are a tagging assistant for a Swiss expert-matching platform.
+
+                Below are the extracted contents from ALL sources of "%s" (%s).
+                Derive up to %d competence tags (Kompetenzen) that describe this entity's skills, expertise, and domain.
+
+                Rules:
+                - Each tag is 1-3 words, specific, and commonly understood (e.g. "Embedded", "C/C++", "IoT", "Robotik", "Zephyr", "CI/CD")
+                - Tags should reflect what is actually evidenced in the sources — do NOT invent skills not mentioned
+                - For organizations, include industry/domain tags and technology tags
+                - For persons, include skill, technology, and methodology tags
+                - Tags can be in German or English — match the source language
+                - Do not include generic tags like "Software" or "IT" unless specifically evidenced
+                - Return ONLY the tags, one per line, no numbering, no explanations
+
+                Entity: %s
+                Type: %s
+
+                Sources:
+                %s""".formatted(entityName, isOrg ? "Organisation" : "Person", maxTags, entityName, isOrg ? "Organisation" : "Person", sourcesBlock);
+
+        for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                long start = System.currentTimeMillis();
+                String response = chatModel.call(new Prompt(prompt)).getResult().getOutput().getText();
+                long elapsed = System.currentTimeMillis() - start;
+
+                if (response != null && !response.isBlank()) {
+                    List<String> tags = parseTagList(response, maxTags);
+                    log.info("Derived {} tags for {} (attempt {}/{}, {}ms): {}",
+                            tags.size(), entityName, attempt, MAX_RETRIES, elapsed, tags);
+                    return tags;
+                }
+            } catch (Exception e) {
+                log.warn("Tag derivation attempt {}/{} failed for {} ({}): {}",
+                        attempt, MAX_RETRIES, entityName, e.getClass().getSimpleName(), e.getMessage());
+                if (attempt < MAX_RETRIES) {
+                    try {
+                        Thread.sleep(2000L * attempt);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+        }
+
+        log.warn("All {} LLM attempts failed for tag derivation of {} — keeping existing tags", MAX_RETRIES, entityName);
+        return List.of();
+    }
+
+    /**
+     * Parse the LLM's tag response into a clean list. Handles newline-separated,
+     * comma-separated, and bulleted responses.
+     */
+    private List<String> parseTagList(String response, int maxTags) {
+        List<String> tags = new ArrayList<>();
+        for (String line : response.split("\n")) {
+            String cleaned = line.trim()
+                    .replaceAll("^[-*•\\d+.\\s)]+", "")  // strip bullets/numbering
+                    .trim();
+            if (cleaned.isEmpty() || cleaned.length() > 50) continue;
+            // Handle comma-separated on a single line
+            for (String part : cleaned.split(",")) {
+                String tag = part.trim();
+                if (!tag.isEmpty() && tag.length() <= 50 && !tags.contains(tag)) {
+                    tags.add(tag);
+                    if (tags.size() >= maxTags) return tags;
+                }
+            }
+        }
+        return tags;
     }
 
     private String truncateText(String text, int maxChars) {

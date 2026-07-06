@@ -19,6 +19,8 @@ import com.orbit.app.ingestion.IngestionException;
 import com.orbit.app.ingestion.dto.RawContent;
 import com.orbit.app.ingestion.SourceAdapter;
 import com.orbit.app.ingestion.dto.SourceRef;
+import com.orbit.app.ingestion.openalex.dto.OpenAlexAuthor;
+import com.orbit.app.ingestion.openalex.dto.OpenAlexWork;
 
 /**
  * OpenAlex adapter — ingests an author's top-cited publications as per-work sources.
@@ -279,9 +281,9 @@ public class OpenAlexAdapter implements SourceAdapter {
         try {
             JsonNode node = fetchJson(path + "?select=id,display_name,orcid,last_known_institutions,works_count,summary_stats");
 
-            String openalexId = extractShortId(node.path("id").asText(""));
-            String displayName = node.path("display_name").asText("");
-            String orcidUrl = node.path("orcid").asText("");
+            String openalexId = extractShortId(node.path("id").asString(""));
+            String displayName = node.path("display_name").asString("");
+            String orcidUrl = node.path("orcid").asString("");
             String orcid = orcidUrl;
             if (orcid != null && orcidUrl.startsWith("https://orcid.org/")) {
                 orcid = orcidUrl.substring("https://orcid.org/".length());
@@ -291,7 +293,7 @@ public class OpenAlexAdapter implements SourceAdapter {
             String affiliation = "";
             JsonNode instNodes = node.path("last_known_institutions");
             if (instNodes.isArray() && !instNodes.isEmpty()) {
-                affiliation = instNodes.get(0).path("display_name").asText("");
+                affiliation = instNodes.get(0).path("display_name").asString("");
             }
 
             int worksCount = node.path("works_count").asInt(0);
@@ -311,14 +313,14 @@ public class OpenAlexAdapter implements SourceAdapter {
             List<OpenAlexWork> works = new ArrayList<>();
             JsonNode results = node.path("results");
             for (JsonNode workNode : results) {
-                String workId = extractShortId(workNode.path("id").asText(""));
-                String title = workNode.path("title").asText("");
+                String workId = extractShortId(workNode.path("id").asString(""));
+                String title = workNode.path("title").asString("");
                 int pubYear = workNode.path("publication_year").asInt(0);
-                String doi = workNode.path("doi").asText("");
-                String type = workNode.path("type").asText("");
+                String doi = workNode.path("doi").asString("");
+                String type = workNode.path("type").asString("");
                 int citedBy = workNode.path("cited_by_count").asInt(0);
 
-                String primaryTopic = workNode.path("primary_topic").path("display_name").asText("");
+                String primaryTopic = workNode.path("primary_topic").path("display_name").asString("");
 
                 String abstractText = reconstructAbstract(workNode.path("abstract_inverted_index"));
 
@@ -392,25 +394,4 @@ public class OpenAlexAdapter implements SourceAdapter {
 
         return String.join(" ", words).trim();
     }
-
-    // ─── Value objects ───
-
-    record OpenAlexAuthor(
-            String openalexId,
-            String displayName,
-            String orcid,
-            String affiliation,
-            int worksCount
-    ) {}
-
-    record OpenAlexWork(
-            String openalexId,
-            String title,
-            int publicationYear,
-            String doi,
-            String type,
-            int citedByCount,
-            String primaryTopic,
-            String reconstructedAbstract
-    ) {}
 }

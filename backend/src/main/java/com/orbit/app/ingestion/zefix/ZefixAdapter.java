@@ -20,6 +20,7 @@ import com.orbit.app.ingestion.dto.RawContent;
 import com.orbit.app.ingestion.dto.SourceRef;
 import com.orbit.app.ingestion.zefix.dto.ZefixCompanySummary;
 import com.orbit.app.llm.LlmSummaryService;
+import com.orbit.app.util.JsonUtils;
 
 /**
  * Zefix adapter — ingests company data from the Swiss Central Business Name Index.
@@ -98,25 +99,25 @@ public class ZefixAdapter implements SourceAdapter {
         }
 
         // Parse the company data
-        String name = company.path("name").asText("");
-        String rawUid = company.path("uid").asText("");
-        String purpose = company.path("purpose").asText("");
-        String legalSeat = company.path("legalSeat").asText("");
-        String canton = company.path("canton").asText("");
-        String status = company.path("status").asText("");
+        String name = company.path("name").asString("");
+        String rawUid = company.path("uid").asString("");
+        String purpose = company.path("purpose").asString("");
+        String legalSeat = company.path("legalSeat").asString("");
+        String canton = company.path("canton").asString("");
+        String status = company.path("status").asString("");
 
         JsonNode legalFormNode = company.path("legalForm");
-        String legalFormShort = legalFormNode.path("shortName").path("de").asText("");
-        String legalFormName = legalFormNode.path("name").path("de").asText("");
+        String legalFormShort = legalFormNode.path("shortName").path("de").asString("");
+        String legalFormName = legalFormNode.path("name").path("de").asString("");
 
         JsonNode addrNode = company.path("address");
-        String street = addrNode.path("street").asText("");
-        String houseNumber = addrNode.path("houseNumber").asText("");
-        String zipCode = addrNode.path("swissZipCode").asText("");
-        String city = addrNode.path("city").asText("");
+        String street = addrNode.path("street").asString("");
+        String houseNumber = addrNode.path("houseNumber").asString("");
+        String zipCode = addrNode.path("swissZipCode").asString("");
+        String city = addrNode.path("city").asString("");
 
-        String capitalNominal = company.path("capitalNominal").asText("");
-        String capitalCurrency = company.path("capitalCurrency").asText("");
+        String capitalNominal = company.path("capitalNominal").asString("");
+        String capitalCurrency = company.path("capitalCurrency").asString("");
 
         log.info("Zefix company: {} (UID={}, status={}, purpose={} chars)",
                 name, rawUid, status, purpose.length());
@@ -138,7 +139,7 @@ public class ZefixAdapter implements SourceAdapter {
         metadata.put("city", city);
         metadata.put("capital_nominal", capitalNominal);
         metadata.put("capital_currency", capitalCurrency);
-        metadata.put("cantonal_excerpt_url", company.path("cantonalExcerptWeb").asText(""));
+        metadata.put("cantonal_excerpt_url", company.path("cantonalExcerptWeb").asString(""));
 
         // The raw text stored in sources.raw_content is the purpose text
         return new RawContent(purpose, metadata, Instant.now());
@@ -279,12 +280,12 @@ public class ZefixAdapter implements SourceAdapter {
             return java.util.stream.StreamSupport.stream(response.spliterator(), false)
                     .limit(limit)
                     .map(node -> new ZefixCompanySummary(
-                            node.path("name").asText(""),
-                            normalizeUid(node.path("uid").asText("")),
-                            node.path("legalSeat").asText(""),
-                            node.path("canton").asText(""),
-                            node.path("legalForm").path("shortName").path("de").asText(""),
-                            node.path("status").asText("")))
+                            node.path("name").asString(""),
+                            normalizeUid(node.path("uid").asString("")),
+                            node.path("legalSeat").asString(""),
+                            node.path("canton").asString(""),
+                            node.path("legalForm").path("shortName").path("de").asString(""),
+                            node.path("status").asString("")))
                     .toList();
         } catch (Exception e) {
             log.warn("Zefix search failed for '{}': {}", name, e.getMessage());
@@ -317,9 +318,9 @@ public class ZefixAdapter implements SourceAdapter {
 
             // Take the first (top) result
             JsonNode first = response.get(0);
-            String foundName = first.path("name").asText("");
-            String uid = first.path("uid").asText("");
-            String legalSeat = first.path("legalSeat").asText("");
+            String foundName = first.path("name").asString("");
+            String uid = first.path("uid").asString("");
+            String legalSeat = first.path("legalSeat").asString("");
 
             log.info("Zefix search for '{}' → top match: {} (UID={}, seat={})", name, foundName, uid, legalSeat);
             return uid;
@@ -377,10 +378,6 @@ public class ZefixAdapter implements SourceAdapter {
 
     /** Escape a string for embedding in a JSON string value. */
     private static String escapeJson(String text) {
-        return text.replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-                .replace("\r", "\\r")
-                .replace("\t", "\\t");
+        return JsonUtils.escapeJson(text);
     }
 }

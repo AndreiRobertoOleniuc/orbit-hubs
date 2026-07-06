@@ -18,7 +18,7 @@ import com.orbit.app.ingestion.dto.ExternalId;
 import com.orbit.app.ingestion.dto.RawContent;
 import com.orbit.app.ingestion.dto.SourceRef;
 import com.orbit.app.ingestion.website.WebsiteContentExtractor;
-import com.orbit.app.ingestion.website.WebsiteContentExtractor.PageResult;
+import com.orbit.app.ingestion.website.dto.PageResult;
 import com.orbit.app.llm.LlmSummaryService;
 
 /**
@@ -150,7 +150,6 @@ public class CompanyWebsiteAdapter implements SourceAdapter {
 
     @Override
     public String buildLabel(RawContent raw) {
-        @SuppressWarnings("unchecked")
         Map<String, Object> meta = raw.metadata();
         String siteName = (String) meta.getOrDefault("site_name", "");
         String domain = (String) meta.getOrDefault("domain", "");
@@ -159,7 +158,6 @@ public class CompanyWebsiteAdapter implements SourceAdapter {
 
     @Override
     public List<ExternalId> extractExternalIds(RawContent raw) {
-        @SuppressWarnings("unchecked")
         Map<String, Object> meta = raw.metadata();
         java.util.List<ExternalId> ids = new java.util.ArrayList<>();
 
@@ -179,7 +177,6 @@ public class CompanyWebsiteAdapter implements SourceAdapter {
 
     @Override
     public EntityProfile deriveProfile(RawContent raw) {
-        @SuppressWarnings("unchecked")
         Map<String, Object> meta = raw.metadata();
         String domain = (String) meta.getOrDefault("domain", "");
         String siteName = (String) meta.getOrDefault("site_name", "");
