@@ -1,12 +1,11 @@
-import { createBrowserRouter, Navigate } from "react-router-dom"
+import { createBrowserRouter } from "react-router-dom"
 
 import { AppLayout } from "@/components/layout/AppLayout"
 import { AuthGuard } from "@/features/auth/AuthGuard"
-import { BoardPage } from "@/pages/BoardPage"
 import { NotFoundPage } from "@/pages/NotFoundPage"
 import { OnboardingPage } from "@/pages/OnboardingPage"
 import { ProfilePage } from "@/pages/ProfilePage"
-import { SearchPage } from "@/pages/SearchPage"
+import { StartPage } from "@/pages/StartPage"
 
 /**
  * (public) routes are reachable token-free.
@@ -17,11 +16,8 @@ export const router = createBrowserRouter([
     path: "/",
     element: <AppLayout />,
     children: [
-      { index: true, element: <Navigate to="/search" replace /> },
-
       // (public)
-      { path: "search", element: <SearchPage /> },
-      { path: "board", element: <BoardPage /> },
+      { index: true, element: <StartPage /> },
       { path: "profile/:entityId", element: <ProfilePage /> },
 
       // (auth)

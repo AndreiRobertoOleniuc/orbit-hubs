@@ -1,5 +1,6 @@
 package com.orbit.domain.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import com.orbit.domain.entity.Source;
@@ -13,4 +14,7 @@ public interface SourceRepository extends JpaRepository<Source, Long> {
      * Re-ingesting the same URL upserts the existing row.
      */
     Optional<Source> findBySourceUrl(String sourceUrl);
+
+    /** All evidence feeds of one entity, oldest first (stable citation order). */
+    List<Source> findByEntityIdOrderByCreatedAtAsc(Long entityId);
 }

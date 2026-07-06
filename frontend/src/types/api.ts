@@ -35,3 +35,39 @@ export interface IngestionResponseDto {
   results: IngestionResultDto[]
   error?: string
 }
+
+// ─── Entities (profile read models) ───
+
+export type EntityType = "person" | "organization"
+
+export interface EntitySourceDto {
+  id: number
+  sourceType: string
+  label: string | null
+  sourceUrl: string | null
+  fetchStatus: string | null
+  fetchedAt: string | null
+}
+
+export interface EntityDto {
+  id: number
+  entityType: EntityType
+  displayName: string
+  headline: string | null
+  orgName: string | null
+  status: string
+  metadata: Record<string, unknown> | null
+  createdAt: string | null
+  sources: EntitySourceDto[]
+}
+
+// ─── Zefix (Handelsregister autocomplete) ───
+
+export interface ZefixCompanyDto {
+  name: string
+  uid: string
+  legalSeat: string
+  canton: string
+  legalForm: string
+  status: string
+}

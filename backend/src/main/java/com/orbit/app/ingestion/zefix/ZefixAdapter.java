@@ -18,6 +18,7 @@ import com.orbit.app.ingestion.dto.EntityProfile;
 import com.orbit.app.ingestion.dto.ExternalId;
 import com.orbit.app.ingestion.dto.RawContent;
 import com.orbit.app.ingestion.dto.SourceRef;
+import com.orbit.app.ingestion.zefix.dto.ZefixCompanySummary;
 import com.orbit.app.llm.LlmSummaryService;
 
 /**
@@ -250,6 +251,46 @@ public class ZefixAdapter implements SourceAdapter {
     }
 
     // ─── Zefix API calls ───
+
+    /**
+     * Search companies by name for onboarding autocomplete. Returns up to
+     * {@code limit} active companies with normalized UIDs. Missing credentials
+     * or an API failure degrade to an empty list so the onboarding UI can fall
+     * back to manual capture.
+     */
+    public List<ZefixCompanySummary> searchCompanies(String name, int limit) {
+        if (zefixUser == null || zefixUser.isBlank() || zefixKey == null || zefixKey.isBlank()) {
+            log.warn("Zefix search skipped: credentials not configured (ZEFIX_USER/ZEFIX_KEY)");
+            return List.of();
+        }
+        try {
+            String requestBody = "{\"name\":\"" + escapeJson(name) + "\",\"activeOnly\":true}";
+            JsonNode response = restClient.post()
+                    .uri("/api/v1/company/search")
+                    .headers(h -> h.setBasicAuth(zefixUser, zefixKey))
+                    .body(requestBody)
+                    .retrieve()
+                    .body(JsonNode.class);
+
+            if (response == null || !response.isArray() || response.isEmpty()) {
+                return List.of();
+            }
+
+            return java.util.stream.StreamSupport.stream(response.spliterator(), false)
+                    .limit(limit)
+                    .map(node -> new ZefixCompanySummary(
+                            node.path("name").asText(""),
+                            normalizeUid(node.path("uid").asText("")),
+                            node.path("legalSeat").asText(""),
+                            node.path("canton").asText(""),
+                            node.path("legalForm").path("shortName").path("de").asText(""),
+                            node.path("status").asText("")))
+                    .toList();
+        } catch (Exception e) {
+            log.warn("Zefix search failed for '{}': {}", name, e.getMessage());
+            return List.of();
+        }
+    }
 
     /**
      * Search companies by name. Returns the UID of the top match.

@@ -111,8 +111,12 @@ public class IngestionOrchestrator {
         }
 
         // 3. RESOLVE IDENTITY (before creating an entity)
+        // Resolution order: external ids → the requesting user's own entity → create new.
+        // The owner fallback makes all sources of one onboarding converge onto ONE
+        // entity even when their external id types are disjoint (zefix_uid vs domain).
         List<ExternalId> extIds = adapter.extractExternalIds(raw);
-        Optional<Long> existingEntityId = findEntityByAnyId(extIds);
+        Optional<Long> existingEntityId = findEntityByAnyId(extIds)
+                .or(() -> findEntityByOwner(ref.ownerId()));
 
         Long entityId;
         if (existingEntityId.isEmpty()) {
@@ -135,6 +139,7 @@ public class IngestionOrchestrator {
         } else {
             entityId = existingEntityId.get();
             log.debug("Reusing existing entity #{}", entityId);
+            claimIfUnowned(entityId, ref.ownerId());
             for (ExternalId id : extIds) {
                 if (!identifiers.existsByIdTypeAndIdValue(id.idType(), id.idValue())) {
                     identifiers.save(new EntityIdentifier(entityId, id.idType(), id.idValue()));
@@ -245,6 +250,38 @@ public class IngestionOrchestrator {
             }
         }
         return Optional.empty();
+    }
+
+    /**
+     * Fallback resolution for signed-in ingestion: a user's sources always land
+     * on the entity they already own. Onboarding is one entity per account, so
+     * the newest owned entity is the only one under normal operation.
+     */
+    private Optional<Long> findEntityByOwner(String ownerId) {
+        if (ownerId == null) {
+            return Optional.empty();
+        }
+        return entities.findByOwnerIdOrderByCreatedAtDesc(ownerId).stream()
+                .findFirst()
+                .map(DiscoveryEntity::getId);
+    }
+
+    /**
+     * When external ids resolve onto a previously harvested (unowned) entity,
+     * the ingesting user takes ownership so it appears under /me/entities.
+     * Provisional Stage-1 behavior — proper claim verification is a later stage.
+     */
+    private void claimIfUnowned(Long entityId, String ownerId) {
+        if (ownerId == null) {
+            return;
+        }
+        entities.findById(entityId).ifPresent(entity -> {
+            if (entity.getOwnerId() == null) {
+                entity.setOwnerId(ownerId);
+                entities.save(entity);
+                log.info("Entity #{} claimed by user {}", entityId, ownerId);
+            }
+        });
     }
 
     private Source upsertSource(Long entityId, SourceRef ref, String label,

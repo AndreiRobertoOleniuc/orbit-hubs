@@ -1,9 +1,11 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react"
 
 import type {
+  EntityDto,
   IngestionRequestDto,
   IngestionResponseDto,
   MeDto,
+  ZefixCompanyDto,
 } from "@/types/api"
 
 interface StateWithAuth {
@@ -27,9 +29,28 @@ export const apiSlice = createApi({
   reducerPath: "api",
   baseQuery,
   refetchOnMountOrArgChange: true,
+  tagTypes: ["MyEntities", "Entity"],
   endpoints: (builder) => ({
     getMe: builder.query<MeDto, void>({
       query: () => "/me",
+    }),
+
+    // ─── Entities ───
+
+    getEntity: builder.query<EntityDto, number | string>({
+      query: (id) => `/entities/${id}`,
+      providesTags: (_result, _error, id) => [{ type: "Entity", id }],
+    }),
+
+    getMyEntities: builder.query<EntityDto[], void>({
+      query: () => "/me/entities",
+      providesTags: ["MyEntities"],
+    }),
+
+    // ─── Zefix (Handelsregister autocomplete) ───
+
+    searchZefix: builder.query<ZefixCompanyDto[], string>({
+      query: (name) => `/zefix/search?name=${encodeURIComponent(name)}`,
     }),
 
     // ─── Ingestion ───
@@ -40,6 +61,7 @@ export const apiSlice = createApi({
         method: "POST",
         body,
       }),
+      invalidatesTags: ["MyEntities"],
     }),
 
     uploadLinkedInPdf: builder.mutation<IngestionResponseDto, File>({
@@ -52,6 +74,7 @@ export const apiSlice = createApi({
           body: formData,
         }
       },
+      invalidatesTags: ["MyEntities"],
     }),
   }),
 })
@@ -59,6 +82,9 @@ export const apiSlice = createApi({
 export const {
   useGetMeQuery,
   useLazyGetMeQuery,
+  useGetEntityQuery,
+  useGetMyEntitiesQuery,
+  useLazySearchZefixQuery,
   useIngestSourceMutation,
   useUploadLinkedInPdfMutation,
 } = apiSlice

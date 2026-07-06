@@ -10,7 +10,7 @@ export function NotFoundPage() {
         Diese Seite konnte nicht gefunden werden.
       </p>
       <Button asChild>
-        <Link to="/search">Zurück zur Suche</Link>
+        <Link to="/">Zur Startseite</Link>
       </Button>
     </div>
   )
