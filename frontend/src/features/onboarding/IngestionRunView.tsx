@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom"
-import { CircleCheck, CircleX, Loader2 } from "lucide-react"
+import { CircleCheck, CircleX, Loader2, RotateCcw } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { SourceGlyph } from "@/components/SourceGlyph"
@@ -11,6 +11,8 @@ interface IngestionRunViewProps {
   phase: Exclude<RunPhase, "idle">
   jobs: JobState[]
   supply: boolean
+  /** Re-run a single failed source. */
+  onRetry: (id: string) => void
 }
 
 /** Live per-source ingestion progress, then the completion screen with profile preview. */
@@ -18,16 +20,15 @@ export function IngestionRunView({
   phase,
   jobs,
   supply,
+  onRetry,
 }: IngestionRunViewProps) {
   const navigate = useNavigate()
   const failed = jobs.filter((j) => j.status === "error")
 
   // After ingestion completes, fetch the entity to show the profile preview.
   // The ingestion mutations invalidate "MyEntities" so this refetches automatically.
-  const { data: myEntities, isLoading: entitiesLoading } = useGetMyEntitiesQuery(
-    undefined,
-    { skip: phase !== "done" },
-  )
+  const { data: myEntities, isLoading: entitiesLoading } =
+    useGetMyEntitiesQuery(undefined, { skip: phase !== "done" })
 
   const entity = myEntities?.[0]
 
@@ -84,7 +85,17 @@ export function IngestionRunView({
               <CircleCheck className="size-5 text-muted-foreground" />
             )}
             {job.status === "error" && (
-              <CircleX className="size-5 text-destructive" />
+              <div className="flex shrink-0 items-center gap-2">
+                <CircleX className="size-5 text-destructive" />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onRetry(job.id)}
+                >
+                  <RotateCcw className="size-3.5" />
+                  Erneut versuchen
+                </Button>
+              </div>
             )}
           </div>
         ))}
@@ -113,8 +124,8 @@ export function IngestionRunView({
               {failed.length > 0 && (
                 <p className="text-sm text-muted-foreground">
                   {failed.length} Quelle{failed.length > 1 ? "n" : ""} konnte
-                  {failed.length > 1 ? "n" : ""} nicht gelesen werden — du
-                  kannst sie später in deinem Profil erneut verlinken.
+                  {failed.length > 1 ? "n" : ""} nicht gelesen werden — versuch
+                  es oben erneut oder verlinke sie später in deinem Profil.
                 </p>
               )}
               <Button className="min-w-60" onClick={() => navigate("/profile")}>

@@ -44,6 +44,8 @@ export function useIngestionRun() {
   const [phase, setPhase] = useState<RunPhase>("idle")
   const [jobs, setJobs] = useState<JobState[]>([])
   const startedRef = useRef(false)
+  // Kept so a failed source can be re-run without rebuilding the wizard state.
+  const specsRef = useRef<JobSpec[]>([])
 
   const run = useCallback(
     async ({ isOrg, firm, sources, description }: WizardIngestInput) => {
@@ -82,6 +84,7 @@ export function useIngestionRun() {
         })
       }
 
+      specsRef.current = specs
       setJobs(
         specs.map(({ id, label, glyph }) => ({
           id,
@@ -110,5 +113,24 @@ export function useIngestionRun() {
     [ingestRequest, ingestSourceKind]
   )
 
-  return { phase, jobs, run }
+  /** Re-run a single source that failed, updating just that job's status. */
+  const retry = useCallback(async (id: string) => {
+    const spec = specsRef.current.find((s) => s.id === id)
+    if (!spec) return
+    setJobs((prev) =>
+      prev.map((j) =>
+        j.id === id ? { ...j, status: "running", detail: undefined } : j
+      )
+    )
+    const outcome = await spec.exec()
+    setJobs((prev) =>
+      prev.map((j) =>
+        j.id === id
+          ? { ...j, status: outcome.status, detail: outcome.detail }
+          : j
+      )
+    )
+  }, [])
+
+  return { phase, jobs, run, retry }
 }

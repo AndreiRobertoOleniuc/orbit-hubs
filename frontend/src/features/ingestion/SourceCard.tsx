@@ -1,14 +1,11 @@
 import { useRef, useState } from "react"
-import { Check, Loader2, Minus, Plus, X } from "lucide-react"
+import { Check, ExternalLink, Loader2, Minus, Plus, X } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { SourceGlyph } from "@/components/SourceGlyph"
-import type {
-  SourceDef,
-  SourceDraft,
-} from "@/features/ingestion/types"
+import type { SourceDef, SourceDraft } from "@/features/ingestion/types"
 import { cn } from "@/lib/utils"
 
 interface SourceCardProps {
@@ -102,52 +99,74 @@ export function SourceCard({
       )}
 
       {open && !added && (
-        <div className="flex gap-2 border-t px-4 py-3">
-          {def.upload ? (
-            <>
-              <input
-                ref={fileRef}
-                type="file"
-                accept=".pdf"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (file) commit(file.name, file)
-                }}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                className="flex-1"
-                onClick={() => fileRef.current?.click()}
-              >
-                PDF auswählen…
-              </Button>
-            </>
-          ) : (
-            <>
-              <Input
-                autoFocus
-                placeholder={def.placeholder}
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && value.trim()) commit(value.trim())
-                }}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                disabled={!value.trim()}
-                onClick={() => commit(value.trim())}
-              >
-                Hinzufügen
-              </Button>
-            </>
+        <div className="border-t">
+          {def.guide && (
+            <div className="space-y-1 px-4 pt-3 text-xs text-muted-foreground">
+              <p className="font-medium text-foreground">{def.guide.intro}</p>
+              <ol className="list-decimal space-y-0.5 pl-4">
+                {def.guide.steps.map((step, i) => (
+                  <li key={i}>{step}</li>
+                ))}
+              </ol>
+              {def.guide.link && (
+                <a
+                  href={def.guide.link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-primary hover:underline"
+                >
+                  {def.guide.link.label}
+                  <ExternalLink className="size-3" />
+                </a>
+              )}
+            </div>
           )}
+          <div className="flex gap-2 px-4 py-3">
+            {def.upload ? (
+              <>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept=".pdf"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) commit(file.name, file)
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => fileRef.current?.click()}
+                >
+                  PDF auswählen…
+                </Button>
+              </>
+            ) : (
+              <>
+                <Input
+                  autoFocus
+                  placeholder={def.placeholder}
+                  value={value}
+                  onChange={(e) => setValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && value.trim()) commit(value.trim())
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={!value.trim()}
+                  onClick={() => commit(value.trim())}
+                >
+                  Hinzufügen
+                </Button>
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>
   )
 }
-

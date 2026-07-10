@@ -79,7 +79,10 @@ export const apiSlice = createApi({
 
     // ─── Entity tag & summary editing ───
 
-    updateEntityTags: builder.mutation<EntityDto, { entityId: number; tags: string[] }>({
+    updateEntityTags: builder.mutation<
+      EntityDto,
+      { entityId: number; tags: string[] }
+    >({
       query: ({ entityId, tags }) => ({
         url: `/entities/${entityId}/tags`,
         method: "PUT",
@@ -91,7 +94,10 @@ export const apiSlice = createApi({
       ],
     }),
 
-    updateEntitySummary: builder.mutation<EntityDto, { entityId: number; summary: string }>({
+    updateEntitySummary: builder.mutation<
+      EntityDto,
+      { entityId: number; summary: string }
+    >({
       query: ({ entityId, summary }) => ({
         url: `/entities/${entityId}/summary`,
         method: "PUT",

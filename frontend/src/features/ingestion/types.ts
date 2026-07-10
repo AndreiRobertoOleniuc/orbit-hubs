@@ -10,6 +10,16 @@ export interface SourceDraft {
   file?: File
 }
 
+/** Step-by-step "how to obtain this" guidance for a source. */
+export interface SourceGuide {
+  /** One-line intro, e.g. "So findest du deine ORCID iD:". */
+  intro: string
+  /** Ordered how-to steps, rendered as a compact numbered list. */
+  steps: string[]
+  /** Optional deep link to the right page (opens in a new tab). */
+  link?: { label: string; href: string }
+}
+
 export interface SourceDef {
   kind: SourceKind
   title: string
@@ -19,6 +29,8 @@ export interface SourceDef {
   upload?: boolean
   /** Explanatory line shown under the collapsed card. */
   helper?: string
+  /** Step-by-step "how to obtain this" guidance, shown in the expanded card. */
+  guide?: SourceGuide
 }
 
 export interface PlannedSourceDef {

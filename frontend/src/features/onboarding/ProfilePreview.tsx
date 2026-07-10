@@ -5,7 +5,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import type { EntityDto } from "@/types/api"
-import { useUpdateEntitySummaryMutation, useUpdateEntityTagsMutation } from "@/lib/api"
+import {
+  useUpdateEntitySummaryMutation,
+  useUpdateEntityTagsMutation,
+} from "@/lib/api"
 import { builtFromLabels } from "@/features/profile/profileUtils"
 
 interface ProfilePreviewProps {
@@ -29,7 +32,7 @@ export function ProfilePreview({ entity, onConfirm }: ProfilePreviewProps) {
   const [editing, setEditing] = useState(false)
   const [summaryDraft, setSummaryDraft] = useState(entity.summary ?? "")
   const [tagsDraft, setTagsDraft] = useState<string[]>(
-    entity.tags.map((t) => t.label),
+    entity.tags.map((t) => t.label)
   )
   const [newTag, setNewTag] = useState("")
   const [saved, setSaved] = useState(false)
@@ -61,11 +64,18 @@ export function ProfilePreview({ entity, onConfirm }: ProfilePreviewProps) {
     // Save both summary and tags
     const promises: Promise<unknown>[] = []
     if (summaryDraft !== (entity.summary ?? "")) {
-      promises.push(updateSummary({ entityId: entity.id, summary: summaryDraft }).unwrap())
+      promises.push(
+        updateSummary({ entityId: entity.id, summary: summaryDraft }).unwrap()
+      )
     }
     const currentLabels = entity.tags.map((t) => t.label)
-    if (JSON.stringify([...tagsDraft].sort()) !== JSON.stringify([...currentLabels].sort())) {
-      promises.push(updateTags({ entityId: entity.id, tags: tagsDraft }).unwrap())
+    if (
+      JSON.stringify([...tagsDraft].sort()) !==
+      JSON.stringify([...currentLabels].sort())
+    ) {
+      promises.push(
+        updateTags({ entityId: entity.id, tags: tagsDraft }).unwrap()
+      )
     }
     await Promise.all(promises)
     setEditing(false)
@@ -77,9 +87,9 @@ export function ProfilePreview({ entity, onConfirm }: ProfilePreviewProps) {
   }
 
   return (
-    <div className="rounded-lg border bg-card p-5 space-y-4">
+    <div className="space-y-4 rounded-lg border bg-card p-5">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+        <span className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
           Profil-Vorschau
         </span>
         {saved && !editing && (

@@ -61,7 +61,7 @@ export function OwnProfileView({ entity }: { entity: EntityDto }) {
 
   const linkedSource = (kind: SourceKind) =>
     entity.sources.some((s) =>
-      KIND_TO_SOURCE_TYPES[kind].includes(s.sourceType),
+      KIND_TO_SOURCE_TYPES[kind].includes(s.sourceType)
     )
       ? { kind, value: "verknüpft" }
       : undefined
@@ -116,7 +116,9 @@ export function OwnProfileView({ entity }: { entity: EntityDto }) {
       if (result.ingested > 0) parts.push(`${result.ingested} aktualisiert`)
       if (result.skipped > 0) parts.push(`${result.skipped} unverändert`)
       if (result.errors > 0) parts.push(`${result.errors} fehlgeschlagen`)
-      setResyncMessage(parts.length > 0 ? `✓ ${parts.join(", ")}` : "✓ Profil aktualisiert")
+      setResyncMessage(
+        parts.length > 0 ? `✓ ${parts.join(", ")}` : "✓ Profil aktualisiert"
+      )
     } catch {
       setResyncMessage("Resync fehlgeschlagen — versuche es später erneut.")
     }

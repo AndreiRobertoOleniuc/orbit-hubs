@@ -10,6 +10,14 @@ export const GITHUB_SOURCE: SourceDef = {
   hint: "Username",
   glyph: "GH",
   placeholder: "z.B. mkeller-dev",
+  guide: {
+    intro: "So findest du deinen GitHub-Username:",
+    steps: [
+      "Auf github.com einloggen",
+      "Der Username steht oben rechts im Profilmenü und in der Profil-URL (github.com/<username>)",
+    ],
+    link: { label: "GitHub öffnen", href: "https://github.com" },
+  },
 }
 
 export const ORCID_SOURCE: SourceDef = {
@@ -18,6 +26,14 @@ export const ORCID_SOURCE: SourceDef = {
   hint: "iD",
   glyph: "iD",
   placeholder: "0000-0002-1825-0097",
+  guide: {
+    intro: "So findest du deine ORCID iD:",
+    steps: [
+      "Auf orcid.org registrieren oder einloggen",
+      "Die 16-stellige iD steht links im Profil (Form 0000-0002-1825-0097)",
+    ],
+    link: { label: "orcid.org öffnen", href: "https://orcid.org" },
+  },
 }
 
 export const LINKEDIN_SOURCE: SourceDef = {
@@ -26,6 +42,19 @@ export const LINKEDIN_SOURCE: SourceDef = {
   hint: "PDF-Upload",
   glyph: "in",
   upload: true,
+  guide: {
+    intro: "So exportierst du dein LinkedIn-Profil als PDF:",
+    steps: [
+      "Eigenes Profil öffnen",
+      'Auf "Mehr" / "More" klicken',
+      '"Als PDF speichern" / "Save to PDF" wählen',
+      "Die heruntergeladene PDF hier hochladen",
+    ],
+    link: {
+      label: "LinkedIn öffnen",
+      href: "https://www.linkedin.com/in/",
+    },
+  },
 }
 
 export const WEBSITE_SOURCE: SourceDef = {
@@ -34,6 +63,13 @@ export const WEBSITE_SOURCE: SourceDef = {
   hint: "URL",
   glyph: "🌐",
   placeholder: "www.meine-seite.ch",
+  guide: {
+    intro: "Welche Website?",
+    steps: [
+      "Deine persönliche Seite, dein Portfolio oder Blog",
+      "Ganze URL inkl. Domain (www.…)",
+    ],
+  },
 }
 
 export const COMPANY_WEBSITE_SOURCE: SourceDef = {

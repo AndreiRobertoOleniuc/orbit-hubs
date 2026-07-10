@@ -37,7 +37,7 @@ export function OnboardingWizard() {
   const [sources, setSources] = useState<SourceDraft[]>([])
   const [description, setDescription] = useState("")
   const [stepIndex, setStepIndex] = useState(0)
-  const { phase, jobs, run } = useIngestionRun()
+  const { phase, jobs, run, retry } = useIngestionRun()
   const { data: myEntities, isLoading: entitiesLoading } =
     useGetMyEntitiesQuery()
 
@@ -53,7 +53,14 @@ export function OnboardingWizard() {
   }
 
   if (phase !== "idle") {
-    return <IngestionRunView phase={phase} jobs={jobs} supply={supply} />
+    return (
+      <IngestionRunView
+        phase={phase}
+        jobs={jobs}
+        supply={supply}
+        onRetry={retry}
+      />
+    )
   }
 
   // Onboarding is a one-time flow. Guarded only while idle: during the run the
