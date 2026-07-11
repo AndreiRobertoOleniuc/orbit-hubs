@@ -1,5 +1,7 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react"
+import type { BaseQueryApi, FetchArgs } from "@reduxjs/toolkit/query/react"
 
+import { getFreshToken } from "@/lib/clerkToken"
 import type {
   AffiliationKind,
   EntityDto,
@@ -39,22 +41,38 @@ export interface HubMutationBody {
   hubType?: string | null
   regionId: number
 }
-interface StateWithAuth {
-  auth: { token: string | null }
-}
-
 const baseUrl = `${import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080"}/api/v1`
 
-const baseQuery = fetchBaseQuery({
+const rawBaseQuery = fetchBaseQuery({
   baseUrl,
-  prepareHeaders: (headers, { getState }) => {
-    const token = (getState() as StateWithAuth).auth.token
+  prepareHeaders: async (headers) => {
+    // Fetch a fresh token per request; Clerk refreshes it transparently when
+    // near expiry, so an idle tab no longer sends an expired snapshot.
+    const token = await getFreshToken()
     if (token) {
       headers.set("Authorization", `Bearer ${token}`)
     }
     return headers
   },
 })
+
+/**
+ * Wraps the base query so a 401 (token expired in-flight or at the expiry
+ * boundary) forces Clerk to mint a new token and retries the request once,
+ * instead of surfacing the error to the UI.
+ */
+const baseQuery = async (
+  args: string | FetchArgs,
+  api: BaseQueryApi,
+  extraOptions: object
+) => {
+  let result = await rawBaseQuery(args, api, extraOptions)
+  if (result.error?.status === 401) {
+    await getFreshToken({ skipCache: true })
+    result = await rawBaseQuery(args, api, extraOptions)
+  }
+  return result
+}
 
 export const apiSlice = createApi({
   reducerPath: "api",

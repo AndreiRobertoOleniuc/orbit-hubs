@@ -94,7 +94,7 @@ Each domain area has a `@Service` class that owns all business logic:
 
 ### Exception → HTTP status mapping
 
-Services communicate error conditions by throwing exceptions, caught by `@ExceptionHandler` in the controller:
+A single `@RestControllerAdvice` (`GlobalExceptionHandler` in `com.orbit.app.controllers`) maps service-thrown exceptions to HTTP status codes globally. **No controller has its own `@ExceptionHandler`.**
 
 | Exception | HTTP status | When |
 |-----------|-------------|------|
@@ -112,16 +112,15 @@ private DiscoveryEntity loadOwnedEntity(Long id) {
     return entity;
 }
 
-// Controller — exception handler + null → response mapping
-@ExceptionHandler(EntityAccessDeniedException.class)
-ResponseEntity<Void> handleAccessDenied() { return ResponseEntity.status(403).build(); }
-
-@ExceptionHandler(IllegalArgumentException.class)
-ResponseEntity<Void> handleBadRequest() { return ResponseEntity.badRequest().build(); }
-
-// In the endpoint method:
+// Controller — just delegates, no exception handling
 EntityDto dto = entityService.updateAvailability(id, ...);
 return dto != null ? ResponseEntity.ok(dto) : ResponseEntity.notFound().build();
+
+// GlobalExceptionHandler — one place for all exception → status mapping
+@ExceptionHandler(EntityAccessDeniedException.class)
+public ResponseEntity<Void> handleAccessDenied(EntityAccessDeniedException ex) {
+    return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+}
 ```
 
 ### Transaction boundaries

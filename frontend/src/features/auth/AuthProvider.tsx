@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react"
 import { useAuth as useClerkAuth, useUser } from "@clerk/react"
 
 import { setAuthStatus, setAuthUser, setToken } from "@/features/auth/authSlice"
+import { setTokenGetter } from "@/lib/clerkToken"
 import { useAppDispatch } from "@/lib/hooks"
 
 const DEV_JWT: string | undefined = import.meta.env.VITE_DEV_JWT
@@ -30,6 +31,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (DEV_JWT) {
+      setTokenGetter(() => Promise.resolve(DEV_JWT))
       dispatch(setToken(DEV_JWT))
       dispatch(setAuthStatus("authenticated"))
       return
@@ -41,11 +43,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (!clerkAuth.isSignedIn) {
+      setTokenGetter(null)
       dispatch(setToken(null))
       dispatch(setAuthUser(null))
       dispatch(setAuthStatus("unauthenticated"))
       return
     }
+
+    // Resolve a fresh token per request from Clerk (which refreshes it when
+    // near expiry) rather than reusing the snapshot below, which goes stale
+    // after idle and 401s. The slice token stays only as an auth-state signal.
+    setTokenGetter((options) => clerkAuthRef.current.getToken(options))
 
     if (syncingRef.current) return
     syncingRef.current = true

@@ -12,7 +12,6 @@ import com.orbit.app.controllers.dto.UpdateProfileMetaRequest;
 import com.orbit.app.controllers.dto.UpdateSubscriptionsRequest;
 import com.orbit.app.controllers.dto.UpdateSummaryRequest;
 import com.orbit.app.controllers.dto.UpdateTagsRequest;
-import com.orbit.app.profile.EntityAccessDeniedException;
 import com.orbit.app.profile.EntityService;
 
 import org.springframework.http.ResponseEntity;
@@ -21,7 +20,8 @@ import org.springframework.web.bind.annotation.*;
 /**
  * Thin REST controller for entity profile endpoints. All business logic lives
  * in {@link EntityService} — this class only maps HTTP to service calls and
- * back to HTTP responses.
+ * back to HTTP responses. Exception → HTTP status mapping is handled globally
+ * by {@link GlobalExceptionHandler}.
  */
 @RestController
 class EntityController {
@@ -30,16 +30,6 @@ class EntityController {
 
     EntityController(EntityService entityService) {
         this.entityService = entityService;
-    }
-
-    @ExceptionHandler(EntityAccessDeniedException.class)
-    ResponseEntity<Void> handleAccessDenied() {
-        return ResponseEntity.status(403).build();
-    }
-
-    @ExceptionHandler(IllegalArgumentException.class)
-    ResponseEntity<Void> handleBadRequest() {
-        return ResponseEntity.badRequest().build();
     }
 
     @GetMapping("/api/v1/entities/{id}")
@@ -125,7 +115,7 @@ class EntityController {
 
     /**
      * EntityService returns null when the entity is not found (→ 404).
-     * Not-owner is thrown as {@link EntityAccessDeniedException} (→ 403 via
+     * Not-owner is thrown as {@link com.orbit.app.profile.EntityAccessDeniedException} (→ 403 via
      * the exception handler above). Invalid input is thrown as
      * {@link IllegalArgumentException} (→ 400).
      */

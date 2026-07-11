@@ -15,19 +15,14 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 
 /**
  * Thin REST controller for admin hub management. All business logic (CRUD,
  * admin authorization, slug resolution) lives in {@link HubService}.
+ * Exception → HTTP status mapping is handled globally by {@link GlobalExceptionHandler}.
  */
 @RestController
 class AdminHubController {
-
-    @ExceptionHandler(IllegalArgumentException.class)
-    ResponseEntity<Void> handleBadRequest() {
-        return ResponseEntity.badRequest().build();
-    }
 
     private final HubService hubService;
 
@@ -37,19 +32,16 @@ class AdminHubController {
 
     @GetMapping("/api/v1/admin/hubs")
     ResponseEntity<List<HubDto>> list() {
-        if (!hubService.isAdmin()) return ResponseEntity.status(403).build();
-        return ResponseEntity.ok(hubService.listHubs());
+        return ResponseEntity.ok(hubService.listHubsAsAdmin());
     }
 
     @GetMapping("/api/v1/admin/regions")
     ResponseEntity<List<RegionDto>> listRegions() {
-        if (!hubService.isAdmin()) return ResponseEntity.status(403).build();
-        return ResponseEntity.ok(hubService.listRegions());
+        return ResponseEntity.ok(hubService.listRegionsAsAdmin());
     }
 
     @PostMapping("/api/v1/admin/hubs")
     ResponseEntity<HubDto> create(@RequestBody HubMutationRequest request) {
-        if (!hubService.isAdmin()) return ResponseEntity.status(403).build();
         HubDto dto = hubService.createHub(request.name(), request.slug(),
                 request.hubType(), request.regionId());
         return dto != null ? ResponseEntity.ok(dto) : ResponseEntity.badRequest().build();
@@ -57,7 +49,6 @@ class AdminHubController {
 
     @PutMapping("/api/v1/admin/hubs/{id}")
     ResponseEntity<HubDto> update(@PathVariable Long id, @RequestBody HubMutationRequest request) {
-        if (!hubService.isAdmin()) return ResponseEntity.status(403).build();
         HubDto dto = hubService.updateHub(id, request.name(), request.slug(),
                 request.hubType(), request.regionId());
         return dto != null ? ResponseEntity.ok(dto) : ResponseEntity.notFound().build();
@@ -65,7 +56,6 @@ class AdminHubController {
 
     @DeleteMapping("/api/v1/admin/hubs/{id}")
     ResponseEntity<Void> delete(@PathVariable Long id) {
-        if (!hubService.isAdmin()) return ResponseEntity.status(403).build();
         return hubService.deleteHub(id)
                 ? ResponseEntity.noContent().build()
                 : ResponseEntity.notFound().build();

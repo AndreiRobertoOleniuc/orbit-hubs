@@ -48,14 +48,23 @@ public class HubService {
                 .toList();
     }
 
-    // ─── Admin CRUD ───
+    // ─── Admin reads ───
 
-    public boolean isAdmin() {
-        return adminAccess.isAdmin(currentUser.userId().orElse(null));
+    public List<HubDto> listHubsAsAdmin() {
+        requireAdmin();
+        return listHubs();
     }
+
+    public List<RegionDto> listRegionsAsAdmin() {
+        requireAdmin();
+        return listRegions();
+    }
+
+    // ─── Admin CRUD ───
 
     @Transactional
     public HubDto createHub(String name, String slug, String hubType, Long regionId) {
+        requireAdmin();
         if (name == null || name.isBlank() || regionId == null
                 || regions.findById(regionId).isEmpty()) {
             return null;
@@ -67,6 +76,7 @@ public class HubService {
 
     @Transactional
     public HubDto updateHub(Long id, String name, String slug, String hubType, Long regionId) {
+        requireAdmin();
         Hub hub = hubs.findById(id).orElse(null);
         if (hub == null) return null;
         if (regionId != null && regions.findById(regionId).isEmpty()) {
@@ -83,9 +93,16 @@ public class HubService {
 
     @Transactional
     public boolean deleteHub(Long id) {
+        requireAdmin();
         if (hubs.findById(id).isEmpty()) return false;
         hubs.deleteById(id);
         return true;
+    }
+
+    private void requireAdmin() {
+        if (!adminAccess.isAdmin(currentUser.userId().orElse(null))) {
+            throw new HubAccessDeniedException();
+        }
     }
 
     private String resolveSlug(String slug, String name) {
