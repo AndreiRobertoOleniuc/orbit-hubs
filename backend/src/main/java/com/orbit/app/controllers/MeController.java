@@ -2,6 +2,7 @@ package com.orbit.app.controllers;
 
 import java.util.Map;
 
+import com.orbit.app.admin.AdminAccess;
 import com.orbit.app.auth.CurrentUser;
 
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,16 +19,20 @@ import org.springframework.web.bind.annotation.RestController;
 class MeController {
 
     private final CurrentUser currentUser;
+    private final AdminAccess adminAccess;
 
-    MeController(CurrentUser currentUser) {
+    MeController(CurrentUser currentUser, AdminAccess adminAccess) {
         this.currentUser = currentUser;
+        this.adminAccess = adminAccess;
     }
 
     @GetMapping("/api/v1/me")
-    Map<String, String> me() {
+    Map<String, Object> me() {
+        String userId = currentUser.userId().orElse("");
         return Map.of(
-                "userId", currentUser.userId().orElse(""),
-                "email", currentUser.email().orElse(""));
+                "userId", userId,
+                "email", currentUser.email().orElse(""),
+                "isAdmin", adminAccess.isAdmin(userId));
     }
 
 }

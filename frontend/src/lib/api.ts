@@ -1,13 +1,44 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react"
 
 import type {
+  AffiliationKind,
   EntityDto,
+  HubDto,
   IngestionRequestDto,
   IngestionResponseDto,
   MeDto,
+  ProfileMode,
+  RegionDto,
   ResyncResponseDto,
+  SubscriptionDto,
+  TagRefDto,
   ZefixCompanyDto,
 } from "@/types/api"
+
+/** Body for PUT /entities/{id}/availability. */
+export interface UpdateAvailabilityBody {
+  openToRequests: boolean
+  availableFrom: string | null
+  availableTo: string | null
+  pensumPct: number | null
+  note: string | null
+  preferredCollaboration: string[]
+}
+
+/** Body for PUT /entities/{id}/profile-meta. */
+export interface UpdateProfileMetaBody {
+  affiliationKind: AffiliationKind | null
+  languages: string[]
+  locationLabel: string | null
+}
+
+/** Body for admin hub create/edit. */
+export interface HubMutationBody {
+  name: string
+  slug?: string
+  hubType?: string | null
+  regionId: number
+}
 interface StateWithAuth {
   auth: { token: string | null }
 }
@@ -29,7 +60,7 @@ export const apiSlice = createApi({
   reducerPath: "api",
   baseQuery,
   refetchOnMountOrArgChange: true,
-  tagTypes: ["MyEntities", "Entity"],
+  tagTypes: ["MyEntities", "Entity", "Hubs", "Subscriptions"],
   endpoints: (builder) => ({
     getMe: builder.query<MeDto, void>({
       query: () => "/me",
@@ -121,6 +152,127 @@ export const apiSlice = createApi({
         "MyEntities",
       ],
     }),
+
+    // ─── Supply-side profile editing ───
+
+    updateAvailability: builder.mutation<
+      EntityDto,
+      { entityId: number; body: UpdateAvailabilityBody }
+    >({
+      query: ({ entityId, body }) => ({
+        url: `/entities/${entityId}/availability`,
+        method: "PUT",
+        body,
+      }),
+      invalidatesTags: (_result, _error, { entityId }) => [
+        { type: "Entity", id: entityId },
+        "MyEntities",
+      ],
+    }),
+
+    updateProfileMeta: builder.mutation<
+      EntityDto,
+      { entityId: number; body: UpdateProfileMetaBody }
+    >({
+      query: ({ entityId, body }) => ({
+        url: `/entities/${entityId}/profile-meta`,
+        method: "PUT",
+        body,
+      }),
+      invalidatesTags: (_result, _error, { entityId }) => [
+        { type: "Entity", id: entityId },
+        "MyEntities",
+      ],
+    }),
+
+    updateEntityMode: builder.mutation<
+      EntityDto,
+      { entityId: number; mode: ProfileMode }
+    >({
+      query: ({ entityId, mode }) => ({
+        url: `/entities/${entityId}/mode`,
+        method: "PUT",
+        body: { mode },
+      }),
+      invalidatesTags: (_result, _error, { entityId }) => [
+        { type: "Entity", id: entityId },
+        "MyEntities",
+      ],
+    }),
+
+    updateEntityHubs: builder.mutation<
+      EntityDto,
+      { entityId: number; hubIds: number[] }
+    >({
+      query: ({ entityId, hubIds }) => ({
+        url: `/entities/${entityId}/hubs`,
+        method: "PUT",
+        body: { hubIds },
+      }),
+      invalidatesTags: (_result, _error, { entityId }) => [
+        { type: "Entity", id: entityId },
+        "MyEntities",
+      ],
+    }),
+
+    // ─── Tag subscriptions ("Abonnierte Themen") ───
+
+    getSubscriptions: builder.query<SubscriptionDto[], number>({
+      query: (entityId) => `/entities/${entityId}/subscriptions`,
+      providesTags: (_result, _error, entityId) => [
+        { type: "Subscriptions", id: entityId },
+      ],
+    }),
+
+    updateSubscriptions: builder.mutation<
+      SubscriptionDto[],
+      { entityId: number; tags: string[] }
+    >({
+      query: ({ entityId, tags }) => ({
+        url: `/entities/${entityId}/subscriptions`,
+        method: "PUT",
+        body: { tags },
+      }),
+      invalidatesTags: (_result, _error, { entityId }) => [
+        { type: "Subscriptions", id: entityId },
+      ],
+    }),
+
+    // ─── Hubs (public list + admin management) ───
+
+    getHubs: builder.query<HubDto[], void>({
+      query: () => "/hubs",
+      providesTags: ["Hubs"],
+    }),
+
+    // ─── Tag vocabulary autocomplete ───
+
+    searchTags: builder.query<TagRefDto[], string>({
+      query: (q) => `/tags?q=${encodeURIComponent(q)}`,
+    }),
+
+    getAdminRegions: builder.query<RegionDto[], void>({
+      query: () => "/admin/regions",
+    }),
+
+    createHub: builder.mutation<HubDto, HubMutationBody>({
+      query: (body) => ({ url: "/admin/hubs", method: "POST", body }),
+      invalidatesTags: ["Hubs"],
+    }),
+
+    updateHub: builder.mutation<HubDto, { id: number; body: HubMutationBody }>({
+      query: ({ id, body }) => ({
+        url: `/admin/hubs/${id}`,
+        method: "PUT",
+        body,
+      }),
+      invalidatesTags: ["Hubs"],
+    }),
+
+    deleteHub: builder.mutation<void, number>({
+      query: (id) => ({ url: `/admin/hubs/${id}`, method: "DELETE" }),
+      invalidatesTags: ["Hubs"],
+    }),
   }),
 })
 
@@ -135,4 +287,16 @@ export const {
   useUpdateEntityTagsMutation,
   useUpdateEntitySummaryMutation,
   useResyncEntityMutation,
+  useUpdateAvailabilityMutation,
+  useUpdateProfileMetaMutation,
+  useUpdateEntityModeMutation,
+  useUpdateEntityHubsMutation,
+  useGetSubscriptionsQuery,
+  useUpdateSubscriptionsMutation,
+  useGetHubsQuery,
+  useLazySearchTagsQuery,
+  useGetAdminRegionsQuery,
+  useCreateHubMutation,
+  useUpdateHubMutation,
+  useDeleteHubMutation,
 } = apiSlice

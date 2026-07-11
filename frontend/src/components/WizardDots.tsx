@@ -1,7 +1,13 @@
 import { cn } from "@/lib/utils"
 
 /** Step indicator dots for the onboarding wizard. */
-export function WizardDots({ total, current }: { total: number; current: number }) {
+export function WizardDots({
+  total,
+  current,
+}: {
+  total: number
+  current: number
+}) {
   return (
     <div
       className="flex items-center gap-2"

@@ -16,12 +16,18 @@ import {
 } from "@/features/ingestion/sourceDefs"
 import type { SourceKind } from "@/features/ingestion/types"
 import { useSourceIngestion } from "@/features/ingestion/useSourceIngestion"
+import { AvailabilityEditor } from "@/features/profile/AvailabilityEditor"
+import { HubSelector } from "@/features/profile/HubSelector"
 import { NachweisList } from "@/features/profile/NachweisList"
+import { ProfileCompletenessBanner } from "@/features/profile/ProfileCompletenessBanner"
 import { ProfileHeader } from "@/features/profile/ProfileHeader"
+import { ProfileMetaEditor } from "@/features/profile/ProfileMetaEditor"
 import { ProfileSectionCard } from "@/features/profile/ProfileSectionCard"
+import { SubscribedTopics } from "@/features/profile/SubscribedTopics"
 import { builtFromLabels } from "@/features/profile/profileUtils"
 import {
   useResyncEntityMutation,
+  useUpdateEntityModeMutation,
   useUpdateEntitySummaryMutation,
   useUpdateEntityTagsMutation,
 } from "@/lib/api"
@@ -38,6 +44,14 @@ export function OwnProfileView({ entity }: { entity: EntityDto }) {
   const plannedDefs = isOrgEntity ? ORG_PLANNED : PERSON_PLANNED
   const builtFrom = builtFromLabels(entity)
   const hasZefix = entity.sources.some((s) => s.sourceType === "zefix")
+
+  // Mode-dependent profile (spec §5.1): demand hides the completeness banner,
+  // the availability editor, and subscribed topics; supply shows the full stack.
+  const supply = entity.profileMode !== "demand"
+  const [updateMode] = useUpdateEntityModeMutation()
+  const switchToSupply = () =>
+    void updateMode({ entityId: entity.id, mode: "supply" })
+  const [editingMeta, setEditingMeta] = useState(false)
 
   const { ingestSourceKind, isLoading } = useSourceIngestion()
   const [busyKind, setBusyKind] = useState<SourceKind | null>(null)
@@ -128,7 +142,46 @@ export function OwnProfileView({ entity }: { entity: EntityDto }) {
 
   return (
     <div className="space-y-5">
-      <ProfileHeader entity={entity} />
+      {supply && <ProfileCompletenessBanner entity={entity} />}
+
+      <ProfileHeader
+        entity={entity}
+        editable
+        onEditMeta={() => setEditingMeta((v) => !v)}
+      />
+
+      {editingMeta && (
+        <ProfileMetaEditor
+          entity={entity}
+          onClose={() => setEditingMeta(false)}
+        />
+      )}
+
+      {!supply && (
+        <p className="rounded-lg border border-dashed bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+          Du bist im <strong className="text-foreground">Such-Modus</strong>. Um
+          gefunden zu werden, wechsle zu{" "}
+          <button
+            className="font-medium text-primary hover:underline"
+            onClick={switchToSupply}
+          >
+            Ich biete
+          </button>{" "}
+          und setze deine Verfügbarkeit.
+        </p>
+      )}
+
+      {supply && (
+        <ProfileSectionCard title="Verfügbarkeit">
+          <AvailabilityEditor entity={entity} />
+        </ProfileSectionCard>
+      )}
+
+      {supply && (
+        <ProfileSectionCard title="Abonnierte Themen">
+          <SubscribedTopics entityId={entity.id} />
+        </ProfileSectionCard>
+      )}
 
       <ProfileSectionCard title="Kompetenzen">
         <div className="space-y-4">
@@ -294,6 +347,10 @@ export function OwnProfileView({ entity }: { entity: EntityDto }) {
             )}
           </div>
         </div>
+      </ProfileSectionCard>
+
+      <ProfileSectionCard title="Hubs">
+        <HubSelector entity={entity} />
       </ProfileSectionCard>
 
       <ProfileSectionCard title="Deine Quellen">

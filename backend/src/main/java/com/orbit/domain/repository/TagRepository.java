@@ -14,4 +14,7 @@ public interface TagRepository extends JpaRepository<Tag, Long> {
 
     /** Find all tags matching any of the given slugs — for bulk upsert. */
     List<Tag> findBySlugIn(List<String> slugs);
+
+    /** Autocomplete: up to 10 tags whose label contains the query (case-insensitive). */
+    List<Tag> findTop10ByLabelContainingIgnoreCaseOrderByLabelAsc(String label);
 }

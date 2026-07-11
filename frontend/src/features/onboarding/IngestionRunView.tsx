@@ -1,11 +1,13 @@
+import { useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { CircleCheck, CircleX, Loader2, RotateCcw } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { SourceGlyph } from "@/components/SourceGlyph"
+import { OnboardingAvailabilityStep } from "@/features/onboarding/OnboardingAvailabilityStep"
 import { ProfilePreview } from "@/features/onboarding/ProfilePreview"
 import type { JobState, RunPhase } from "@/features/onboarding/useIngestionRun"
-import { useGetMyEntitiesQuery } from "@/lib/api"
+import { useGetMyEntitiesQuery, useUpdateEntityModeMutation } from "@/lib/api"
 
 interface IngestionRunViewProps {
   phase: Exclude<RunPhase, "idle">
@@ -31,6 +33,23 @@ export function IngestionRunView({
     useGetMyEntitiesQuery(undefined, { skip: phase !== "done" })
 
   const entity = myEntities?.[0]
+
+  // Persist the onboarding fork: a demand onboarding sets the created entity to
+  // demand mode (default is supply, so the supply path needs no call). Fires once.
+  const [updateMode] = useUpdateEntityModeMutation()
+  const modeSetRef = useRef(false)
+  useEffect(() => {
+    if (
+      phase === "done" &&
+      entity &&
+      !supply &&
+      entity.profileMode !== "demand" &&
+      !modeSetRef.current
+    ) {
+      modeSetRef.current = true
+      void updateMode({ entityId: entity.id, mode: "demand" })
+    }
+  }, [phase, entity, supply, updateMode])
 
   return (
     <div className="mx-auto max-w-xl py-10">
@@ -109,15 +128,20 @@ export function IngestionRunView({
               <Loader2 className="size-5 animate-spin text-muted-foreground" />
             </div>
           ) : entity ? (
-            <div className="mt-6">
-              <p className="mb-3 text-sm text-muted-foreground">
-                Wir haben dein Profil aus deinen Quellen abgeleitet — prüfe es
-                und passe es an, falls nötig.
-              </p>
-              <ProfilePreview
-                entity={entity}
-                onConfirm={() => navigate("/profile")}
-              />
+            <div className="mt-6 space-y-6">
+              {/* Supply-only: set availability + notification topics before
+                  confirming (design step 4). Demand hides both per spec §5.1. */}
+              {supply && <OnboardingAvailabilityStep entity={entity} />}
+              <div>
+                <p className="mb-3 text-sm text-muted-foreground">
+                  Wir haben dein Profil aus deinen Quellen abgeleitet — prüfe es
+                  und passe es an, falls nötig.
+                </p>
+                <ProfilePreview
+                  entity={entity}
+                  onConfirm={() => navigate("/profile")}
+                />
+              </div>
             </div>
           ) : (
             <div className="mt-8 flex flex-col items-center gap-3">

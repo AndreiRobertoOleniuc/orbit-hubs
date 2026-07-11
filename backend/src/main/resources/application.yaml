@@ -35,6 +35,10 @@ clerk:
   azp-origin: ${CLERK_AZP_ORIGIN:http://localhost:5173}
 
 orbit:
+  admin:
+    # Comma-separated Clerk user ids (sub claim) granted admin access to the hub
+    # management API. Empty = no admins. Override via ORBIT_ADMIN_USER_IDS.
+    user-ids: ${ORBIT_ADMIN_USER_IDS:user_3FEZ7buK8HMqm9R34MuKFmnJ26z}
   embedding:
     # Provider-agnostic embedding config (see EmbeddingProperties). Defaults target a
     # local Ollama serving multilingual-e5-large at 1024 dims; override via env in other

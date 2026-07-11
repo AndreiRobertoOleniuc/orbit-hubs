@@ -53,6 +53,7 @@ class ClerkSecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/board").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/requests/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/entities/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/hubs").permitAll()
                         .anyRequest().authenticated())
                 .addFilterAfter(new UserProvisioningFilter(provisioningService), BearerTokenAuthenticationFilter.class);
 

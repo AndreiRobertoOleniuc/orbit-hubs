@@ -6,8 +6,9 @@ import java.util.List;
 import tools.jackson.databind.JsonNode;
 
 /**
- * Entity DTO for the entity profile API — the full profile read model
- * with nested sources and tags.
+ * Entity DTO for the entity profile API — the full profile read model with
+ * nested sources, tags, and the supply-side signals (availability, affiliation,
+ * languages, location, hubs, home region).
  */
 public record EntityDto(
         Long id,
@@ -17,8 +18,15 @@ public record EntityDto(
         String orgName,
         String summary,
         String status,
+        String profileMode,
         JsonNode metadata,
         Instant createdAt,
         List<SourceDto> sources,
-        List<TagDto> tags) {
+        List<TagDto> tags,
+        AvailabilityDto availability,
+        String affiliationKind,
+        List<String> languages,
+        String locationLabel,
+        List<HubDto> hubs,
+        RegionDto homeRegion) {
 }

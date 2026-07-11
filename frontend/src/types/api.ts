@@ -7,6 +7,7 @@
 export interface MeDto {
   userId: string
   email: string
+  isAdmin: boolean
 }
 
 // ─── Ingestion ───
@@ -65,6 +66,54 @@ export interface ResyncResponseDto {
   errors: number
 }
 
+/** Affiliation origin — Firma / Selbständig / Privatperson. */
+export type AffiliationKind = "company" | "self_employed" | "private"
+
+/** Structured availability — drives the availability pill + re-ranking. */
+export interface AvailabilityDto {
+  openToRequests: boolean
+  availableFrom: string | null
+  availableTo: string | null
+  pensumPct: number | null
+  note: string | null
+  preferredCollaboration: string[] | null
+}
+
+/** A region node in the Hub → Region → CH tree. */
+export interface RegionDto {
+  id: number
+  slug: string
+  name: string
+  parentRegionId: number | null
+}
+
+/** A hub (affiliation) with its owning region name resolved. */
+export interface HubDto {
+  id: number
+  slug: string
+  name: string
+  hubType: string | null
+  regionId: number
+  regionName: string | null
+}
+
+/** A subscribed tag ("Abonniertes Thema"). */
+export interface SubscriptionDto {
+  id: number
+  slug: string
+  label: string
+}
+
+/** A tag suggestion from the controlled vocabulary (autocomplete). */
+export interface TagRefDto {
+  id: number
+  slug: string
+  label: string
+}
+
+/** Which mode the profile is presented in — set by the onboarding fork. */
+export type ProfileMode = "supply" | "demand"
+
 export interface EntityDto {
   id: number
   entityType: EntityType
@@ -73,10 +122,17 @@ export interface EntityDto {
   orgName: string | null
   summary: string | null
   status: string
+  profileMode: ProfileMode
   metadata: Record<string, unknown> | null
   createdAt: string | null
   sources: EntitySourceDto[]
   tags: EntityTagDto[]
+  availability: AvailabilityDto | null
+  affiliationKind: AffiliationKind | null
+  languages: string[] | null
+  locationLabel: string | null
+  hubs: HubDto[]
+  homeRegion: RegionDto | null
 }
 
 // ─── Zefix (Handelsregister autocomplete) ───

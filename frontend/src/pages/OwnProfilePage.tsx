@@ -46,6 +46,11 @@ export function OwnProfilePage() {
 
   const entity = entities.find((e) => e.id === selectedId) ?? entities[0]
 
+  // Demand profiles have no public preview (spec §5.1) — force the private view
+  // and hide the Ansicht toggle.
+  const supply = entity.profileMode !== "demand"
+  const effectiveView = supply ? view : "privat"
+
   return (
     <div className="mx-auto max-w-2xl py-4">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -70,29 +75,33 @@ export function OwnProfilePage() {
         ) : (
           <span />
         )}
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Ansicht</span>
-          <div className="flex rounded-lg border p-0.5">
-            {(["privat", "oeffentlich"] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                className={cn(
-                  "rounded-md px-3 py-1 text-sm transition-colors",
-                  view === v
-                    ? "bg-secondary font-medium"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-                onClick={() => setView(v)}
-              >
-                {v === "privat" ? "Privat" : "Öffentlich"}
-              </button>
-            ))}
+        {supply ? (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Ansicht</span>
+            <div className="flex rounded-lg border p-0.5">
+              {(["privat", "oeffentlich"] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  className={cn(
+                    "rounded-md px-3 py-1 text-sm transition-colors",
+                    view === v
+                      ? "bg-secondary font-medium"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                  onClick={() => setView(v)}
+                >
+                  {v === "privat" ? "Privat" : "Öffentlich"}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        ) : (
+          <span />
+        )}
       </div>
 
-      {view === "privat" ? (
+      {effectiveView === "privat" ? (
         <OwnProfileView entity={entity} />
       ) : (
         <PublicProfileView entity={entity} />

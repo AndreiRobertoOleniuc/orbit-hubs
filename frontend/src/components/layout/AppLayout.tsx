@@ -4,6 +4,7 @@ import { Menu } from "lucide-react"
 
 import { OrbitLogo } from "@/components/branding/OrbitLogo"
 import { AuthControls } from "@/components/layout/AuthControls"
+import { ModeSwitch } from "@/components/layout/ModeSwitch"
 import { NavLinks } from "@/components/layout/NavLinks"
 import { ThemeToggle } from "@/components/layout/ThemeToggle"
 import { Button } from "@/components/ui/button"
@@ -27,6 +28,7 @@ export function AppLayout() {
           </nav>
 
           <div className="flex flex-1 items-center justify-end gap-2 md:flex-none">
+            <ModeSwitch className="hidden md:flex" />
             <ThemeToggle />
             <div className="hidden items-center gap-2 md:flex">
               <AuthControls />
@@ -53,6 +55,7 @@ export function AppLayout() {
                 onNavigate={() => setMobileOpen(false)}
               />
               <div className="mt-2 flex items-center gap-2 border-t pt-3">
+                <ModeSwitch />
                 <AuthControls />
               </div>
             </nav>

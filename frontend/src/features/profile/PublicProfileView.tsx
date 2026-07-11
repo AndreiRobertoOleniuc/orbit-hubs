@@ -40,6 +40,19 @@ export function PublicProfileView({ entity }: { entity: EntityDto }) {
             ))}
           </div>
         )}
+        {entity.hubs.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-muted-foreground">Hubs:</span>
+            {entity.hubs.map((hub) => (
+              <span
+                key={hub.id}
+                className="inline-flex items-center rounded-full border px-3 py-1 text-sm text-muted-foreground"
+              >
+                {hub.name}
+              </span>
+            ))}
+          </div>
+        )}
         <p className="text-sm text-muted-foreground">
           Erstellt aus:{" "}
           {builtFrom.length > 0 ? builtFrom.join(", ") : "manueller Eingabe"}
