@@ -135,6 +135,50 @@ export interface EntityDto {
   homeRegion: RegionDto | null
 }
 
+// ─── Search (discovery) ───
+
+/** Scope selection — the Hub/Region hard filter (reference §5). */
+export type ScopeKind = "all" | "hub" | "region"
+
+export interface ScopeSelection {
+  kind: ScopeKind
+  hubId?: number | null
+  regionId?: number | null
+}
+
+/** POST /search body. Only `query` is required; the rest are the UI filters. */
+export interface SearchRequestBody {
+  query: string
+  matchCount?: number
+  scope?: ScopeSelection
+  wantFrom?: string | null
+  wantTo?: string | null
+  wantPensumPct?: number | null
+}
+
+/** A validated citation chip on a result card (reference §6.5). */
+export interface SearchCitationDto {
+  sourceId: number
+  label: string | null
+  sourceType: string | null
+  sourceUrl: string | null
+}
+
+/** One search result — the full entity plus the search-specific signals. */
+export interface SearchResultDto {
+  entity: EntityDto
+  score: number
+  rationale: string | null
+  citations: SearchCitationDto[]
+  distance: string | null
+}
+
+export interface SearchResponseDto {
+  query: string
+  sufficient: boolean
+  results: SearchResultDto[]
+}
+
 // ─── Zefix (Handelsregister autocomplete) ───
 
 export interface ZefixCompanyDto {

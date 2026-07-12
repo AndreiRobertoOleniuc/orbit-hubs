@@ -36,6 +36,8 @@ export function StartPage() {
       <div className="grid gap-4 sm:grid-cols-2">
         <StartCard
           mode="demand"
+          to="/search"
+          gated={false}
           icon={<Search className="size-8 text-primary" />}
           title="Ich suche jemanden"
           subtitle="Beschreibe, was du brauchst — wir finden passende Profile."

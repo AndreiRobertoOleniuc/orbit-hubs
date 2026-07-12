@@ -4,11 +4,17 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.orbit.app.ingestion.dto.SourceContent;
+import com.orbit.app.llm.dto.MatchRationale;
+import com.orbit.app.llm.dto.RationaleClaim;
+import com.orbit.app.llm.dto.RationaleEvidence;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.stereotype.Service;
+
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * LLM-powered summarization service for extracting high-signal text from
@@ -26,6 +32,8 @@ import org.springframework.stereotype.Service;
 public class LlmSummaryService {
 
     private static final Logger log = LoggerFactory.getLogger(LlmSummaryService.class);
+
+    private static final JsonMapper JSON = JsonMapper.builder().build();
 
     private static final int MAX_RETRIES = 3;
     private static final int README_MAX_CHARS = 6000;
@@ -662,6 +670,143 @@ public class LlmSummaryService {
     private String truncateReadme(String readme, int maxChars) {
         if (readme == null || readme.length() <= maxChars) return readme;
         return readme.substring(0, maxChars) + "\n[... README truncated ...]";
+    }
+
+    // ─── Grounded match rationale (search, §6.4) ───
+
+    private static final int RATIONALE_EVIDENCE_MAX_CHARS = 1200;
+
+    /**
+     * Generate a grounded German rationale for why an entity matches a query,
+     * citing only the passed evidence (reference §6.4). The model sees the query,
+     * a thin entity profile, and the winning chunks — never the full entity — and
+     * returns JSON with a 1–3 sentence rationale plus per-claim {@code source_ids}.
+     * <p>
+     * The caller MUST still validate the citations (§6.5): a returned claim may
+     * cite an id that isn't in {@code evidence}, and those must be dropped before
+     * anything reaches a card. Returns {@code null} when the LLM is unavailable or
+     * the response can't be parsed — the caller degrades to an evidence-only card.
+     *
+     * @param queryText the natural-language query
+     * @param name      entity display name
+     * @param role      entity headline / role (may be null)
+     * @param org       entity org name (may be null)
+     * @param evidence  the winning chunks, each with a stable citation id (S1, S2, …)
+     * @return the grounded rationale, or {@code null} on failure
+     */
+    public MatchRationale generateMatchRationale(
+            String queryText, String name, String role, String org,
+            List<RationaleEvidence> evidence) {
+
+        if (queryText == null || queryText.isBlank() || evidence == null || evidence.isEmpty()) {
+            return null;
+        }
+
+        StringBuilder evidenceBlock = new StringBuilder();
+        for (RationaleEvidence ev : evidence) {
+            String text = truncateText(ev.text(), RATIONALE_EVIDENCE_MAX_CHARS);
+            evidenceBlock.append('[').append(ev.id()).append("] (")
+                    .append(ev.type() != null ? ev.type() : "quelle").append(") ")
+                    .append(ev.label() != null ? ev.label() : "").append("\n")
+                    .append(text != null ? text : "").append("\n\n");
+        }
+
+        String profile = name
+                + (role != null && !role.isBlank() ? " — " + role : "")
+                + (org != null && !org.isBlank() ? " (" + org + ")" : "");
+
+        String prompt = """
+                Du bist ein Matching-Assistent für eine Schweizer Innovationsplattform.
+                Nutze AUSSCHLIESSLICH die bereitgestellten Belege. Mache keine Aussage, die
+                nicht durch die Belege gestützt ist. Zitiere je Aussage die passende(n)
+                source_id(s). Schreibe auf Deutsch, sachlich, 1–3 Sätze.
+
+                WICHTIG: Beurteile auch, ob die Belege **tatsächlich** zur Anfrage passen.
+                Wenn die Belege keine relevante Expertise für die spezifische Anfrage zeigen
+                (z.B. Anfrage nach "RAG Engineer" aber Belege nur über KI-Ethik oder
+                HCI-Design), setze "relevant" auf false. Nur wenn die Belege eine
+                **konkrete und spezifische** Verbindung zur Anfrage zeigen, setze true.
+                Sei streng — oberflächliche Keyword-Überschneidungen reichen NICHT aus.
+
+                Antworte NUR mit reinem JSON in genau diesem Format (keine Markdown-Codeblöcke,
+                kein Text davor oder danach):
+                {"rationale":"<1–3 Sätze auf Deutsch>","relevant":true,"claims":[{"text":"<Teilaussage>","source_ids":["S1"]}]}
+
+                Anfrage: %s
+                Profil: %s
+
+                Belege:
+                %s""".formatted(queryText, profile, evidenceBlock);
+
+        for (int attempt = 1; attempt <= 2; attempt++) {
+            try {
+                String response = chatModel.call(new Prompt(prompt)).getResult().getOutput().getText();
+                MatchRationale parsed = parseRationale(response);
+                if (parsed != null && parsed.rationale() != null && !parsed.rationale().isBlank()) {
+                    log.info("Rationale for \"{}\" (attempt {}/2): {} claim(s)",
+                            name, attempt, parsed.claims() != null ? parsed.claims().size() : 0);
+                    return parsed;
+                }
+            } catch (Exception e) {
+                log.warn("Rationale attempt {}/2 failed for {} ({}): {}",
+                        attempt, name, e.getClass().getSimpleName(), e.getMessage());
+                if (attempt < 2) {
+                    try {
+                        Thread.sleep(1000L * attempt);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+        }
+
+        log.warn("Rationale generation failed for {} — caller falls back to evidence-only", name);
+        return null;
+    }
+
+    /** Parse the generator's JSON (tolerating ```json fences) into a MatchRationale. */
+    private MatchRationale parseRationale(String response) {
+        if (response == null || response.isBlank()) return null;
+        String json = stripCodeFences(response);
+        try {
+            JsonNode root = JSON.readTree(json);
+            String rationale = root.path("rationale").asString("");
+            if (rationale.isBlank()) return null;
+
+            List<RationaleClaim> claims = new ArrayList<>();
+            JsonNode claimsNode = root.path("claims");
+            if (claimsNode.isArray()) {
+                for (JsonNode c : claimsNode) {
+                    String text = c.path("text").asString("");
+                    List<String> ids = new ArrayList<>();
+                    JsonNode idsNode = c.path("source_ids");
+                    if (idsNode.isArray()) {
+                        for (JsonNode id : idsNode) {
+                            String s = id.asString("");
+                            if (!s.isBlank()) ids.add(s.trim());
+                        }
+                    }
+                    if (!text.isBlank()) {
+                        claims.add(new RationaleClaim(text.trim(), ids));
+                    }
+                }
+            }
+            return new MatchRationale(rationale.trim(), claims, root.path("relevant").asBoolean(true));
+        } catch (Exception e) {
+            log.warn("Could not parse rationale JSON ({}): {}", e.getClass().getSimpleName(), e.getMessage());
+            return null;
+        }
+    }
+
+    private static String stripCodeFences(String s) {
+        String t = s.trim();
+        if (t.startsWith("```")) {
+            int firstNl = t.indexOf('\n');
+            if (firstNl >= 0) t = t.substring(firstNl + 1);
+            if (t.endsWith("```")) t = t.substring(0, t.length() - 3);
+        }
+        return t.trim();
     }
 
     /**

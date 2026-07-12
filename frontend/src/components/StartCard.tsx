@@ -10,18 +10,29 @@ interface StartCardProps {
   icon: ReactNode
   title: string
   subtitle: string
+  /** Override the navigation target (defaults to the onboarding flow for `mode`). */
+  to?: string
+  /** When false, the card navigates without requiring sign-in (e.g. public search). */
+  gated?: boolean
 }
 
-export function StartCard({ mode, icon, title, subtitle }: StartCardProps) {
+export function StartCard({
+  mode,
+  icon,
+  title,
+  subtitle,
+  to,
+  gated = true,
+}: StartCardProps) {
   const navigate = useNavigate()
   const { isAuthenticated } = useAuth()
-  const target = `/onboarding?mode=${mode}`
+  const target = to ?? `/onboarding?mode=${mode}`
 
   const card = (
     <button
       type="button"
       className="flex h-full w-full flex-col items-start gap-3 rounded-xl border bg-card p-6 text-left transition-colors hover:border-primary/50 hover:bg-accent"
-      onClick={isAuthenticated ? () => navigate(target) : undefined}
+      onClick={!gated || isAuthenticated ? () => navigate(target) : undefined}
     >
       {icon}
       <span className="text-lg font-semibold">{title}</span>
@@ -29,8 +40,8 @@ export function StartCard({ mode, icon, title, subtitle }: StartCardProps) {
     </button>
   )
 
-  // Unauthenticated visitors sign in first, then land in the chosen flow.
-  if (!isAuthenticated) {
+  // Gated, unauthenticated visitors sign in first, then land in the chosen flow.
+  if (gated && !isAuthenticated) {
     return (
       <SignInButton
         mode="modal"

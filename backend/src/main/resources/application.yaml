@@ -39,6 +39,17 @@ orbit:
     # Comma-separated Clerk user ids (sub claim) granted admin access to the hub
     # management API. Empty = no admins. Override via ORBIT_ADMIN_USER_IDS.
     user-ids: ${ORBIT_ADMIN_USER_IDS:user_3FEZ7buK8HMqm9R34MuKFmnJ26z}
+  search:
+    # Minimum best-evidence similarity for a result to count as "sufficient"
+    # (below this the frontend prompts to create an Anfrage). See SearchService.
+    similarity-threshold: ${ORBIT_SEARCH_SIMILARITY_THRESHOLD:0.80}
+    # How many top results get a grounded Gemini rationale (§6.4) — bounds cost.
+    rationale-top-n: ${ORBIT_SEARCH_RATIONALE_TOP_N:8}
+    rerank:
+      # Soft re-rank weights (§6.3) — additive boosts on the normalized base RRF.
+      # Kept small so relevance dominates; A/B-able.
+      availability-weight: ${ORBIT_SEARCH_RERANK_AVAIL:0.3}
+      open-to-requests-weight: ${ORBIT_SEARCH_RERANK_OPEN:0.1}
   embedding:
     # Provider-agnostic embedding config (see EmbeddingProperties). Defaults target a
     # local Ollama serving multilingual-e5-large at 1024 dims; override via env in other

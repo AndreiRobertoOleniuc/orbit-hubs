@@ -12,6 +12,8 @@ import type {
   ProfileMode,
   RegionDto,
   ResyncResponseDto,
+  SearchRequestBody,
+  SearchResponseDto,
   SubscriptionDto,
   TagRefDto,
   ZefixCompanyDto,
@@ -94,6 +96,12 @@ export const apiSlice = createApi({
     getMyEntities: builder.query<EntityDto[], void>({
       query: () => "/me/entities",
       providesTags: ["MyEntities"],
+    }),
+
+    // ─── Discovery search ───
+
+    search: builder.mutation<SearchResponseDto, SearchRequestBody>({
+      query: (body) => ({ url: "/search", method: "POST", body }),
     }),
 
     // ─── Zefix (Handelsregister autocomplete) ───
@@ -263,6 +271,12 @@ export const apiSlice = createApi({
       providesTags: ["Hubs"],
     }),
 
+    // ─── Regions (public tree — scope selector + widen ladder) ───
+
+    getRegions: builder.query<RegionDto[], void>({
+      query: () => "/regions",
+    }),
+
     // ─── Tag vocabulary autocomplete ───
 
     searchTags: builder.query<TagRefDto[], string>({
@@ -299,6 +313,8 @@ export const {
   useLazyGetMeQuery,
   useGetEntityQuery,
   useGetMyEntitiesQuery,
+  useSearchMutation,
+  useGetRegionsQuery,
   useLazySearchZefixQuery,
   useIngestSourceMutation,
   useUploadLinkedInPdfMutation,

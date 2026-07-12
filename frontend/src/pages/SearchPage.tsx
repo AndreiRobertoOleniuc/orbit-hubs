@@ -1,14 +1,6 @@
-import { Search } from "lucide-react"
+import { SearchView } from "@/features/search/SearchView"
 
-import { PlaceholderPage } from "@/components/PlaceholderPage"
-
-/** Demand surface (placeholder): free-text semantic search. */
+/** Demand surface: free-text semantic search with grounded, cited results. */
 export function SearchPage() {
-  return (
-    <PlaceholderPage
-      title="Suche"
-      subtitle="Freitext-Suche mit semantischem Matching — beschreibe, was du brauchst, und finde passende Profile mit Begründung und zitierten Belegen."
-      icon={<Search className="size-6" />}
-    />
-  )
+  return <SearchView />
 }

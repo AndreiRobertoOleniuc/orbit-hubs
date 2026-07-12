@@ -1,0 +1,128 @@
+import { useNavigate } from "react-router-dom"
+import { Loader2 } from "lucide-react"
+
+import { Button } from "@/components/ui/button"
+import { SearchResultCard } from "@/features/search/SearchResultCard"
+import { nextWiderScope } from "@/features/search/scopeUtils"
+import type { HubDto, RegionDto, SearchResponseDto } from "@/types/api"
+
+interface SearchResultsProps {
+  query: string
+  data: SearchResponseDto | undefined
+  isLoading: boolean
+  isError: boolean
+  scope: string
+  regions: RegionDto[]
+  hubs: HubDto[]
+  onEdit: () => void
+  onWiden: (scopeValue: string) => void
+}
+
+function WidenButton({
+  scope,
+  regions,
+  hubs,
+  onWiden,
+}: Pick<SearchResultsProps, "scope" | "regions" | "hubs" | "onWiden">) {
+  const next = nextWiderScope(scope, regions, hubs)
+  if (!next) return null
+  return (
+    <Button variant="outline" onClick={() => onWiden(next.value)}>
+      Auf {next.label} erweitern
+    </Button>
+  )
+}
+
+export function SearchResults({
+  query,
+  data,
+  isLoading,
+  isError,
+  scope,
+  regions,
+  hubs,
+  onEdit,
+  onWiden,
+}: SearchResultsProps) {
+  const navigate = useNavigate()
+  const results = data?.results ?? []
+  const hasResults = results.length > 0
+
+  return (
+    <div className="mx-auto max-w-2xl py-6">
+      <div className="flex items-baseline justify-between gap-4 border-b pb-4">
+        <p className="truncate text-sm text-muted-foreground">«{query}»</p>
+        <button
+          type="button"
+          onClick={onEdit}
+          className="shrink-0 text-sm font-medium text-primary hover:underline"
+        >
+          Suche ändern
+        </button>
+      </div>
+
+      {isLoading && (
+        <div className="flex flex-col items-center gap-4 py-24 text-center">
+          <Loader2 className="size-6 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">
+            Wir durchsuchen Profile in deinem Hub und deiner Region…
+          </p>
+        </div>
+      )}
+
+      {!isLoading && isError && (
+        <p className="py-16 text-center text-sm text-muted-foreground">
+          Die Suche ist fehlgeschlagen. Bitte versuche es erneut.
+        </p>
+      )}
+
+      {!isLoading && !isError && hasResults && (
+        <>
+          <h2 className="mt-7 mb-4 text-xl font-bold">
+            Treffer ({results.length})
+          </h2>
+          <div className="flex flex-col gap-4">
+            {results.map((r) => (
+              <SearchResultCard key={r.entity.id} result={r} />
+            ))}
+          </div>
+          <div className="mt-8 flex flex-col items-center gap-3 text-center">
+            {nextWiderScope(scope, regions, hubs) && (
+              <p className="text-sm text-muted-foreground">
+                Nicht das Richtige dabei? Suche breiter:
+              </p>
+            )}
+            <WidenButton
+              scope={scope}
+              regions={regions}
+              hubs={hubs}
+              onWiden={onWiden}
+            />
+          </div>
+        </>
+      )}
+
+      {!isLoading && !isError && !hasResults && (
+        <div className="mx-auto mt-10 max-w-xl rounded-xl bg-card p-8 text-center ring-1 ring-foreground/10">
+          <h2 className="text-xl font-bold">Kein direkter Treffer</h2>
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+            Erstelle eine Anfrage: Sie erscheint öffentlich auf dem
+            Anfrage-Board, passende Profile werden benachrichtigt, und du wirst
+            informiert, sobald jemand reagiert.
+          </p>
+          <div className="mt-6 flex flex-col items-center gap-2">
+            <WidenButton
+              scope={scope}
+              regions={regions}
+              hubs={hubs}
+              onWiden={onWiden}
+            />
+            <Button onClick={() => navigate("/requests")}>
+              Anfrage erstellen
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

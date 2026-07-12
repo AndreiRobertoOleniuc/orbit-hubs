@@ -54,6 +54,7 @@ class ClerkSecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/requests/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/entities/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/hubs").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/regions").permitAll()
                         // TEST-ONLY — remove this line and BulkIngestController when done
                         .requestMatchers(HttpMethod.POST, "/api/v1/test/bulk-ingest").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/test/bulk-ingest/**").permitAll()
