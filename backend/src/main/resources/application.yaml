@@ -50,6 +50,7 @@ orbit:
     token: ${GITHUB_TOKEN:}
   openalex:
     mailto: ${OPENALEX_MAILTO:andreioleniucroberto@gmail.com}
+    api-key: ${OPENALEX_API_KEY:}
   zefix:
     user: ${ZEFIX_USER:}
     key: ${ZEFIX_KEY:}

@@ -22,6 +22,7 @@ import com.orbit.app.ingestion.dto.SourceRef;
 import com.orbit.app.ingestion.IngestionException;
 import com.orbit.app.ingestion.SourceAdapter;
 import com.orbit.app.ingestion.linkedin.dto.ParsedLinkedInProfile;
+import com.orbit.app.llm.LlmSummaryService;
 
 /**
  * LinkedIn PDF adapter — ingests a user-uploaded LinkedIn profile PDF.
@@ -47,6 +48,11 @@ public class LinkedInPdfAdapter implements SourceAdapter {
     private static final Logger log = LoggerFactory.getLogger(LinkedInPdfAdapter.class);
 
     private final LinkedInPdfParser parser = new LinkedInPdfParser();
+    private final LlmSummaryService llmSummaryService;
+
+    public LinkedInPdfAdapter(LlmSummaryService llmSummaryService) {
+        this.llmSummaryService = llmSummaryService;
+    }
 
     @Override
     public String sourceType() {
@@ -167,7 +173,17 @@ public class LinkedInPdfAdapter implements SourceAdapter {
             sb.append(String.join(", ", languages)).append("\n");
         }
 
-        return sb.toString().trim();
+        // Translate to English — LinkedIn profiles may be in German, and the
+        // search FTS leg uses an English tsvector. Other adapters already
+        // produce English via their LLM prompts; LinkedIn is the only one that
+        // builds structured text without LLM processing.
+        String coreText = sb.toString().trim();
+        String englishText = llmSummaryService.translateToEnglish(coreText);
+        if (!englishText.equals(coreText)) {
+            log.info("Translated LinkedIn core text to English ({} → {} chars)",
+                    coreText.length(), englishText.length());
+        }
+        return englishText;
     }
 
     @Override

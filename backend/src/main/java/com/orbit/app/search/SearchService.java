@@ -1,16 +1,20 @@
 package com.orbit.app.search;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
+import com.orbit.app.search.dto.SearchResponse;
 import com.orbit.app.search.dto.SearchResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.orbit.app.embedding.EmbeddingKind;
 import com.orbit.app.embedding.EmbeddingService;
+import com.orbit.app.llm.LlmSummaryService;
 import com.orbit.domain.entity.DiscoveryEntity;
 import com.orbit.domain.repository.DiscoveryEntityRepository;
 
@@ -37,37 +41,61 @@ public class SearchService {
 
     private static final Logger log = LoggerFactory.getLogger(SearchService.class);
 
+    /**
+     * Minimum evidence-chunk similarity for a result to be considered a good
+     * match. Below this, the result is filtered out. If ALL results fall below,
+     * {@code sufficient = false} and the frontend prompts the user to create an
+     * Anfrage instead of showing weak matches (spec §4: "reicht die Suche
+     * nicht"). Tunable via {@code orbit.search.similarity-threshold}.
+     */
+    @Value("${orbit.search.similarity-threshold:0.80}")
+    private double similarityThreshold;
+
     private final EmbeddingService embeddingService;
+    private final LlmSummaryService llmSummaryService;
     private final DiscoveryEntityRepository entityRepository;
     private final EntityManager em;
 
     public SearchService(EmbeddingService embeddingService,
+                         LlmSummaryService llmSummaryService,
                          DiscoveryEntityRepository entityRepository,
                          EntityManager em) {
         this.embeddingService = embeddingService;
+        this.llmSummaryService = llmSummaryService;
         this.entityRepository = entityRepository;
         this.em = em;
     }
 
     /**
      * Run a hybrid search query and return ranked entities with evidence.
+     * <p>
+     * Results whose best evidence-chunk similarity falls below
+     * {@link #similarityThreshold} are filtered out. If no results survive the
+     * threshold, {@link SearchResponse#sufficient()} is false — the frontend
+     * should prompt the user to create an Anfrage (spec §4).
      *
      * @param queryText  the natural-language query (e.g. "Python web framework")
      * @param matchCount max entities to return (default 5)
-     * @return ranked search results with evidence chunks
+     * @return search response with quality flag and filtered results
      */
     @Transactional(readOnly = true)
-    public List<SearchResult> search(String queryText, int matchCount) {
-        log.info("Search: \"{}\" (matchCount={})", queryText, matchCount);
+    public SearchResponse search(String queryText, int matchCount) {
+        log.info("Search: \"{}\" (matchCount={}, threshold={})", queryText, matchCount, similarityThreshold);
+
+        // 0. Translate query to English so FTS (English tsvector) and semantic
+        //    (E5) both work without cross-lingual penalty. Gemini passes through
+        //    English text unchanged; falls back to original if unavailable.
+        String englishQuery = llmSummaryService.translateToEnglish(queryText);
+        log.info("Search query normalized: \"{}\" → \"{}\"", queryText, englishQuery);
 
         // 1. Embed the query with "query: " prefix
-        float[] queryEmbedding = embeddingService.embed(queryText, EmbeddingKind.QUERY);
+        float[] queryEmbedding = embeddingService.embed(englishQuery, EmbeddingKind.QUERY);
         String vectorStr = toVectorString(queryEmbedding);
 
-        // 2. Call hybrid_search function (explicit casts: Hibernate sends varchar/numeric, function expects text/float)
+        // 2. Call hybrid_search function with the English query text
         Query searchQuery = em.createNativeQuery(
                 "SELECT entity_id, score FROM hybrid_search(CAST(? AS text), ?::vector, CAST(? AS int), 1.0::float8, 1.0::float8, 50)");
-        searchQuery.setParameter(1, queryText);
+        searchQuery.setParameter(1, englishQuery);
         searchQuery.setParameter(2, vectorStr);
         searchQuery.setParameter(3, matchCount);
 
@@ -76,7 +104,7 @@ public class SearchService {
 
         if (rows.isEmpty()) {
             log.info("No results for \"{}\"", queryText);
-            return List.of();
+            return new SearchResponse(queryText, false, List.of());
         }
 
         // 3. Build results with evidence chunks
@@ -100,12 +128,28 @@ public class SearchService {
             ));
         }
 
-        log.info("Search \"{}\" → {} results (top: {} score={})",
-                queryText, results.size(),
-                results.isEmpty() ? "none" : results.get(0).displayName(),
-                results.isEmpty() ? 0 : String.format("%.6f", results.get(0).score()));
+        // 4. Quality threshold — filter out weak matches (spec §4: "reicht die
+        //    Suche nicht"). Each result's quality is determined by its best
+        //    evidence chunk similarity.
+        List<SearchResult> strong = results.stream()
+                .filter(r -> bestSimilarity(r) >= similarityThreshold)
+                .sorted(Comparator.comparingDouble(SearchService::bestSimilarity).reversed())
+                .toList();
 
-        return results;
+        boolean sufficient = !strong.isEmpty();
+
+        if (!sufficient) {
+            log.info("Search \"{}\" → {} candidates but all below threshold {} (best: {})",
+                    queryText, results.size(), similarityThreshold,
+                    results.isEmpty() ? 0 : String.format("%.4f", bestSimilarity(results.get(0))));
+        } else {
+            log.info("Search \"{}\" → {} results above threshold (top: {} sim={})",
+                    queryText, strong.size(),
+                    strong.get(0).displayName(),
+                    String.format("%.4f", bestSimilarity(strong.get(0))));
+        }
+
+        return new SearchResponse(queryText, sufficient, strong);
     }
 
     /**
@@ -150,6 +194,17 @@ public class SearchService {
                     content, section, label, sourceUrl, tokenCount, similarity));
         }
         return evidence;
+    }
+
+    /**
+     * Best (highest) evidence-chunk similarity for a result — the quality
+     * signal used for threshold filtering.
+     */
+    private static double bestSimilarity(SearchResult result) {
+        return result.evidence().stream()
+                .mapToDouble(SearchResult.EvidenceChunk::similarity)
+                .max()
+                .orElse(0.0);
     }
 
     /**

@@ -111,17 +111,18 @@ public class LlmSummaryService {
     }
 
     /**
-     * Clean a Swiss commercial register purpose (Zweck) by removing legal boilerplate.
+     * Clean a Swiss commercial register purpose (Zweck) by extracting ONLY the
+     * substantive business description and discarding all legal boilerplate.
      * <p>
-     * Swiss company purposes follow a standard pattern:
+     * Swiss company purposes always have the same structure:
      * <ol>
-     *   <li>One substantive sentence describing what the company actually does</li>
-     *   <li>Several sentences of legal boilerplate about branches, subsidiaries,
-     *       real estate, financing, guarantees — identical across most companies</li>
+     *   <li>1-3 sentences describing what the company actually does (KEEP)</li>
+     *   <li>Legal boilerplate: branches, real estate, financing, guarantees,
+     *       patents, insurance, catch-all clauses (DISCARD)</li>
      * </ol>
-     * <p>
-     * We use Gemini to extract only the substantive business description, producing
-     * clean text for high-quality semantic embeddings.
+     * The prompt uses a structural approach (keep part 1, discard part 2) with
+     * an exhaustive concept list, a 1-2 sentence output constraint, and an
+     * example. Output is in English.
      *
      * @param companyName the company name (for context)
      * @param rawZweck the raw purpose text from Zefix
@@ -132,22 +133,40 @@ public class LlmSummaryService {
         if (rawZweck.length() < 50) return rawZweck.trim();
 
         String prompt = """
-                You are extracting the substantive business purpose from a Swiss commercial register entry.
+                You are extracting the business purpose from a Swiss commercial register entry (Zefix Zweck).
 
-                The following text is the registered purpose (Zweck) of a Swiss company. It contains:
-                1. A substantive description of what the company actually does (usually the first sentence)
-                2. Legal boilerplate about branches, subsidiaries, real estate, financing, and guarantees — REMOVE ALL OF THIS
+                A Zweck always has the same structure:
+                1. FIRST: 1-3 sentences describing what the company actually does (the substantive purpose)
+                2. THEN: Legal boilerplate — standard clauses that appear in almost every Swiss company registration
 
-                Extract ONLY the substantive business description — what the company actually does.
-                Remove all standard legal clauses about:
-                - Establishing branches or subsidiaries ("Zweigniederlassungen", "Tochtergesellschaften")
-                - Acquiring/selling real estate ("Grundeigentum erwerben")
-                - Financing and guarantees ("Finanzierungen", "Garantien", "Bürgschaften")
-                - Participating in other companies ("sich an anderen Unternehmen beteiligen")
-                - Generic "all business related to the purpose" clauses
+                Your job: extract ONLY part 1 — what the company actually does. Discard EVERYTHING else.
 
-                Write in plain text (no markdown, no headers). Keep the original language (German/French/Italian).
-                Be concise — typically 1-3 sentences. Do not add any information not in the original text.
+                DISCARD any sentence that mentions ANY of these concepts (in any language):
+                - Establishing branches, subsidiaries, or affiliated companies
+                - Acquiring, managing, or selling real estate / properties / Liegenschaften
+                - Financing, guarantees, sureties, securities, collateral
+                - Participating in or holding shares in other companies / investments
+                - Acquiring, managing, or licensing patents, trademarks, or intellectual property
+                - Providing loans or financial services incidental to the purpose
+                - Insurance or risk management activities
+                - "All business related to / connected with the purpose" catch-all clauses
+                - Hiring or employing staff / personnel matters
+                - Any activity described as "can", "may", "is entitled to", "kann", "darf"
+
+                KEEP only sentences that describe:
+                - What the company produces, sells, or services
+                - Their industry, domain, or field of expertise
+                - Specific products, technologies, or methods they use
+                - Their target market or customer segment
+
+                Rules:
+                - Output 1-2 sentences MAXIMUM. If the substantive purpose is longer, condense it.
+                - Write in plain text (no markdown, no headers). Write in English.
+                - Do not add information not in the original text.
+                - If the entire Zweck is boilerplate with no substantive purpose, output just the company name and industry.
+
+                Example input: "Die Gesellschaft bezweckt die Entwicklung und den Vertrieb von Softwarelösungen für das Regulierungsmanagement. Sie kann Zweigniederlassungen errichten, sich an anderen Unternehmen beteiligen, Grundeigentum erwerben und veräussern sowie Finanzierungen gewähren und Sicherheiten bestellen. Alle Geschäfte, die mit dem Zweck im Zusammenhang stehen, sind zulässig."
+                Example output: "Development and distribution of software solutions for regulatory management."
 
                 Company: %s
 
@@ -209,7 +228,7 @@ public class LlmSummaryService {
                 - Stay faithful to the original — do NOT invent specific skills, companies, years of experience, projects, or credentials not mentioned in the original text
                 - Add general context about the field/role only (e.g. "building web applications" for a React developer, "data analysis and visualization" for a data analyst)
                 - Write in plain text (no markdown, no bullet points, no headers)
-                - Keep the same language as the original (German, English, French, etc.)
+                - Write in English
 
                 Write in third person ("He/She is..." or "The person is..." or just start with the role name).
                 Be concise and factual. Do not add information beyond reasonable field-level context.
@@ -353,7 +372,7 @@ public class LlmSummaryService {
                 - Be factual — only use information from the text below
                 - Skip navigation menus, cookie notices, contact forms, social media links
                 - Skip marketing slogans and testimonials
-                - If the text is in German, write the summary in German
+                - Write in English
                 - Start directly with what the company does
 
                 Website: %s
@@ -376,7 +395,7 @@ public class LlmSummaryService {
                 - Be factual — only use information from the text below
                 - Skip navigation menus, cookie notices, contact forms, social media links
                 - Skip testimonials and reviews from others
-                - If the text is in German, write the summary in German
+                - Write in English
                 - Start directly with who they are and what they do
 
                 Website: %s
@@ -423,8 +442,7 @@ public class LlmSummaryService {
      * its sources. Called after each ingestion so the summary gets richer
      * as more sources are added.
      * <p>
-     * Produces 3-5 sentences in German (or the dominant source language)
-     * that describe what the person or organization does, their expertise,
+     * Produces 3-5 sentences in English that describe what the person or organization does, their expertise,
      * and notable evidence from their sources.
      *
      * @param entityName  display name of the entity
@@ -463,7 +481,7 @@ public class LlmSummaryService {
                     - Notable projects, references, or achievements mentioned in the sources
 
                     Rules:
-                    - Write in German if the sources are predominantly German; otherwise match the dominant language
+                    - Write in English
                     - Write in plain text (no markdown, no headers, no bullet points)
                     - Be factual — only use information from the sources below
                     - Do NOT invent specific details not present in the sources
@@ -487,7 +505,7 @@ public class LlmSummaryService {
                     - Technologies and methods they work with
 
                     Rules:
-                    - Write in German if the sources are predominantly German; otherwise match the dominant language
+                    - Write in English
                     - Write in plain text (no markdown, no headers, no bullet points)
                     - Be factual — only use information from the sources below
                     - Do NOT invent specific details not present in the sources
@@ -573,7 +591,7 @@ public class LlmSummaryService {
                 - Tags should reflect what is actually evidenced in the sources — do NOT invent skills not mentioned
                 - For organizations, include industry/domain tags and technology tags
                 - For persons, include skill, technology, and methodology tags
-                - Tags can be in German or English — match the source language
+                - Tags should be in English
                 - Do not include generic tags like "Software" or "IT" unless specifically evidenced
                 - Return ONLY the tags, one per line, no numbering, no explanations
 
@@ -644,5 +662,58 @@ public class LlmSummaryService {
     private String truncateReadme(String readme, int maxChars) {
         if (readme == null || readme.length() <= maxChars) return readme;
         return readme.substring(0, maxChars) + "\n[... README truncated ...]";
+    }
+
+    /**
+     * Translate text to English for search normalization. Used at ingestion
+     * time (LinkedIn chunks) and at query time (German queries). If the text
+     * is already English, Gemini returns it unchanged. If Gemini fails, the
+     * original text is returned so the semantic leg (multilingual E5) still
+     * works.
+     *
+     * @param text the text to translate (any language)
+     * @return English text, or the original if translation fails
+     */
+    public String translateToEnglish(String text) {
+        if (text == null || text.isBlank()) return text;
+        if (text.length() < 10) return text;
+
+        String truncated = truncateText(text, WEBSITE_MAX_CHARS);
+
+        String prompt = """
+                Translate the following text to English. If it is already in English, return it unchanged.
+                Preserve all technical terms, names, and proper nouns as-is.
+                Keep the same structure (headings, paragraphs). Do not add or remove information.
+
+                Text:
+                %s""".formatted(truncated);
+
+        for (int attempt = 1; attempt <= 2; attempt++) {
+            try {
+                long start = System.currentTimeMillis();
+                String response = chatModel.call(new Prompt(prompt)).getResult().getOutput().getText();
+                long elapsed = System.currentTimeMillis() - start;
+
+                if (response != null && !response.isBlank()) {
+                    log.info("Translation to English (attempt {}/{}, {}ms): {} -> {} chars",
+                            attempt, 2, elapsed, text.length(), response.length());
+                    return response.trim();
+                }
+            } catch (Exception e) {
+                log.warn("Translation attempt {}/{} failed ({}): {}",
+                        attempt, 2, e.getClass().getSimpleName(), e.getMessage());
+                if (attempt < 2) {
+                    try {
+                        Thread.sleep(1000L * attempt);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+        }
+
+        log.warn("Translation failed - using original text (semantic leg still works)");
+        return text;
     }
 }

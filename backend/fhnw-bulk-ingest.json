@@ -1,0 +1,799 @@
+{
+  "profiles": [
+    {
+      "name": "Erik Schkommodau",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "orcid": "0000-0003-0492-2515"
+          }
+        },
+        {
+          "sourceType": "personal_site",
+          "context": {
+            "url": "https://www.fhnw.ch/en/people/erik-schkommodau"
+          }
+        }
+      ]
+    },
+    {
+      "name": "David Hradetzky",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "openalex_author_id": "A5018650458"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Enkelejda Miho",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "orcid": "0000-0001-6461-0519"
+          }
+        },
+        {
+          "sourceType": "personal_site",
+          "context": {
+            "url": "https://www.fhnw.ch/en/people/enkelejda-miho"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Michael de Wild",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "orcid": "0000-0002-3113-4146"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Simone Hemm-Ode",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "orcid": "0000-0002-5726-6761"
+          }
+        },
+        {
+          "sourceType": "personal_site",
+          "context": {
+            "url": "https://www.fhnw.ch/en/people/simone-hemm"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dominique Brodbeck",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "orcid": "0000-0001-8068-5828"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Joris Pascal",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "orcid": "0000-0001-6049-3271"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reto Wildhaber",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "orcid": "0000-0002-0849-0775"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Doris Agotai",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "orcid": "0000-0002-1404-443X"
+          }
+        },
+        {
+          "sourceType": "personal_site",
+          "context": {
+            "url": "https://www.fhnw.ch/en/people/doris-agotai"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Roland Anderegg",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "openalex_author_id": "A5028815549"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Timothy Griffin",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "orcid": "0000-0001-6801-2559"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Markus Grob",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "openalex_author_id": "A5036619344"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Martin Geidl",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "openalex_author_id": "A5058872948"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Per Magnus Kristiansen",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "orcid": "0000-0001-7714-0966"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Jürg Küffer",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "openalex_author_id": "A5038491466"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Alex Müntz",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "orcid": "0000-0003-3421-8916"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tom Kober",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "orcid": "0000-0002-5921-1182"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Rolf Dornberger",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "orcid": "0000-0002-6750-2641"
+          }
+        },
+        {
+          "sourceType": "personal_site",
+          "context": {
+            "url": "https://www.fhnw.ch/en/people/rolf-dornberger"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Oliver Bendel",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "orcid": "0000-0003-2623-9119"
+          }
+        },
+        {
+          "sourceType": "personal_site",
+          "context": {
+            "url": "https://www.oliverbendel.net/"
+          }
+        },
+        {
+          "sourceType": "personal_site",
+          "context": {
+            "url": "https://www.fhnw.ch/en/people/oliver-bendel"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Stella Gatziu Grivas",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "orcid": "0000-0002-8279-4451"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Mathias Binswanger",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "openalex_author_id": "A5037908613"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tina Haisch",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "openalex_author_id": "A5062871072"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Beat Habegger",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "openalex_author_id": "A5062345811"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Susanne Hadorn",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "orcid": "0000-0002-4470-7708"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Stephan Nebiker",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "orcid": "0000-0002-8574-1988"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Alex Erath",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "orcid": "0000-0002-3494-6617"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Achim Geissler",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "orcid": "0000-0002-3946-8749"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Susanne Bleisch",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "orcid": "0000-0002-4563-060X"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Denis Jordan",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "orcid": "0000-0003-0743-9983"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tanja Manser",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "orcid": "0000-0002-5852-8735"
+          }
+        },
+        {
+          "sourceType": "personal_site",
+          "context": {
+            "url": "https://www.fhnw.ch/en/people/tanja-manser"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Adrian Schwaninger",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "orcid": "0000-0001-7753-106X"
+          }
+        },
+        {
+          "sourceType": "personal_site",
+          "context": {
+            "url": "https://www.fhnw.ch/en/people/adrian-schwaninger"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dörte Resch",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "openalex_author_id": "A5057478497"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Toni Wäfler",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "openalex_author_id": "A5059665367"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Andreas Krause",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "orcid": "0000-0003-0726-4642"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Matthias Briner",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "openalex_author_id": "A5009079807"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Peter Sommerfeld",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "orcid": "0000-0002-5199-2033"
+          }
+        },
+        {
+          "sourceType": "personal_site",
+          "context": {
+            "url": "https://www.fhnw.ch/en/people/peter-sommerfeld"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Thomas Geisen",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "orcid": "0000-0002-6171-378X"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Kay Biesel",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "orcid": "0000-0002-9284-7377"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Eva Nadai",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "orcid": "0000-0001-5634-4767"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Edgar Baumgartner",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "orcid": "0000-0003-2754-1942"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Carlo Fabian",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "orcid": "0000-0002-1782-2698"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Nicolaj van der Meulen",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "orcid": "0000-0003-2511-8577"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Helen Pritchard",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "orcid": "0000-0002-6107-5060"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Michael Renner",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "openalex_author_id": "A5110195763"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Pierre Tulowitzki",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "orcid": "0000-0001-8809-2541"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Claudia Crotti",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "openalex_author_id": "A5065075460"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Christine Künzli",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "openalex_author_id": "A5003041634"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Adrian Baumgartner",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "openalex_author_id": "A5120096205"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Guido McCombie",
+      "type": "person",
+      "hubs": [
+        "fhnw"
+      ],
+      "sources": [
+        {
+          "sourceType": "orcid_pub",
+          "context": {
+            "openalex_author_id": "A5047426488"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -54,6 +54,9 @@ public class OpenAlexAdapter implements SourceAdapter {
     @Value("${orbit.openalex.mailto:}")
     private String mailto;
 
+    @Value("${orbit.openalex.api-key:}")
+    private String apiKey;
+
     public OpenAlexAdapter() {
         this.restClient = RestClient.builder()
                 .baseUrl(API_BASE)
@@ -334,6 +337,11 @@ public class OpenAlexAdapter implements SourceAdapter {
 
     private JsonNode fetchJson(String path) {
         String fullPath = path;
+        // API key gives $1/day budget (10× more than without). Free at
+        // openalex.org/settings/api. Without it, only $0.10/day.
+        if (apiKey != null && !apiKey.isBlank()) {
+            fullPath += (path.contains("?") ? "&" : "?") + "api_key=" + apiKey;
+        }
         if (mailto != null && !mailto.isBlank()) {
             fullPath += (path.contains("?") ? "&" : "?") + "mailto=" + mailto;
         }
