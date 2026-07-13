@@ -50,6 +50,11 @@ orbit:
       # Kept small so relevance dominates; A/B-able.
       availability-weight: ${ORBIT_SEARCH_RERANK_AVAIL:0.3}
       open-to-requests-weight: ${ORBIT_SEARCH_RERANK_OPEN:0.1}
+    # Cross-encoder reranker (Stage 2) — deterministic relevance filtering.
+    # Python microservice running BAAI/bge-reranker-v2-m3. Falls back gracefully
+    # (returns all candidates unfiltered) if the service is unavailable.
+    reranker-url: ${ORBIT_SEARCH_RERANKER_URL:http://localhost:8001}
+    reranker-threshold: ${ORBIT_SEARCH_RERANKER_THRESHOLD:0.55}
   embedding:
     # Provider-agnostic embedding config (see EmbeddingProperties). Defaults target a
     # local Ollama serving multilingual-e5-large at 1024 dims; override via env in other

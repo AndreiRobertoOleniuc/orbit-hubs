@@ -721,16 +721,9 @@ public class LlmSummaryService {
                 nicht durch die Belege gestützt ist. Zitiere je Aussage die passende(n)
                 source_id(s). Schreibe auf Deutsch, sachlich, 1–3 Sätze.
 
-                WICHTIG: Beurteile auch, ob die Belege **tatsächlich** zur Anfrage passen.
-                Wenn die Belege keine relevante Expertise für die spezifische Anfrage zeigen
-                (z.B. Anfrage nach "RAG Engineer" aber Belege nur über KI-Ethik oder
-                HCI-Design), setze "relevant" auf false. Nur wenn die Belege eine
-                **konkrete und spezifische** Verbindung zur Anfrage zeigen, setze true.
-                Sei streng — oberflächliche Keyword-Überschneidungen reichen NICHT aus.
-
-                Antworte NUR mit reinem JSON in genau diesem Format (keine Markdown-Codeblöcke,
+3                Antworte NUR mit reinem JSON in genau diesem Format (keine Markdown-Codeblöcke,
                 kein Text davor oder danach):
-                {"rationale":"<1–3 Sätze auf Deutsch>","relevant":true,"claims":[{"text":"<Teilaussage>","source_ids":["S1"]}]}
+                {"rationale":"<1–3 Sätze auf Deutsch>","claims":[{"text":"<Teilaussage>","source_ids":["S1"]}]}
 
                 Anfrage: %s
                 Profil: %s
@@ -792,7 +785,7 @@ public class LlmSummaryService {
                     }
                 }
             }
-            return new MatchRationale(rationale.trim(), claims, root.path("relevant").asBoolean(true));
+            return new MatchRationale(rationale.trim(), claims);
         } catch (Exception e) {
             log.warn("Could not parse rationale JSON ({}): {}", e.getClass().getSimpleName(), e.getMessage());
             return null;

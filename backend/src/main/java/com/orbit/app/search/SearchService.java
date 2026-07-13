@@ -12,6 +12,8 @@ import com.orbit.app.llm.dto.MatchRationale;
 import com.orbit.app.llm.dto.RationaleClaim;
 import com.orbit.app.llm.dto.RationaleEvidence;
 import com.orbit.app.profile.EntityService;
+import com.orbit.app.search.CrossEncoderReranker.RerankCandidate;
+import com.orbit.app.search.CrossEncoderReranker.RerankResult;
 import com.orbit.app.search.dto.Citation;
 import com.orbit.app.search.dto.ResolvedScope;
 import com.orbit.app.search.dto.ScopeSelection;
@@ -37,15 +39,24 @@ import jakarta.persistence.Query;
 
 /**
  * Hybrid search service — the full discovery pipeline (reference §6):
- * retrieve → re-rank → ground.
+ * retrieve → soft re-rank → cross-encoder rerank → ground.
+ * <p>
+ * Industry-standard 2-stage retrieval:
  * <ol>
- *   <li>Translate + embed the query ("query: " prefix)</li>
- *   <li>Resolve the scope selection and call the scoped {@code hybrid_search}
- *       SQL function (FTS + pgvector fused by RRF, hard-filtered by Hub/Region §5)</li>
- *   <li>Fetch top evidence chunks per entity (deduped by source)</li>
- *   <li>Re-rank by the soft signals — availability overlap + open boost (§6.3)</li>
- *   <li>Generate a grounded German rationale + validated citations for the top
- *       results (§6.4/§6.5); degrade to an evidence-only card when the LLM is off</li>
+ *   <li><b>Stage 1 — Bi-encoder retrieval:</b> Translate + embed the query,
+ *       call the scoped {@code hybrid_search} SQL function (FTS + pgvector
+ *       fused by RRF, hard-filtered by Hub/Region §5). Fetch top evidence
+ *       chunks per entity. Re-rank by soft signals (availability overlap +
+ *       open boost §6.3). Filter by similarity threshold.</li>
+ *   <li><b>Stage 2 — Cross-encoder reranking:</b> A deterministic
+ *       cross-encoder (BAAI/bge-reranker-v2-m3) scores each (query, document)
+ *       pair and drops irrelevant candidates. This replaces the previous
+ *       LLM-based relevance filter — it is faster, deterministic, and
+ *       specifically trained for relevance scoring.</li>
+ *   <li><b>Explanation layer:</b> For the top results, generate a grounded
+ *       German rationale + validated citations (§6.4/§6.5) via Gemini.
+ *       The LLM only <em>explains</em> the match — it never decides who
+ *       gets in. Degrades to an evidence-only card when the LLM is off.</li>
  * </ol>
  */
 @Service
@@ -57,7 +68,7 @@ public class SearchService {
     private static final int EVIDENCE_K = 4;
 
     /**
-     * Minimum best-evidence similarity for a result to count as a good match.
+     * Minimum best-evidence similarity for a result to pass Stage 1.
      * Below this, the result is filtered out. If ALL results fall below,
      * {@code sufficient = false} and the frontend prompts the user to widen the
      * scope or create an Anfrage (spec §4). Tunable via
@@ -76,6 +87,7 @@ public class SearchService {
     private final HubRepository hubRepository;
     private final ScopeResolver scopeResolver;
     private final RerankService rerankService;
+    private final CrossEncoderReranker crossEncoderReranker;
     private final EntityService entityService;
     private final EntityManager em;
 
@@ -85,6 +97,7 @@ public class SearchService {
                          HubRepository hubRepository,
                          ScopeResolver scopeResolver,
                          RerankService rerankService,
+                         CrossEncoderReranker crossEncoderReranker,
                          EntityService entityService,
                          EntityManager em) {
         this.embeddingService = embeddingService;
@@ -93,14 +106,15 @@ public class SearchService {
         this.hubRepository = hubRepository;
         this.scopeResolver = scopeResolver;
         this.rerankService = rerankService;
+        this.crossEncoderReranker = crossEncoderReranker;
         this.entityService = entityService;
         this.em = em;
     }
 
     /**
      * Run the discovery pipeline for a request and return ranked, grounded results.
-     * Results whose best evidence similarity is below the threshold are dropped;
-     * when none survive, {@link SearchResponse#sufficient()} is false.
+     * Results that fail the similarity threshold or the cross-encoder relevance
+     * filter are dropped; when none survive, {@link SearchResponse#sufficient()} is false.
      */
     @Transactional(readOnly = true)
     public SearchResponse search(SearchRequest request) {
@@ -112,6 +126,8 @@ public class SearchService {
         ResolvedScope scope = scopeResolver.resolve(request.scope());
         log.info("Search: \"{}\" (matchCount={}, scope={}, threshold={})",
                 queryText, matchCount, describeScope(request.scope()), similarityThreshold);
+
+        // ── Stage 1: Bi-encoder retrieval ──
 
         // 1. Translate + embed the query (English FTS + E5 semantic both work).
         String englishQuery = llmSummaryService.translateToEnglish(queryText);
@@ -152,7 +168,7 @@ public class SearchService {
             return new SearchResponse(queryText, false, List.of());
         }
 
-        // 4. Re-rank (soft signals) and keep only above-threshold matches.
+        // 4. Soft re-rank (availability + openToRequests) + similarity threshold filter.
         List<Double> baseScores = candidates.stream().map(c -> c.base).toList();
         List<DiscoveryEntity> ents = candidates.stream().map(c -> c.entity).toList();
         double[] finals = rerankService.finalScores(
@@ -170,48 +186,54 @@ public class SearchService {
             return new SearchResponse(queryText, false, List.of());
         }
 
-        // 5. Ground the shown results + build cards.
-        //    Parallelize the LLM grounding calls — each is an independent Gemini
-        //    request, so N results ground in ~1 call's time instead of N×.
+        // ── Stage 2: Cross-encoder reranking (deterministic relevance filter) ──
+
+        // 5. Cross-encoder scores each (query, candidate) pair and drops irrelevant matches.
+        //    This replaces the previous LLM-based relevance filter — deterministic,
+        //    fast (~50 ms), and specifically trained for relevance scoring.
+        List<RerankCandidate> rerankInputs = strong.stream()
+                .map(c -> new RerankCandidate(c.entity, c.finalScore, topEvidenceText(c)))
+                .toList();
+        List<RerankResult> reranked = crossEncoderReranker.rerank(englishQuery, rerankInputs);
+
+        if (reranked.isEmpty()) {
+            log.info("Search \"{}\" → {} candidates passed similarity, all dropped by cross-encoder",
+                    queryText, strong.size());
+            return new SearchResponse(queryText, false, List.of());
+        }
+
+        // Map back to Candidate objects, preserving reranker order.
+        List<Candidate> rerankedCandidates = reranked.stream()
+                .map(rr -> findCandidate(strong, rr.candidate().entity().getId()))
+                .filter(c -> c != null)
+                .toList();
+
+        // ── Explanation layer: LLM grounding (rationale + citations only) ──
+
+        // 6. Generate grounded German rationale + validated citations for the top results.
+        //    Parallelized — each is an independent Gemini request.
+        //    The LLM only explains; it never decides who gets in.
         Hub anchorHub = resolveAnchorHub(request.scope());
         List<CompletableFuture<Grounded>> groundFutures = new ArrayList<>();
-        for (int i = 0; i < strong.size(); i++) {
-            final Candidate c = strong.get(i);
+        for (int i = 0; i < rerankedCandidates.size(); i++) {
+            final Candidate c = rerankedCandidates.get(i);
             if (i < rationaleTopN) {
                 groundFutures.add(CompletableFuture.supplyAsync(() -> ground(queryText, c)));
             } else {
-                groundFutures.add(CompletableFuture.completedFuture(
-                        new Grounded(null, fallbackCitations(c), true)));
+                groundFutures.add(CompletableFuture.completedFuture(new Grounded(null, fallbackCitations(c))));
             }
         }
 
         List<SearchResult> results = new ArrayList<>();
         for (int i = 0; i < groundFutures.size(); i++) {
             Grounded grounded = groundFutures.get(i).join();
-            Candidate c = strong.get(i);
-
-            // LLM relevance filter: if the grounding says this match isn't relevant
-            // to the actual query, drop it. This catches generic-keyword false
-            // positives (e.g. "AI Engineer for RAG" matching HCI/UX papers).
-            if (!grounded.relevant()) {
-                log.info("Search \"{}\" → dropped {} (LLM says not relevant)",
-                        queryText, c.entity.getDisplayName());
-                continue;
-            }
+            Candidate c = rerankedCandidates.get(i);
 
             EntityDto dto = entityService.toDto(c.entity);
-            results.add(new SearchResult(dto, c.finalScore, grounded.rationale(),
-                    grounded.citations(), distanceLabel(anchorHub, c.entity)));
+            results.add(new SearchResult(dto, c.finalScore, grounded.rationale(), grounded.citations(), distanceLabel(anchorHub, c.entity)));
         }
 
-        if (results.isEmpty()) {
-            log.info("Search \"{}\" → {} candidates, all filtered by LLM relevance",
-                    queryText, strong.size());
-            return new SearchResponse(queryText, false, List.of());
-        }
-
-        log.info("Search \"{}\" → {} results (top: {})",
-                queryText, results.size(), strong.get(0).entity.getDisplayName());
+        log.info("Search \"{}\" → {} results (top: {})", queryText, results.size(), rerankedCandidates.get(0).entity.getDisplayName());
         return new SearchResponse(queryText, true, results);
     }
 
@@ -222,10 +244,14 @@ public class SearchService {
      * whose citations are all in the evidence set; a shown rationale always has
      * ≥1 validated citation. Degrades to evidence-only (rationale = null) when the
      * LLM is unavailable or nothing survives validation.
+     * <p>
+     * The LLM only <em>explains</em> the match. Relevance filtering is handled by
+     * the cross-encoder reranker in Stage 2 — this method is called only for
+     * candidates that already passed.
      */
     private Grounded ground(String queryText, Candidate c) {
         List<Evidence> evidence = c.evidence;
-        if (evidence.isEmpty()) return new Grounded(null, List.of(), true);
+        if (evidence.isEmpty()) return new Grounded(null, List.of());
 
         // Assign stable citation ids S1, S2, … (one per source — already deduped).
         List<RationaleEvidence> forLlm = new ArrayList<>();
@@ -237,7 +263,7 @@ public class SearchService {
         MatchRationale out = llmSummaryService.generateMatchRationale(
                 queryText, c.entity.getDisplayName(), c.entity.getHeadline(), c.entity.getOrgName(), forLlm);
         if (out == null) {
-            return new Grounded(null, fallbackCitations(c), true);   // LLM off → evidence-only, keep
+            return new Grounded(null, fallbackCitations(c));   // LLM off → evidence-only
         }
 
         // §6.5 — drop claims citing ids not in the evidence set; recompute cited set.
@@ -257,11 +283,10 @@ public class SearchService {
             }
         }
         if (chips.isEmpty()) {
-            // LLM returned but no claims had valid citations — use fallback
-            // citations but respect the LLM's relevance judgement.
-            return new Grounded(null, fallbackCitations(c), out.relevant());
+            // No claims had valid citations — fall back to evidence-only chips.
+            return new Grounded(null, fallbackCitations(c));
         }
-        return new Grounded(out.rationale(), chips, out.relevant());
+        return new Grounded(out.rationale(), chips);
     }
 
     /** All top evidence sources as chips (used when there is no grounded rationale). */
@@ -269,6 +294,14 @@ public class SearchService {
         return c.evidence.stream()
                 .map(ev -> new Citation(ev.sourceId(), ev.label(), ev.sourceType(), ev.sourceUrl()))
                 .toList();
+    }
+
+    /** The top evidence chunk text (for the cross-encoder document). */
+    private String topEvidenceText(Candidate c) {
+        return c.evidence.stream()
+                .map(Evidence::content)
+                .findFirst()
+                .orElse(null);
     }
 
     // ─── Evidence ───
@@ -313,7 +346,14 @@ public class SearchService {
         return evidence;
     }
 
-    // ─── Distance ───
+    // ─── Helpers ───
+
+    private Candidate findCandidate(List<Candidate> list, Long entityId) {
+        for (Candidate c : list) {
+            if (c.entity.getId().equals(entityId)) return c;
+        }
+        return null;
+    }
 
     private Hub resolveAnchorHub(ScopeSelection scope) {
         if (scope == null || scope.kind() == null || !"hub".equalsIgnoreCase(scope.kind())
@@ -343,8 +383,6 @@ public class SearchService {
                 * Math.sin(dLon / 2) * Math.sin(dLon / 2);
         return r * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
-
-    // ─── Helpers ───
 
     private static String describeScope(ScopeSelection scope) {
         if (scope == null || scope.kind() == null) return "all";
@@ -398,6 +436,6 @@ public class SearchService {
     }
 
     /** Grounding output: rationale (nullable) + the chips to render. */
-    private record Grounded(String rationale, List<Citation> citations, boolean relevant) {
+    private record Grounded(String rationale, List<Citation> citations) {
     }
 }
