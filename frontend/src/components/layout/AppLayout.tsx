@@ -9,6 +9,7 @@ import { NavLinks } from "@/components/layout/NavLinks"
 import { ThemeToggle } from "@/components/layout/ThemeToggle"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/features/auth/useAuth"
+import { cn } from "@/lib/utils"
 
 export function AppLayout() {
   const { pathname } = useLocation()
@@ -63,7 +64,14 @@ export function AppLayout() {
         )}
       </header>
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">
+      {/* /search goes full-bleed so its slide-out profile panel can pin to
+          the viewport edge and use the whole width on large screens */}
+      <main
+        className={cn(
+          "w-full flex-1 px-4 py-6",
+          pathname !== "/search" && "mx-auto max-w-6xl"
+        )}
+      >
         <Outlet />
       </main>
 

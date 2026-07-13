@@ -1,10 +1,10 @@
-import { Link, useNavigate } from "react-router-dom"
 import { MapPin } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { AvailabilityBadge } from "@/features/profile/AvailabilityBadge"
 import { sourceTypeInfo } from "@/features/profile/profileUtils"
+import { cn } from "@/lib/utils"
 import type { SearchCitationDto, SearchResultDto } from "@/types/api"
 
 function CitationChip({ citation }: { citation: SearchCitationDto }) {
@@ -25,6 +25,7 @@ function CitationChip({ citation }: { citation: SearchCitationDto }) {
       href={citation.sourceUrl!}
       target="_blank"
       rel="noopener noreferrer"
+      onClick={(e) => e.stopPropagation()}
       className={`${base} transition-colors hover:border-foreground/30 hover:text-foreground`}
     >
       {inner}
@@ -34,28 +35,49 @@ function CitationChip({ citation }: { citation: SearchCitationDto }) {
   )
 }
 
+interface SearchResultCardProps {
+  result: SearchResultDto
+  selected: boolean
+  onSelect: () => void
+}
+
 /**
  * One match card (design: MatchCard) — identity + availability pill, the grounded
  * rationale (falls back to the entity summary), cited evidence chips, optional
  * collaboration badges, and a footer with the best-effort distance + profile link.
+ *
+ * Selecting a card opens the profile in the slide-out side panel next to the
+ * results instead of navigating away — the search stays on screen.
  */
-export function SearchResultCard({ result }: { result: SearchResultDto }) {
+export function SearchResultCard({
+  result,
+  selected,
+  onSelect,
+}: SearchResultCardProps) {
   const { entity, rationale, citations, distance } = result
-  const navigate = useNavigate()
   const collab = entity.availability?.preferredCollaboration ?? []
   const description = rationale ?? entity.summary
 
   return (
-    <div className="rounded-xl bg-card p-6 text-card-foreground ring-1 ring-foreground/10 transition-shadow hover:ring-foreground/20">
+    <div
+      onClick={onSelect}
+      className={cn(
+        "cursor-pointer rounded-xl bg-card p-6 text-card-foreground ring-1 transition-shadow",
+        selected
+          ? "ring-2 ring-primary/60"
+          : "ring-foreground/10 hover:ring-foreground/20"
+      )}
+    >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="font-semibold">
-            <Link
-              to={`/profile/${entity.id}`}
+            <button
+              type="button"
+              onClick={onSelect}
               className="underline-offset-2 hover:underline"
             >
               {entity.displayName}
-            </Link>
+            </button>
             {entity.headline && (
               <span className="font-normal text-muted-foreground">
                 {" · "}
@@ -103,10 +125,7 @@ export function SearchResultCard({ result }: { result: SearchResultDto }) {
             </>
           )}
         </span>
-        <Button
-          variant="outline"
-          onClick={() => navigate(`/profile/${entity.id}`)}
-        >
+        <Button variant="outline" onClick={onSelect}>
           Profil ansehen
         </Button>
       </div>
