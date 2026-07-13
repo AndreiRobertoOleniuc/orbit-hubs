@@ -882,7 +882,9 @@ public class LlmSummaryService {
                 Focus on the expertise, skills, role titles, and technologies being sought.
                 Remove conversational filler (e.g., "I need", "we are looking for", "who can help us", "please find").
                 Remove contextual details about the searcher's own project or product (e.g., "for our SaaS product", "for a startup") — keep only what describes the expert's required qualifications.
-                If already in English, just extract. Do not add information that is not in the original.
+                Always output in English, even if the input is a short foreign-language term.
+                If the extracted terms do not include a role descriptor (e.g., expert, professor, researcher, specialist), append "expert" at the end.
+                Do not add information that is not in the original beyond this role descriptor.
                 Return only the extracted search terms, nothing else.
 
                 Search request:
