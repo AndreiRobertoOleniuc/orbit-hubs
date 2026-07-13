@@ -122,10 +122,11 @@ export function SearchResults({
                 Treffer ({results.length})
               </h2>
               <div className="flex flex-col gap-4">
-                {results.map((r) => (
+                {results.map((r, i) => (
                   <SearchResultCard
                     key={r.entity.id}
                     result={r}
+                    rank={i}
                     selected={panelOpen && selected?.id === r.entity.id}
                     onSelect={() => openProfile(r.entity)}
                   />

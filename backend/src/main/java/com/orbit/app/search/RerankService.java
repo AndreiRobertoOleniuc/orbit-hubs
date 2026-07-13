@@ -11,8 +11,10 @@ import org.springframework.stereotype.Service;
  * Re-ranking stage (reference §6.3) — the soft signals that reorder, but never
  * remove, retrieved candidates (§7). Only the signals the search UI exposes are
  * wired: availability-window / Pensum overlap (the Zeitraum + Umfang filters) and
- * the "Offen für Anfragen" boost. Additive boosts on the min-max-normalized base
- * RRF score; weights come from {@link RerankProperties}.
+ * the "Offen für Anfragen" boost. Applied as a <strong>multiplicative</strong> boost
+ * on the cross-encoder score after the CE has filtered irrelevant candidates:
+ * {@code combined = ceScore * (1 + W_avail * overlap + W_open * open)}. Weights
+ * come from {@link RerankProperties}.
  */
 @Service
 public class RerankService {
@@ -26,19 +28,25 @@ public class RerankService {
     }
 
     /**
-     * Compute the final re-ranked score for each candidate, aligned by index with
-     * {@code baseRrf} / {@code entities}. Base RRF is min-max normalized across the
-     * candidate set so the additive soft boosts are comparable.
+     * Compute the multiplicative soft-boost factor for each candidate, aligned
+     * by index with {@code entities}. Returns an array of
+     * {@code (1 + W_avail * overlap + W_open * open)} values. The caller multiplies
+     * the cross-encoder score by this factor to get the final combined score.
+     * <p>
+     * This runs <em>after</em> the cross-encoder so soft signals fine-tune the
+     * order of relevant candidates, not determine who passes the relevance filter.
+     * The boost scales with the CE score implicitly (caller multiplies), so a
+     * weak match gets less absolute boost than a strong match — availability
+     * matters more for relevant candidates, which is the right behaviour.
      */
-    public double[] finalScores(List<Double> baseRrf, List<DiscoveryEntity> entities,
+    public double[] boostFactors(List<DiscoveryEntity> entities,
                                 LocalDate wantFrom, LocalDate wantTo, Integer wantPensum) {
-        double[] norm = minMaxNormalize(baseRrf);
-        double[] out = new double[baseRrf.size()];
+        double[] out = new double[entities.size()];
         for (int i = 0; i < out.length; i++) {
             DiscoveryEntity e = entities.get(i);
             double avail = availabilityOverlap(wantFrom, wantTo, wantPensum, e);
             double open = e.isOpenToRequests() ? 1.0 : 0.0;
-            out[i] = norm[i]
+            out[i] = 1.0
                     + props.availabilityWeight() * avail
                     + props.openToRequestsWeight() * open;
         }
@@ -94,17 +102,6 @@ public class RerankService {
     private static double pensumCompatibility(Integer wantPensum, Integer pensum) {
         if (wantPensum == null || wantPensum <= 0 || pensum == null) return 1.0;
         return clamp01((double) Math.min(pensum, wantPensum) / (double) wantPensum);
-    }
-
-    static double[] minMaxNormalize(List<Double> xs) {
-        double min = xs.stream().mapToDouble(Double::doubleValue).min().orElse(0.0);
-        double max = xs.stream().mapToDouble(Double::doubleValue).max().orElse(0.0);
-        double range = max - min;
-        double[] out = new double[xs.size()];
-        for (int i = 0; i < xs.size(); i++) {
-            out[i] = range < 1e-12 ? 1.0 : (xs.get(i) - min) / range;
-        }
-        return out;
     }
 
     private static double clamp01(double v) {

@@ -1,4 +1,4 @@
-import { MapPin } from "lucide-react"
+import { MapPin, Trophy } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -37,6 +37,7 @@ function CitationChip({ citation }: { citation: SearchCitationDto }) {
 
 interface SearchResultCardProps {
   result: SearchResultDto
+  rank: number
   selected: boolean
   onSelect: () => void
 }
@@ -46,17 +47,22 @@ interface SearchResultCardProps {
  * rationale (falls back to the entity summary), cited evidence chips, optional
  * collaboration badges, and a footer with the best-effort distance + profile link.
  *
+ * The top result gets a "Bester Treffer" badge; every card shows its rank
+ * number so the user can see the ordering at a glance.
+ *
  * Selecting a card opens the profile in the slide-out side panel next to the
  * results instead of navigating away — the search stays on screen.
  */
 export function SearchResultCard({
   result,
+  rank,
   selected,
   onSelect,
 }: SearchResultCardProps) {
   const { entity, rationale, citations, distance } = result
   const collab = entity.availability?.preferredCollaboration ?? []
   const description = rationale ?? entity.summary
+  const isTopMatch = rank === 0
 
   return (
     <div
@@ -65,33 +71,60 @@ export function SearchResultCard({
         "cursor-pointer rounded-xl bg-card p-6 text-card-foreground ring-1 transition-shadow",
         selected
           ? "ring-2 ring-primary/60"
-          : "ring-foreground/10 hover:ring-foreground/20"
+          : isTopMatch
+            ? "ring-primary/30 hover:ring-primary/40"
+            : "ring-foreground/10 hover:ring-foreground/20"
       )}
     >
       <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="font-semibold">
-            <button
-              type="button"
-              onClick={onSelect}
-              className="underline-offset-2 hover:underline"
-            >
-              {entity.displayName}
-            </button>
-            {entity.headline && (
-              <span className="font-normal text-muted-foreground">
-                {" · "}
-                {entity.headline}
-              </span>
+        <div className="flex min-w-0 items-start gap-3">
+          {/* Fixed-width rank gutter so names line up across cards */}
+          <span
+            aria-label={`Rang ${rank + 1}`}
+            className={cn(
+              "flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
+              isTopMatch
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground"
+            )}
+          >
+            {isTopMatch ? <Trophy className="size-3" /> : rank + 1}
+          </span>
+          <div className="min-w-0">
+            <div className="font-semibold">
+              <button
+                type="button"
+                onClick={onSelect}
+                className="underline-offset-2 hover:underline"
+              >
+                {entity.displayName}
+              </button>
+              {entity.headline && (
+                <span className="font-normal text-muted-foreground">
+                  {" · "}
+                  {entity.headline}
+                </span>
+              )}
+            </div>
+            {entity.orgName && (
+              <div className="mt-0.5 text-sm text-muted-foreground">
+                {entity.orgName}
+              </div>
             )}
           </div>
-          {entity.orgName && (
-            <div className="mt-0.5 text-sm text-muted-foreground">
-              {entity.orgName}
-            </div>
-          )}
         </div>
-        <AvailabilityBadge availability={entity.availability} />
+        <div className="flex shrink-0 items-center gap-1.5">
+          {isTopMatch && (
+            <Badge
+              variant="outline"
+              className="gap-1 border-primary/30 text-primary"
+            >
+              <Trophy className="size-3" />
+              Bester Treffer
+            </Badge>
+          )}
+          <AvailabilityBadge availability={entity.availability} />
+        </div>
       </div>
 
       {description && (

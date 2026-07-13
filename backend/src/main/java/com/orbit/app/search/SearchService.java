@@ -39,20 +39,24 @@ import jakarta.persistence.Query;
 
 /**
  * Hybrid search service — the full discovery pipeline (reference §6):
- * retrieve → soft re-rank → cross-encoder rerank → ground.
+ * retrieve → cross-encoder rerank → soft re-rank → ground.
  * <p>
  * Industry-standard 2-stage retrieval:
  * <ol>
  *   <li><b>Stage 1 — Bi-encoder retrieval:</b> Translate + embed the query,
  *       call the scoped {@code hybrid_search} SQL function (FTS + pgvector
  *       fused by RRF, hard-filtered by Hub/Region §5). Fetch top evidence
- *       chunks per entity. Re-rank by soft signals (availability overlap +
- *       open boost §6.3). Filter by similarity threshold.</li>
+ *       chunks per entity. Filter by similarity threshold.</li>
  *   <li><b>Stage 2 — Cross-encoder reranking:</b> A deterministic
  *       cross-encoder (BAAI/bge-reranker-v2-m3) scores each (query, document)
  *       pair and drops irrelevant candidates. This replaces the previous
  *       LLM-based relevance filter — it is faster, deterministic, and
  *       specifically trained for relevance scoring.</li>
+ *   <li><b>Soft re-rank:</b> Multiplicative boost on the cross-encoder score
+ *       using availability overlap + openToRequests (§6.3). Runs AFTER the
+ *       cross-encoder so soft signals fine-tune the order of relevant
+ *       candidates, not determine who passes the relevance filter.
+ *       {@code combined = ceScore × (1 + W·avail + W·open)}.</li>
  *   <li><b>Explanation layer:</b> For the top results, generate a grounded
  *       German rationale + validated citations (§6.4/§6.5) via Gemini.
  *       The LLM only <em>explains</em> the match — it never decides who
@@ -176,16 +180,12 @@ public class SearchService {
             return new SearchResponse(queryText, false, List.of());
         }
 
-        // 4. Soft re-rank (availability + openToRequests) + similarity threshold filter.
-        List<Double> baseScores = candidates.stream().map(c -> c.base).toList();
-        List<DiscoveryEntity> ents = candidates.stream().map(c -> c.entity).toList();
-        double[] finals = rerankService.finalScores(
-                baseScores, ents, request.wantFrom(), request.wantTo(), request.wantPensumPct());
-        for (int i = 0; i < candidates.size(); i++) candidates.get(i).finalScore = finals[i];
-
+        // 4. Similarity threshold filter — drop candidates whose best evidence
+        //    chunk similarity is below the quality bar. Soft re-rank runs AFTER
+        //    the cross-encoder (step 6), not here — it fine-tunes the order of
+        //    relevant candidates, not the relevance filter itself.
         List<Candidate> strong = candidates.stream()
                 .filter(c -> c.bestSimilarity() >= similarityThreshold)
-                .sorted(Comparator.comparingDouble((Candidate c) -> c.finalScore).reversed())
                 .toList();
 
         if (strong.isEmpty()) {
@@ -200,7 +200,7 @@ public class SearchService {
         //    This replaces the previous LLM-based relevance filter — deterministic,
         //    fast (~50 ms), and specifically trained for relevance scoring.
         List<RerankCandidate> rerankInputs = strong.stream()
-                .map(c -> new RerankCandidate(c.entity, c.finalScore, topEvidenceText(c)))
+                .map(c -> new RerankCandidate(c.entity, c.base, topEvidenceText(c)))
                 .toList();
         List<RerankResult> reranked = crossEncoderReranker.rerank(condensedQuery, rerankInputs);
 
@@ -211,10 +211,36 @@ public class SearchService {
         }
 
         // Map back to Candidate objects, preserving reranker order.
-        List<Candidate> rerankedCandidates = reranked.stream()
+        List<Candidate> rerankedCandidates = new ArrayList<>(reranked.stream()
                 .map(rr -> findCandidate(strong, rr.candidate().entity().getId()))
                 .filter(c -> c != null)
-                .toList();
+                .toList());
+
+        // ── Soft re-rank: multiplicative boost on CE score (§6.3) ──
+
+        // 6. Soft re-rank — multiply CE score by availability readiness factor.
+        //    combined = ceScore × (1 + W_avail × overlap + W_open × open)
+        //    This runs AFTER the cross-encoder so soft signals fine-tune the order
+        //    of relevant candidates, not determine who passes the relevance filter.
+        //    The boost scales with CE score: a weak match gets less absolute boost
+        //    than a strong match, so availability matters more for relevant candidates.
+        List<DiscoveryEntity> rerankedEntities = rerankedCandidates.stream()
+                .map(c -> c.entity).toList();
+        double[] boostFactors = rerankService.boostFactors(
+                rerankedEntities, request.wantFrom(), request.wantTo(), request.wantPensumPct());
+
+        for (int i = 0; i < rerankedCandidates.size(); i++) {
+            double ceScore = reranked.get(i).rerankerScore();
+            rerankedCandidates.get(i).finalScore = ceScore * boostFactors[i];
+        }
+
+        // Re-sort by combined score (availability may reorder near-ties).
+        rerankedCandidates.sort(Comparator.comparingDouble((Candidate c) -> c.finalScore).reversed());
+
+        log.info("Final ranking after soft re-rank: {}",
+                rerankedCandidates.stream()
+                        .map(c -> String.format("%s(%.3f)", c.entity.getDisplayName(), c.finalScore))
+                        .toList());
 
         // ── Explanation layer: LLM grounding (rationale + citations only) ──
 
