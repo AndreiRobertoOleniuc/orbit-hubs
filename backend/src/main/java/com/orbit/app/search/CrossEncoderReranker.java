@@ -116,10 +116,9 @@ public class CrossEncoderReranker {
         if (c.entity().getSummary() != null && !c.entity().getSummary().isBlank()) {
             sb.append(". ").append(c.entity().getSummary());
         }
-        // Append the top evidence chunk for more context
-        if (c.topEvidence() != null && !c.topEvidence().isBlank()) {
-            sb.append(" ").append(c.topEvidence());
-        }
+        // Evidence chunks are NOT appended — testing showed they dilute the
+        // cross-encoder signal (methodology/acronym noise pushes scores toward
+        // neutral). The chunk is still used downstream for grounding/citations.
         return sb.toString();
     }
 

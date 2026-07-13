@@ -129,10 +129,18 @@ public class SearchService {
 
         // ── Stage 1: Bi-encoder retrieval ──
 
-        // 1. Translate + embed the query (English FTS + E5 semantic both work).
-        String englishQuery = llmSummaryService.translateToEnglish(queryText);
-        float[] queryEmbedding = embeddingService.embed(englishQuery, EmbeddingKind.QUERY);
+        // 1a. Full English translation for Stage 1 (bi-encoder + FTS).
+        //     Preserves ALL terms — including project context like "SaaS" —
+        //     so retrieval can surface candidates with relevant domain experience.
+        String fullEnglishQuery = llmSummaryService.translateToEnglish(queryText);
+        float[] queryEmbedding = embeddingService.embed(fullEnglishQuery, EmbeddingKind.QUERY);
         String vectorStr = toVectorString(queryEmbedding);
+
+        // 1b. Condensed search query for Stage 2 (cross-encoder).
+        //     Strips conversational filler and project context — the cross-encoder
+        //     (bge-reranker-v2-m3) is trained on short search-style queries and
+        //     scores near-neutral (0.5) for full natural-language sentences.
+        String condensedQuery = llmSummaryService.translateAndCondenseSearchQuery(queryText);
 
         // 2. Scoped hybrid_search — HARD FILTER (§5) applied inside the SQL.
         Query searchQuery = em.createNativeQuery("""
@@ -141,7 +149,7 @@ public class SearchService {
                   CAST(? AS bigint[]), CAST(? AS bigint[]),
                   CAST(? AS int), 1.0::float8, 1.0::float8, 50)
                 """);
-        searchQuery.setParameter(1, englishQuery);
+        searchQuery.setParameter(1, fullEnglishQuery);
         searchQuery.setParameter(2, vectorStr);
         searchQuery.setParameter(3, toPgArray(scope.hubIds()));
         searchQuery.setParameter(4, toPgArray(scope.regionIds()));
@@ -194,7 +202,7 @@ public class SearchService {
         List<RerankCandidate> rerankInputs = strong.stream()
                 .map(c -> new RerankCandidate(c.entity, c.finalScore, topEvidenceText(c)))
                 .toList();
-        List<RerankResult> reranked = crossEncoderReranker.rerank(englishQuery, rerankInputs);
+        List<RerankResult> reranked = crossEncoderReranker.rerank(condensedQuery, rerankInputs);
 
         if (reranked.isEmpty()) {
             log.info("Search \"{}\" → {} candidates passed similarity, all dropped by cross-encoder",

@@ -249,13 +249,14 @@ The built pipeline has **five stages** (updated from the original three-stage de
 search(query_text, scope_selection, presence_mode, want_window, created_by):
 
   1. PREP
-     englishQuery = llm.translateToEnglish(query_text)             # German UI → English retrieval
-     q_emb   = embed("query: " + englishQuery)
+     fullEnglishQuery  = llm.translateToEnglish(query_text)                    # German UI → English retrieval (preserves all terms)
+     condensedQuery    = llm.translateAndCondenseSearchQuery(query_text)          # Stripped to search-style keywords for cross-encoder
+     q_emb   = embed("query: " + fullEnglishQuery)
      scope   = scopeResolver.resolve(scope_selection)               # §5.3
 
   2. RETRIEVE  (§6.1 / 6.2) — HARD FILTER applied here
      SET LOCAL hnsw.iterative_scan = 'strict_order'
-     ranked = hybrid_search(englishQuery, q_emb, scope.hub_ids, scope.region_ids, match_count=10)
+     ranked = hybrid_search(fullEnglishQuery, q_emb, scope.hub_ids, scope.region_ids, match_count=10)
      if len(ranked) < k_min: widen(scope); goto 2                    # §5.4
 
   3. EVIDENCE  (§6.2) — top winning chunks per entity for THIS query
@@ -268,8 +269,8 @@ search(query_text, scope_selection, presence_mode, want_window, created_by):
      ranked = sort_desc(ranked, by=final)
 
   5. CROSS-ENCODER RERANK  (§6.7) — DETERMINISTIC RELEVANCE FILTER
-     for e in ranked: doc = buildDocText(e)   # name + headline + summary + top evidence
-     scores = crossEncoder.rerank(englishQuery, [doc for e in ranked])
+     for e in ranked: doc = buildDocText(e)   # name + headline + summary (NO evidence chunk)
+     scores = crossEncoder.rerank(condensedQuery, [doc for e in ranked])  # condensed query, not full translation
      ranked = filter(ranked, score >= rerankerThreshold)   # drop irrelevant
      ranked = sort_desc(ranked, by=crossEncoderScore)
 
@@ -296,9 +297,10 @@ Two independent rankings over `chunks`: **keyword** (`fts @@ websearch_to_tsquer
 - Entity summaries and chunk content are **generated in English** by the LLM enrichment pipeline (`LlmSummaryService`), even though the UI and rationale output are in German.
 - German FTS would poorly match English content (compound words, morphology differences).
 - The user's German query is **translated to English by Gemini** (`llmSummaryService.translateToEnglish()`) before both the FTS and semantic legs — so the query language matches the stored content language.
+- A second LLM call produces a **condensed search query** (`llmSummaryService.translateAndCondenseSearchQuery()`) that strips conversational filler and project context, keeping only the expertise/role terms. This condensed query is used **only** for the cross-encoder (Stage 4, §6.7), which is trained on short search-style queries and scores near-neutral for full natural-language sentences. The full translation is used for retrieval (Stages 1–3) to preserve all search terms. See `search-pipeline-implementation.md` §1b.
 - The rationale (section 6.4) is generated in German from the original German query text, so the user-facing explanation stays in their language.
 
-This means the retrieval path operates entirely in English, while the explanation path operates in German. The translation adds latency but is necessary for retrieval quality.
+This means the retrieval path operates entirely in English (full query), the cross-encoder path operates on a condensed English query, and the explanation path operates in German. The two LLM calls add ~1.4s latency but are necessary for retrieval quality and cross-encoder accuracy.
 
 ### 6.2 The scoped `hybrid_search` (V10 — built version)
 
@@ -483,7 +485,9 @@ The cross-encoder is served by a **Python microservice** (FastAPI on port 8001) 
 // Candidates below relevanceThreshold (default 0.55) are dropped
 ```
 
-The document text for each candidate is built from: `display_name + headline + summary + top evidence chunk`. This gives the cross-encoder enough context to judge relevance without overwhelming it.
+The document text for each candidate is built from: `display_name + headline + summary` only — **not** the top evidence chunk. Testing showed that appending the evidence chunk (e.g., "The Crowd in Requirements Engineering: CrowdRE could significantly change RE...") added methodology/acronym noise that diluted the clear signal in the summary, pushing scores toward neutral. The chunk is still used downstream for grounding/citations (§6.4).
+
+**Two-query split — condensed query for the cross-encoder.** The cross-encoder receives a **condensed** version of the query (`translateAndCondenseSearchQuery`), not the full English translation. The bge-reranker-v2-m3 is trained on short search-style queries (keyword phrases), not natural-language sentences. When fed a conversational query like "I need a Requirements Engineering Expert who can help us with our SaaS product", it scores every candidate near-neutral (0.50) — even perfect matches. The condensation LLM call strips conversational filler ("I need", "who can help us") and the searcher's project context ("for our SaaS product"), keeping only the expertise/role terms ("Requirements Engineering Expert"). This lifts a perfect match from 0.50 to 0.70, well above the 0.55 threshold. The full English translation is still used for Stage 1 (bi-encoder + FTS) to preserve retrieval granularity — "SaaS" still helps surface candidates with SaaS experience. See `search-pipeline-implementation.md` §1b for the full rationale and test results.
 
 **Config:**
 - `orbit.search.reranker-url` (default `http://localhost:8001`)

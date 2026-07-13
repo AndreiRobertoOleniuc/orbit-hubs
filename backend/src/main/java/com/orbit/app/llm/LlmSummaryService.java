@@ -854,4 +854,66 @@ public class LlmSummaryService {
         log.warn("Translation failed - using original text (semantic leg still works)");
         return text;
     }
+
+    /**
+     * Translate a natural-language search request to English and condense it into
+     * a concise search query suitable for both bi-encoder retrieval and
+     * cross-encoder reranking.
+     * <p>
+     * The cross-encoder (bge-reranker-v2-m3) is trained on short search-style
+     * queries, not conversational sentences. Feeding it "I need a Requirements
+     * Engineering Expert who can help us with our SaaS product" scores near-neutral
+     * (0.50) even for perfect matches. Condensing to "Requirements Engineering
+     * Expert SaaS product" lifts the score to ~0.63.
+     * <p>
+     * This replaces {@link #translateToEnglish} for search queries — the latter
+     * is still used for full-text translation (e.g. LinkedIn ingestion) where
+     * structure must be preserved.
+     *
+     * @param query the raw user query (any language, any length)
+     * @return condensed English search query, or the original if the LLM fails
+     */
+    public String translateAndCondenseSearchQuery(String query) {
+        if (query == null || query.isBlank()) return query;
+        if (query.length() < 10) return query;
+
+        String prompt = """
+                Translate the following search request to English and extract the key search terms.
+                Focus on the expertise, skills, role titles, and technologies being sought.
+                Remove conversational filler (e.g., "I need", "we are looking for", "who can help us", "please find").
+                Remove contextual details about the searcher's own project or product (e.g., "for our SaaS product", "for a startup") — keep only what describes the expert's required qualifications.
+                If already in English, just extract. Do not add information that is not in the original.
+                Return only the extracted search terms, nothing else.
+
+                Search request:
+                %s""".formatted(query);
+
+        for (int attempt = 1; attempt <= 2; attempt++) {
+            try {
+                long start = System.currentTimeMillis();
+                String response = chatModel.call(new Prompt(prompt)).getResult().getOutput().getText();
+                long elapsed = System.currentTimeMillis() - start;
+
+                if (response != null && !response.isBlank()) {
+                    log.info("Translate+condense search query (attempt {}/{}, {}ms): \"{}\" -> \"{}\" ({} -> {} chars)",
+                            attempt, 2, elapsed, query, response.trim(), query.length(), response.length());
+                    return response.trim();
+                }
+            } catch (Exception e) {
+                log.warn("Translate+condense attempt {}/{} failed ({}): {}",
+                        attempt, 2, e.getClass().getSimpleName(), e.getMessage());
+                if (attempt < 2) {
+                    try {
+                        Thread.sleep(1000L * attempt);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+        }
+
+        log.warn("Translate+condense failed - falling back to plain translation");
+        return translateToEnglish(query);
+    }
 }

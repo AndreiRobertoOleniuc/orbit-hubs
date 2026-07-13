@@ -10,9 +10,15 @@ User query (German)
     ▼
 ┌──────────────────────────────────────────────────────────────────────┐
 │  1. PREP                                                             │
-│     • Translate German → English (Gemini)                            │
-│     • Embed English query with E5 ("query: " + text)                 │
+│     • Translate German → English (Gemini) — FULL query               │
+│     • Condense to search-style query (Gemini) — STRIPPED query       │
+│     • Embed FULL English query with E5 ("query: " + text)            │
 │     • Resolve scope (all / hub / region → hub_ids[], region_ids[])   │
+│                                                                      │
+│     Two queries are produced:                                        │
+│       fullEnglishQuery  → Stage 1+2+3 (retrieval, evidence, re-rank) │
+│       condensedQuery    → Stage 4 (cross-encoder only)               │
+│     See §"Two-query split" below for rationale.                      │
 └──────────────────────────────────────────────────────────────────────┘
     │
     ▼
@@ -36,7 +42,9 @@ User query (German)
     ▼
 ┌──────────────────────────────────────────────────────────────────────┐
 │  4. CROSS-ENCODER RERANKING  (CrossEncoderReranker → Python :8001)   │
+│     • Uses CONDENSED query (not the full translation)                │
 │     • BAAI/bge-reranker-v2-m3 scores each (query, document) pair     │
+│     • Document = name + headline + summary (NO evidence chunk)       │
 │     • Drop candidates below relevance threshold (0.55)               │
 │     • Reorder by cross-encoder score                                 │
 │     • Graceful fallback if service is down                           │
@@ -69,6 +77,40 @@ SearchResponse { query, sufficient: true/false, results: [SearchResult] }
 
 **Cost:** ~200ms for the translation call. The retrieval path operates in English; the explanation path operates in German.
 
+### 1b. Two-query split — full translation for retrieval, condensed for cross-encoder
+
+**Problem:** The cross-encoder (bge-reranker-v2-m3) is trained on **short search-style queries** (keyword phrases like "requirements engineering expert"), not natural-language sentences. When fed a conversational query like "I need a Requirements Engineering Expert who can help us with our SaaS product", it scores **every** candidate near-neutral (0.50) — even perfect matches. This caused all 10 candidates to be dropped for a query that should have returned a RE professor as the top result.
+
+Direct testing showed:
+
+| Query fed to cross-encoder | Norbert Seyff score | Passes 0.55? |
+|---|---|---|
+| `"requirements engineering expert"` | 0.69 | ✅ |
+| `"Requirements Engineering Expert SaaS product"` | 0.51 | ❌ |
+| `"I need a Requirements Engineering Expert who can help us with our SaaS product"` | 0.50 | ❌ |
+
+The conversational wrapper ("I need", "who can help us with", "our") and project context ("SaaS product") both dilute the relevance signal.
+
+**Solution — two separate queries from two LLM calls:**
+
+1. **Full English translation** (`translateToEnglish`) — preserves ALL terms including project context ("SaaS"). Used for:
+   - Stage 1: bi-encoder embedding (E5 handles full sentences well)
+   - Stage 1: FTS/BM25 keyword matching ("SaaS" matches profiles mentioning SaaS)
+   - Stage 3: evidence chunk retrieval (finds chunks about SaaS if they exist)
+
+2. **Condensed search query** (`translateAndCondenseSearchQuery`) — strips conversational filler AND the searcher's project context, keeping only the expertise/role terms. Used for:
+   - Stage 4: cross-encoder reranking (needs short search-style queries)
+
+The condensation prompt explicitly instructs: *"Remove contextual details about the searcher's own project or product (e.g., 'for our SaaS product', 'for a startup') — keep only what describes the expert's required qualifications."*
+
+This preserves retrieval granularity ("SaaS" still helps find candidates with SaaS experience in Stage 1) while giving the cross-encoder the clean search-style query it needs to score relevance accurately in Stage 4.
+
+**What about ranking granularity?** If two RE experts both pass the cross-encoder, their relative order is determined by the cross-encoder score (based on the condensed query, without "SaaS"). A RE expert with SaaS experience won't rank higher than one without. This is a minor, accepted tradeoff — the bi-encoder score (which includes "SaaS") is still displayed as the result score and could serve as a tiebreaker.
+
+**Cost:** Two Gemini calls (~700ms each). Negligible — the search pipeline already takes 5-10s total (cross-encoder network call + rationale generation dominate).
+
+**Fallback:** If the condensation LLM call fails, `translateAndCondenseSearchQuery` falls back to `translateToEnglish`, so the cross-encoder still gets a (suboptimal but functional) English query.
+
 ### 2. Cross-encoder replaces LLM-based relevance filtering
 
 **Problem:** The original design used the LLM (Gemini) both for filtering (deciding who's relevant) and explaining (generating the rationale). This was non-deterministic, expensive, and fragile.
@@ -81,6 +123,8 @@ The LLM now only **explains** matches — it never decides who gets in. This mak
 - Ranking deterministic (same query + data = same result set)
 - Search resilient to LLM outages (results get evidence-only chips)
 - Cost bounded (Gemini called only for top 8, in parallel)
+
+**Document text for the cross-encoder** is built from `display_name + headline + summary` only — **not** the top evidence chunk. Testing showed that appending the evidence chunk (e.g., "The Crowd in Requirements Engineering: CrowdRE could significantly change RE...") added methodology/acronym noise that diluted the clear signal in the summary, pushing scores toward neutral. The chunk is still used downstream for grounding/citations (Stage 5).
 
 ### 3. Similarity threshold as a hard cut
 
@@ -112,7 +156,7 @@ Search never throws — it degrades.
 | `RerankService` | `app/search/RerankService.java` | Soft re-rank: availability overlap + open-boost on normalized RRF |
 | `RerankProperties` | `app/search/RerankProperties.java` | Config: `availabilityWeight=0.3`, `openToRequestsWeight=0.1` |
 | `CrossEncoderReranker` | `app/search/CrossEncoderReranker.java` | Calls Python microservice, drops irrelevant candidates |
-| `LlmSummaryService` | `app/llm/LlmSummaryService.java` | `translateToEnglish()`, `generateMatchRationale()` |
+| `LlmSummaryService` | `app/llm/LlmSummaryService.java` | `translateToEnglish()` (full translation for retrieval), `translateAndCondenseSearchQuery()` (condensed for cross-encoder), `generateMatchRationale()` |
 | `EmbeddingService` | `app/embedding/EmbeddingService.java` | Ollama E5 embeddings (`embed(text, QUERY/PASSAGE)`) |
 | `hybrid_search()` | `V10__scoped_hybrid_search.sql` | SQL function: FTS + pgvector + RRF with scope hard filter |
 

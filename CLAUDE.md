@@ -18,7 +18,7 @@ The **backend is substantially built** — not stubbed. The **frontend supply si
 ### Backend — fully functional
 - **10 Flyway migrations** (V1–V10): users, discovery engine core (entities/sources/chunks), hybrid search function, entity ownership, tags+summary, supply availability, hubs/regions, tag subscriptions, profile mode, scoped hybrid search.
 - **7 ingestion adapters** all working: GitHub, OpenAlex, LinkedIn PDF, Zefix, Manual Text, Personal Website, Company Website.
-- **5-stage search pipeline**: (1) bi-encoder retrieval (FTS + pgvector + RRF, scoped), (2) soft re-rank (availability overlap + open-boost), (3) cross-encoder reranking (BAAI/bge-reranker-v2-m3 via Python microservice), (4) LLM grounding (Gemini Flash, German rationale + validated citations), (5) render. Query is translated to English before retrieval (FTS uses `'english'` config); rationale is generated in German.
+- **5-stage search pipeline**: (1) bi-encoder retrieval (FTS + pgvector + RRF, scoped), (2) soft re-rank (availability overlap + open-boost), (3) cross-encoder reranking (BAAI/bge-reranker-v2-m3 via Python microservice), (4) LLM grounding (Gemini Flash, German rationale + validated citations), (5) render. Query is translated to English before retrieval (FTS uses `'english'` config); a second LLM call condenses the query to search-style keywords for the cross-encoder (which scores near-neutral for conversational sentences). Rationale is generated in German.
 - **Entity enrichment**: LLM competence summary + AI-derived tags after each ingestion.
 - **Supply-side profile**: availability, affiliation, languages, location, hub membership, tag subscriptions, profile mode.
 - **Admin hub management**: config-driven admin allowlist, CRUD for hubs/regions.
@@ -90,7 +90,7 @@ Each domain area has a `@Service` class that owns all business logic:
 | `SearchService` | `com.orbit.app.search` | Hybrid search execution |
 | `IngestionOrchestrator` | `com.orbit.app.ingestion` | 6-step ingestion pipeline (fetch→dedup→resolve→upsert→chunk→embed) |
 | `EntityEnrichmentService` | `com.orbit.app.ingestion` | Post-ingestion LLM summary + tag derivation |
-| `LlmSummaryService` | `com.orbit.app.llm` | All Gemini LLM calls (5 methods) |
+| `LlmSummaryService` | `com.orbit.app.llm` | All Gemini LLM calls: `translateToEnglish()` (full query translation for retrieval), `translateAndCondenseSearchQuery()` (condensed query for cross-encoder), `summarizeGithubRepo()`, `summarizeWebsite()`, `generateMatchRationale()` |
 | `ChunkingService` | `com.orbit.app.ingestion` | Token-based chunk splitting |
 | `ProfileService` | `com.orbit.app.profile` | JIT user provisioning |
 
