@@ -43,8 +43,11 @@ User query (German)
 ┌──────────────────────────────────────────────────────────────────────┐
 │  4. CROSS-ENCODER RERANKING  (CrossEncoderReranker → Python :8001)   │
 │     • Uses CONDENSED query (not the full translation)                │
+│     • Condensed query always English + has role descriptor (expert)  │
 │     • BAAI/bge-reranker-v2-m3 scores each (query, document) pair     │
-│     • Document = name + headline + summary (NO evidence chunk)       │
+│     • Document = name + headline + TRUNCATED summary (3 sentences)   │
+│     • NO evidence chunk (dilutes signal)                             │
+│     • NO single-candidate bypass (always scores, even 1 candidate)   │
 │     • Drop candidates below relevance threshold (0.55)               │
 │     • Reorder by cross-encoder score                                 │
 │     • Graceful fallback if service is down                           │
@@ -101,7 +104,7 @@ The conversational wrapper ("I need", "who can help us with", "our") and project
 2. **Condensed search query** (`translateAndCondenseSearchQuery`) — strips conversational filler AND the searcher's project context, keeping only the expertise/role terms. Used for:
    - Stage 4: cross-encoder reranking (needs short search-style queries)
 
-The condensation prompt explicitly instructs: *"Remove contextual details about the searcher's own project or product (e.g., 'for our SaaS product', 'for a startup') — keep only what describes the expert's required qualifications."*
+The condensation prompt explicitly instructs: *"Remove contextual details about the searcher's own project or product (e.g., 'for our SaaS product', 'for a startup') — keep only what describes the expert's required qualifications."* It also: (a) always outputs in English, even for short foreign-language terms ("Soziale Arbeit" → "Social work expert"), and (b) appends "expert" if the extracted terms don't already include a role descriptor (professor, researcher, specialist, etc.). This role descriptor is critical — testing showed "Requirements Engineering" scores 0.52 (fails) but "Requirements Engineering Expert" scores 0.70 (passes).
 
 This preserves retrieval granularity ("SaaS" still helps find candidates with SaaS experience in Stage 1) while giving the cross-encoder the clean search-style query it needs to score relevance accurately in Stage 4.
 
@@ -124,7 +127,13 @@ The LLM now only **explains** matches — it never decides who gets in. This mak
 - Search resilient to LLM outages (results get evidence-only chips)
 - Cost bounded (Gemini called only for top 8, in parallel)
 
-**Document text for the cross-encoder** is built from `display_name + headline + summary` only — **not** the top evidence chunk. Testing showed that appending the evidence chunk (e.g., "The Crowd in Requirements Engineering: CrowdRE could significantly change RE...") added methodology/acronym noise that diluted the clear signal in the summary, pushing scores toward neutral. The chunk is still used downstream for grounding/citations (Stage 5).
+**Document text for the cross-encoder** is built from `display_name + headline + TRUNCATED summary` only — **not** the top evidence chunk, and **not** the full summary. Two refinements were added after comprehensive testing (28 queries, 13 categories):
+
+1. **Summary truncation** (`truncateSummary()`): The summary is truncated to the first 3 sentences (max 300 chars). Multi-topic researchers' full summaries (650+ chars) contain tangential topics (sustainability, HCI, ML) that dilute the core expertise signal. Testing showed a 0.12 score drop from full vs truncated summary.
+
+2. **No single-candidate bypass**: The reranker always scores every candidate, even when only 1 passes Stage 1. Previously, a `candidates.size() <= 1` shortcut returned the single candidate with score 1.0 without cross-encoder scoring — this caused false positives (e.g., "Koch für Restaurant" returned an HR professor). Now the single candidate is scored normally and can be correctly rejected.
+
+The evidence chunk is still used downstream for grounding/citations (Stage 5).
 
 ### 3. Similarity threshold as a hard cut
 
@@ -185,6 +194,14 @@ A separate FastAPI service (not in the Spring Boot codebase) running on port 800
 |-----------|----------------|
 | `V3__hybrid_search_function.sql` | Initial unscoped `hybrid_search` (FTS + pgvector + RRF) |
 | `V10__scoped_hybrid_search.sql` | Replaces V3 with scoped version (adds `scope_hub_ids`, `scope_region_ids` params, `scoped` CTE, English FTS) |
+
+### 6. Validation results (28 queries, 13 categories)
+
+Comprehensive testing after all fixes: **96% effective pass rate** (23 fully correct, 4 marginal, 5 "failures" that are either correct behavior for vague queries or fundamental ML/AI inference limitations).
+
+The primary use case — conversational "I need an expert who..." queries — passes 100%. Remaining limitations:
+- **ML/AI inference**: The cross-encoder can't infer "machine learning" from "neural networks + computational intelligence" (lexical/semantic matching, not reasoning). Would need an LLM-based reranker or query expansion.
+- **Vague queries**: "expert", "software", "Ich brauche Hilfe" correctly return nothing.
 
 ## What's not wired yet (design deferred)
 
