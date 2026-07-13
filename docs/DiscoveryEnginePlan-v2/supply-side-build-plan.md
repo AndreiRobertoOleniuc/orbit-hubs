@@ -203,3 +203,34 @@ is a follow-up once a mode flag is persisted on the entity.
 Scoped `hybrid_search` (Stage 3 SQL), re-ranking (§6.3), Anfrage lifecycle +
 distribution (§8), contact handoff (§11). This build makes profiles **carry** the
 supply signals; consuming them in search/distribution is the next stage.
+
+---
+
+## Postscript — what was actually built (July 2026)
+
+The supply-side build plan above was the design. Here's what was actually implemented:
+
+### Migrations built
+
+| Migration | What it creates | Status |
+|-----------|----------------|--------|
+| `V6__supply_availability.sql` | Availability columns on `entities` | Built as designed |
+| `V7__hubs_regions.sql` | `regions`, `hubs`, `hub_memberships`, `entities.home_region_id` + seed data | Built as designed |
+| `V8__tag_subscriptions.sql` | `tag_subscriptions` (entity ↔ tag) | Built as designed |
+| `V9__profile_mode.sql` | `entities.profile_mode` column (`supply` / `demand`) | Built (see `profile-mode.md`) |
+| `V10__scoped_hybrid_search.sql` | Replaces V3 with scoped `hybrid_search` (English FTS, scope hard filter) | Built (see `search-pipeline-implementation.md`) |
+
+### Profile mode (V9) — the follow-up that was done
+
+The plan noted: *"Hiding these for a pure demand profile is a follow-up once a mode flag is persisted on the entity."* This was implemented as V9. See `profile-mode.md` for the full record.
+
+### Admin gate — env allowlist (as designed)
+
+`AdminAccess.isAdmin(userId)` checks against `orbit.admin.user-ids` (CSV of Clerk subs). `MeController` returns `isAdmin` in the `/me` payload. `AdminHubController` does the allowlist check and returns 403 for non-admins. No Spring authorities needed (JWT converter returns empty authorities).
+
+### What diverged from the plan
+
+- **JPA associations**: The plan assumed `@ManyToOne Region` for `home_region_id`. The built system uses **plain `Long` FKs** everywhere (no JPA associations), resolved via repository calls. This avoids Hibernate lazy-loading issues.
+- **EntityDto assembly**: The plan said to update `toDto()` in `EntityController`. The built system moved DTO assembly to `EntityService.toDto()` (thin controllers pattern — controllers never build DTOs).
+- **Availability as columns**: Built exactly as planned (ALTER TABLE, not a child table).
+- **Onboarding step**: The plan said "no new onboarding step". The built system added an **availability + subscriptions step** to the onboarding wizard's `IngestionRunView` (post-ingestion completion screen), because `entityId` only exists after ingestion completes. This was an addition, not a contradiction — the wizard's step machine was extended, not changed.

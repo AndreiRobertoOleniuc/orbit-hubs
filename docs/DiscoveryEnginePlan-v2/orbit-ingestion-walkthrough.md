@@ -2,7 +2,9 @@
 
 Every class, every method, every design decision. Organized by data flow — from REST request to search result.
 
-**Last updated:** 2026-07-05 (evening) — reflects all 7 adapters done, chunk quality fixes, search validated at 96%.
+**Last updated:** 2026-07-13 — reflects 7 adapters done, 5-stage search pipeline (cross-encoder added), scoped hybrid search (V10), profile mode (V9).
+
+> **Search pipeline upgrade (July 12).** The search pipeline was upgraded from 3 stages to 5: a deterministic cross-encoder reranker (BAAI/bge-reranker-v2-m3) was added between soft re-rank and LLM grounding. The LLM now only explains matches, never filters. See `search-pipeline-implementation.md` for the full record. The walkthrough below may reference the older 3-stage pipeline in places — the implementation doc is authoritative for the current state.
 
 ---
 

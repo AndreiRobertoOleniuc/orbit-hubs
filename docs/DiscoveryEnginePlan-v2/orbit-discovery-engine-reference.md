@@ -12,6 +12,14 @@ The single source of truth for the Discovery Engine. Stack: **Java Spring Boot m
 - **Anfrage lifecycle** Offen → Verteilt → Kontaktiert → Geschlossen, with urgency-driven widening (§8).
 - **Tags / skills / subscriptions**, **accounts + verified email**, **Person↔Org links**, **HR-verified**, and the **first-contact handoff with sender context** (§9–§11).
 
+**Implementation update (July 2026).** The reference was written as a design doc; the sections below now carry **implementation notes** where the built system diverged from or extended the original design. Key implementation decisions:
+
+- **Cross-encoder reranking is no longer optional.** A deterministic cross-encoder (BAAI/bge-reranker-v2-m3, served via a Python microservice on port 8001) was added as Stage 2 of a **5-stage pipeline**: retrieve → soft re-rank → cross-encoder rerank → LLM ground → render. The LLM (Gemini) now only *explains* matches; it never decides who gets in. See §6.7.
+- **FTS uses English, not German.** Queries are translated to English by Gemini before retrieval, and the `hybrid_search` function uses `websearch_to_tsquery('english', …)`. This was done because the entity summaries and chunk content are generated/stored in English (by the LLM enrichment), even though the UI and rationale output are in German. See §6.1.
+- **No JPA associations.** The built system uses plain `Long` FKs resolved via repository calls, not `@ManyToOne`/`@OneToMany`. This avoids Hibernate lazy-loading issues and N+1 queries. See §13.
+- **Auth uses Clerk + a `users` table**, not the `accounts` table from the original design. Clerk JWTs are validated as OAuth2 resource-server tokens; a `UserProvisioningFilter` JIT-upserts a local `users` row on first auth. See §10.
+- **Profile mode (V9).** A `profile_mode` column (`supply` | `demand`) on `entities` controls whether the own-profile UI shows supply editors (availability, subscribed topics) or hides them. Set by the onboarding fork; switchable on the profile.
+
 **How this doc is meant to be used:** the schema is introduced **incrementally** — each implementation stage (§14) ships its own Flyway migration that creates *only* the tables that stage needs. The codebase never carries entities for features that aren't built yet. §3 is the map of which table arrives in which stage; the actual `CREATE TABLE` lives inside each stage. The full grounded vertical (scoped search → grounded card) still works end-to-end by **Stage 4**; everything after that layers richness onto a working system.
 
 ## Contents
@@ -20,14 +28,14 @@ The single source of truth for the Discovery Engine. Stack: **Java Spring Boot m
 3. Table catalog (what arrives when)
 4. Ingestion pipeline — detailed
 5. Scope model — Hub → Region → CH
-6. Discovery & match pipeline — retrieve → re-rank → ground
+6. Discovery & match pipeline — retrieve → soft re-rank → cross-encoder rerank → ground
 7. Hard vs soft filters (the filter reference)
 8. Anfrage lifecycle & distribution
 9. Tags, skills & subscriptions
 10. Identity, accounts & Person↔Org links
 11. Contact handoff (sender context, gating)
 12. End-to-end trace
-13. JPA / monolith implementation notes
+13. JPA / monolith implementation notes (IMPLEMENTED)
 14. Schema
 15. Open decisions
 
@@ -90,7 +98,9 @@ The full schema, each table tagged with the stage that creates it. Nothing is cr
 | `entities.affiliation_kind`, `.hr_verified` (ALTER) | core/identity | Firma / Selbständig / Privatperson; HR-verified badge | **Stage 7** |
 | `contact_requests` | lifecycle | first-contact handoff with sender context | **Stage 8** |
 
-Functions: `hybrid_search` (unscoped) arrives in **Stage 2**, is replaced by the scoped Hub→Region version in **Stage 3**. Re-ranking (§6) and distribution (§8) are **application-layer** (no DB function), so they add no migration of their own.
+Functions: `hybrid_search` (unscoped) arrives in **V3**, is replaced by the scoped Hub→Region version in **V10**. Re-ranking (§6.3), cross-encoder reranking (§6.7), and distribution (§8) are **application-layer** (no DB function), so they add no migration of their own.
+
+**Implementation status (July 2026):** Tables marked Stage 1–3 + Stage 5–6 + Stage 9 (profile mode) are **built** (V1–V10). Tables marked Stage 4 (`anfragen`, `matches`, `match_citations`) and Stage 8 (`contact_requests`) are **not yet built** — these are the demand-side Anfrage lifecycle, which is the next build phase. `accounts` and `entity_links` (Stage 7) were replaced by Clerk auth + a `users` table (no `accounts` table needed).
 
 ---
 
@@ -225,60 +235,87 @@ The hard filter is applied **inside both retrieval CTEs, before each leg's `limi
 
 ---
 
-## 6. Discovery & match pipeline — retrieve → re-rank → ground
+## 6. Discovery & match pipeline — retrieve → soft re-rank → cross-encoder rerank → ground
+
+The built pipeline has **five stages** (updated from the original three-stage design):
+
+1. **Bi-encoder retrieval** (§6.1 / §6.2) — FTS + pgvector fused by RRF, hard-filtered by scope.
+2. **Soft re-rank** (§6.3) — availability overlap + open-boost on normalised base RRF score.
+3. **Cross-encoder reranking** (§6.7) — deterministic relevance gatekeeper (BAAI/bge-reranker-v2-m3) that drops irrelevant candidates.
+4. **LLM grounding** (§6.4 / §6.5) — Gemini Flash generates German rationale + validated citations (explanation only, never filtering).
+5. **Render** (§6.6) — assemble the result card with rationale, chips, availability pill, distance.
 
 ```text
 search(query_text, scope_selection, presence_mode, want_window, created_by):
 
   1. PREP
-     q_emb   = embed("query: " + query_text)
-     scope   = resolveScope(scope_selection, level=initial)         # §5.3
-     anfrage = anfragen.insert(query_text, q_emb, scope_selection, presence_mode, want_window, status='offen')
+     englishQuery = llm.translateToEnglish(query_text)             # German UI → English retrieval
+     q_emb   = embed("query: " + englishQuery)
+     scope   = scopeResolver.resolve(scope_selection)               # §5.3
 
   2. RETRIEVE  (§6.1 / 6.2) — HARD FILTER applied here
      SET LOCAL hnsw.iterative_scan = 'strict_order'
-     ranked = hybrid_search(query_text, q_emb, scope.hub_ids, scope.region_ids, match_count=10)
+     ranked = hybrid_search(englishQuery, q_emb, scope.hub_ids, scope.region_ids, match_count=10)
      if len(ranked) < k_min: widen(scope); goto 2                    # §5.4
 
   3. EVIDENCE  (§6.2) — top winning chunks per entity for THIS query
      for e in ranked: e.evidence = topWinningChunks(e, q_emb, k=4)
 
-  4. RE-RANK  (§6.3) — SOFT SIGNALS
-     for e in ranked: e.final = rerank(e.base_rrf, anfrage, e)
+  4. SOFT RE-RANK  (§6.3) — availability overlap + open-boost
+     baseScores = minMaxNormalize([e.base_rrf for e in ranked])
+     for e in ranked: e.final = baseScores[e] + W_avail * availabilityOverlap(...) + W_open * isOpen(e)
+     ranked = filter(ranked, e.bestSimilarity >= similarityThreshold)   # drop weak matches
      ranked = sort_desc(ranked, by=final)
 
-  5. GENERATE (§6.4) — only for the entities actually shown (≤10)
-     for e in ranked[:10]: out = geminiFlash(groundingPrompt(query_text, e, e.evidence))
+  5. CROSS-ENCODER RERANK  (§6.7) — DETERMINISTIC RELEVANCE FILTER
+     for e in ranked: doc = buildDocText(e)   # name + headline + summary + top evidence
+     scores = crossEncoder.rerank(englishQuery, [doc for e in ranked])
+     ranked = filter(ranked, score >= rerankerThreshold)   # drop irrelevant
+     ranked = sort_desc(ranked, by=crossEncoderScore)
 
-  6. VALIDATE (§6.5)
+  6. GENERATE (§6.4) — only for the top results (≤ rationaleTopN, parallelized)
+     for e in ranked[:rationaleTopN]:
+       out = geminiFlash(groundingPrompt(query_text, e, e.evidence))   # async, parallel
+     for e in ranked[rationaleTopN:]: e.rationale = null; e.chips = fallbackCitations(e)
+
+  7. VALIDATE (§6.5)
      allowed    = {ev.id for ev in e.evidence}
      out.claims = [c for c in out.claims if set(c.source_ids) ⊆ allowed]
      chips      = [ev for ev in e.evidence if ev.id in citedIds(out.claims)]
 
-  7. PERSIST + RENDER (§6.6)
-     m = matches.upsert(anfrage.id, e.id, e.final, out.rationale, out.claims)
-     match_citations.replaceAll(m.id, [chip.source_id for chip in chips])
+  8. RENDER (§6.6)
      card = render(e, out.rationale, chips, availabilityPill, distance, orgLink)
 ```
 
-### 6.1 Retrieval = keyword + semantic, fused by RRF (unchanged)
+### 6.1 Retrieval = keyword + semantic, fused by RRF (updated: English FTS)
 
-Two independent rankings over `chunks`: **keyword** (`fts @@ websearch_to_tsquery('german', q)`, ranked by `ts_rank_cd`) and **semantic** (`embedding <#> q_emb`, negative inner product, smaller = closer). Fused with **Reciprocal Rank Fusion** — each list contributes `weight / (rrf_k + rank)`, summed; `rrf_k = 50`. RRF combines rankings without needing the two score scales to be comparable. Each leg over-fetches `match_count * 4` rows.
+Two independent rankings over `chunks`: **keyword** (`fts @@ websearch_to_tsquery('english', q)`, ranked by `ts_rank_cd`) and **semantic** (`embedding <#> q_emb`, negative inner product, smaller = closer). Fused with **Reciprocal Rank Fusion** — each list contributes `weight / (rrf_k + rank)`, summed; `rrf_k = 50`. RRF combines rankings without needing the two score scales to be comparable. Each leg over-fetches `match_count * 4` rows.
 
-### 6.2 The scoped `hybrid_search` (Stage 3 version)
+**Implementation decision — English FTS with query translation.** The `hybrid_search` function uses `websearch_to_tsquery('english', ...)`, not `'german'`. This was a deliberate choice:
 
-The scope predicate is resolved into a `scoped` CTE and joined **inside both legs**, before each leg's `limit`. An entity qualifies if it is a member of a scoped hub **or** its `home_region_id` is in the scoped region subtree. Empty/empty arrays = unscoped (Stage 2 ships the same function without the `scoped` join).
+- Entity summaries and chunk content are **generated in English** by the LLM enrichment pipeline (`LlmSummaryService`), even though the UI and rationale output are in German.
+- German FTS would poorly match English content (compound words, morphology differences).
+- The user's German query is **translated to English by Gemini** (`llmSummaryService.translateToEnglish()`) before both the FTS and semantic legs — so the query language matches the stored content language.
+- The rationale (section 6.4) is generated in German from the original German query text, so the user-facing explanation stays in their language.
+
+This means the retrieval path operates entirely in English, while the explanation path operates in German. The translation adds latency but is necessary for retrieval quality.
+
+### 6.2 The scoped `hybrid_search` (V10 — built version)
+
+The scope predicate is resolved into a `scoped` CTE and joined **inside both legs**, before each leg's `limit`. An entity qualifies if it is a member of a scoped hub **or** its `home_region_id` is in the scoped region subtree. Empty/empty arrays = unscoped ("Alle" doesn't filter).
+
+**Implementation note.** The built V10 migration (`V10__scoped_hybrid_search.sql`) replaces the earlier unscoped V3 function. It uses `websearch_to_tsquery('english', ...)` (not `'german'`) because chunk content is stored in English — see §6.1. Types are `double precision` / `bigint[]` (the V3 used `float`/`bigint[]`). The function drops prior variants before creating itself, so the migration is idempotent.
 
 ```sql
-create or replace function hybrid_search(
+create function hybrid_search(
   query_text       text,
   query_embedding  vector(1024),
   scope_hub_ids    bigint[],            -- hubs in scope (empty = no hub constraint)
   scope_region_ids bigint[],            -- region subtree in scope (empty = no region constraint)
-  match_count      int,
-  full_text_weight float = 1,
-  semantic_weight  float = 1,
-  rrf_k            int   = 50
+  match_count      int default 10,
+  full_text_weight double precision default 1.0,
+  semantic_weight  double precision default 1.0,
+  rrf_k            int default 50
 ) returns table(entity_id bigint, score double precision)
 language sql as $$
 with scoped as (                                    -- entities allowed by the hard filter
@@ -286,7 +323,7 @@ with scoped as (                                    -- entities allowed by the h
   from entities e
   where e.status = 'active'
     and (
-      (cardinality(scope_hub_ids) = 0 and cardinality(scope_region_ids) = 0)        -- unscoped
+      (cardinality(scope_hub_ids) = 0 and cardinality(scope_region_ids) = 0)   -- unscoped
       or e.home_region_id = any(scope_region_ids)
       or exists (select 1 from hub_memberships m
                  where m.entity_id = e.id and m.hub_id = any(scope_hub_ids))
@@ -295,19 +332,20 @@ with scoped as (                                    -- entities allowed by the h
 full_text as (
   select c.entity_id,
          row_number() over (
-           order by ts_rank_cd(c.fts, websearch_to_tsquery('german', query_text)) desc
+           order by ts_rank_cd(c.fts, websearch_to_tsquery('english', query_text)) desc
          ) as rank_ix
   from chunks c
   join scoped sc on sc.entity_id = c.entity_id
-  where c.fts @@ websearch_to_tsquery('german', query_text)
-  limit least(match_count, 30) * 4
+  where c.fts @@ websearch_to_tsquery('english', query_text)
+  limit match_count * 4
 ),
 semantic as (
   select c.entity_id,
          row_number() over (order by c.embedding <#> query_embedding) as rank_ix
   from chunks c
   join scoped sc on sc.entity_id = c.entity_id
-  limit least(match_count, 30) * 4
+  where c.embedding is not null
+  limit match_count * 4
 ),
 fused as (
   select coalesce(f.entity_id, s.entity_id) as entity_id,
@@ -320,7 +358,7 @@ select entity_id, max(score) as score              -- MAX rollup: best signal pe
 from fused
 group by entity_id
 order by score desc
-limit least(match_count, 30);
+limit match_count;
 $$;
 ```
 
@@ -328,30 +366,34 @@ $$;
 
 **Capturing evidence** (unchanged): for each shown entity fetch its top-k chunks for *this* query (closest by `<#>`), dedup by `source_id` so one source = one chip, assign stable ids `S1, S2, …`.
 
-### 6.3 Re-ranking — the soft signals (NEW)
+### 6.3 Soft re-rank — the wired signals (IMPLEMENTED)
 
-Retrieval gives a relevance base (`base_rrf`). v2 adds an explicit re-rank over the shown candidates. **Additive boosts on the normalized base** (easy to explain, easy to A/B):
+Retrieval gives a relevance base (`base_rrf`). The built system adds an explicit re-rank over the shown candidates. **Additive boosts on the min-max-normalized base** (easy to explain, easy to A/B):
 
 ```
 final = base_rrf_norm
       + W_avail   * availabilityOverlap(want_window, entity.availability)   # 0..1, neutral 0.5 if unset
-      + W_present * presenceAlignment(anfrage.presence_mode, entity)        # 0..1
-      + W_geo     * proximity(anchor, entity.latlng)                        # 0..1, gated by presence
-      + W_hub     * hubOverlap(anfrage.scope, entity.hubs)                  # 0..1
       + W_open    * (entity.open_to_requests ? 1 : 0)
 ```
 
+**What was actually wired (vs the full design):**
+
+The original design included five soft signals (availability, presence, proximity, hub overlap, open-boost). The built `RerankService` implements only **two**:
+
 - **availabilityOverlap** — fraction of the requested `[want_from, want_to]` covered by the entity's `[available_from, available_to]`, scaled by Pensum compatibility (`min(pensum, want_pensum)/want_pensum`). **No window set → 0.5 (neutral, never negative)** per spec §6.
-- **presenceAlignment** — `remote` query ⇒ any entity aligns (1.0). `onsite`/`hybrid` ⇒ rewards entities anchored near the scope.
-- **proximity** — haversine(entity, anchor) mapped through a decay; **gated by presence**: on `remote`, `W_geo` and `W_hub` collapse to ~0 (the spec's Remote-Entschärfung).
-- **hubOverlap** — count of entity hubs that intersect the scoped hub/region, normalized.
 - **W_open** — the "Offen für Anfragen" toggle nudges open profiles up (spec §4.2).
+
+**Not wired (design deferred):** presenceAlignment, proximity, hubOverlap. These were deferred because the search UI doesn't expose presence_mode as a filter, and proximity/hub-overlap require the scope anchor coordinates to be meaningful at query time. The weights are config-driven (`RerankProperties`: `availabilityWeight=0.3`, `openToRequestsWeight=0.1`) and A/B-able.
+
+After the soft re-rank, a **similarity threshold filter** (`orbit.search.similarity-threshold=0.80`) drops candidates whose best evidence-chunk similarity is below the threshold. This is a hard cut on retrieval quality — if all candidates fall below, `sufficient=false` and the frontend prompts the user to widen scope or create an Anfrage.
 
 Weights are config, A/B-able, and a thesis evaluation axis alongside RRF weights and rollup. **Time and presence never hard-filter here** — they only reorder (§7).
 
-### 6.4 Grounded generation (Gemini Flash) — unchanged
+### 6.4 Grounded generation (Gemini Flash) — updated: parallelized, top-N only
 
-Generate **only for shown entities** (≤10). The model sees the query, a thin entity profile, and the winning chunks — never the full entity. Low temperature, JSON-constrained via `responseSchema`.
+Generate rationale **only for the top `rationaleTopN` results** (default 8, config: `orbit.search.rationale-top-n`). Results beyond that get `rationale=null` and fall back to evidence-only chips. Each generation is an **independent Gemini request, parallelized via `CompletableFuture`** — so 8 results ground in parallel, not sequentially.
+
+The model sees the **original German query** (not the translated English), a thin entity profile, and the winning chunks — never the full entity. Low temperature, JSON-constrained via `responseSchema`.
 
 ```jsonc
 // system: "Du bist ein Matching-Assistent. Nutze AUSSCHLIESSLICH die bereitgestellten Belege.
@@ -413,6 +455,44 @@ if (chips.isEmpty()) return Optional.empty();                           // no gr
 
 `distance` is computed at query time (haversine entity↔anchor, optionally a routing API for "minutes"); it is not stored on the match.
 
+### 6.7 Cross-encoder reranking — the deterministic relevance gatekeeper (IMPLEMENTED)
+
+**Conceptual rationale.** The original design had three stages: retrieve, re-rank, ground. The LLM (Gemini) was used both for **filtering** (deciding who's relevant) and **explaining** (generating the rationale). This was problematic:
+
+- **Non-deterministic filtering.** LLMs can hallucinate relevance or be inconsistent across runs. A user running the same search twice might get different result sets.
+- **Cost and latency.** Using a large LLM to make yes/no relevance decisions on 10+ candidates is expensive and slow.
+- **Unpredictable failures.** If the LLM is down, search breaks entirely because it can't filter.
+
+The solution follows the **industry-standard 2-stage retrieval** pattern:
+
+1. **Stage 1 — Bi-encoder retrieval** (E5 + BM25/FTS + RRF). Fast, approximate, high recall. The bi-encoder encodes query and documents independently, so embeddings can be pre-computed and indexed in pgvector.
+2. **Stage 2 — Cross-encoder reranking** (BAAI/bge-reranker-v2-m3). Slow, precise, high precision. The cross-encoder encodes the (query, document) pair **together**, capturing fine-grained interactions the bi-encoder misses. Deterministic, fast (~50 ms for 10 candidates), specifically trained for relevance scoring.
+
+The LLM (Gemini) is then used **only for the explanation layer** — generating the German rationale + validated citations. It never decides who gets in. This makes the pipeline:
+- **Deterministic**: same query + same data = same result set (the LLM only affects the explanation text, not the ranking).
+- **Resilient**: if the LLM is down, search still works — results get evidence-only chips instead of a rationale.
+- **Cost-bounded**: Gemini is called only for the top `rationaleTopN` (default 8) results, in parallel.
+
+**How it was built.**
+
+The cross-encoder is served by a **Python microservice** (FastAPI on port 8001) that loads `BAAI/bge-reranker-v2-m3` via HuggingFace Transformers. The Spring Boot backend calls it via `RestClient`:
+
+```java
+// CrossEncoderReranker.java — POST /rerank with {query, documents: [...]}
+// Returns [{index: 0, score: 0.87}, {index: 1, score: 0.42}, ...]
+// Candidates below relevanceThreshold (default 0.55) are dropped
+```
+
+The document text for each candidate is built from: `display_name + headline + summary + top evidence chunk`. This gives the cross-encoder enough context to judge relevance without overwhelming it.
+
+**Config:**
+- `orbit.search.reranker-url` (default `http://localhost:8001`)
+- `orbit.search.reranker-threshold` (default `0.55`)
+
+**Graceful degradation.** If the reranker service is unavailable, the system falls back to returning all candidates in their pre-rerank order. Search must never fail because the reranker is down.
+
+**Effect on the pipeline.** The cross-encoder sits between the soft re-rank (§6.3) and the LLM grounding (§6.4). It filters out candidates that passed retrieval and soft re-rank but are not actually relevant to the query. In practice, this eliminates false positives where the bi-encoder matched on superficial similarity (e.g., a researcher who works on "energy" but in a completely different subfield than the query asked about).
+
 ---
 
 ## 7. Hard vs soft filters (the filter reference)
@@ -423,7 +503,9 @@ The one place that states, unambiguously, what **excludes** a result vs what onl
 
 1. **Scope (Hub / Region / CH)** — §5. With explicit widening Hub → Region → CH. "Alle" applies no filter.
 2. **`entities.status = 'active'`** — soft-deleted / inactive entities never appear.
-3. **Grounding** — an entity whose claims all fail citation validation is dropped (§6.5). (A filter on *output*, but it does remove the row.)
+3. **Similarity threshold** (`orbit.search.similarity-threshold=0.80`) — candidates whose best evidence-chunk similarity falls below the threshold are dropped after soft re-rank. If all candidates fall below, `sufficient=false`.
+4. **Cross-encoder relevance** (§6.7) — candidates whose cross-encoder score falls below `orbit.search.reranker-threshold=0.55` are dropped. This is the deterministic relevance gatekeeper.
+5. **Grounding** — an entity whose claims all fail citation validation is dropped (§6.5). (A filter on *output*, but it does remove the row.)
 
 **Soft signals — never remove a result, only change its order (§6.3):**
 
@@ -438,7 +520,9 @@ Rule of thumb: **affiliation and existence are hard; everything about *fit* is s
 
 ---
 
-## 8. Anfrage lifecycle & distribution
+## 8. Anfrage lifecycle & distribution — NOT YET BUILT
+
+**Implementation status:** The `anfragen` table, `AnfrageService`, `AnfrageController`, distribution logic, and frontend Board/Requests/Inbox pages are all **pending**. The security config already whitelists `GET /api/v1/board` and `GET /api/v1/requests/**` as public, but no controllers exist behind those routes. This section is the **design** for the next build phase.
 
 ### 8.1 Lifecycle: Offen → Verteilt → Kontaktiert → Geschlossen
 
@@ -498,18 +582,25 @@ Tags are **not** the semantic retrieval mechanism — chunks + embeddings are. T
 
 ---
 
-## 10. Identity, accounts & Person↔Org links
+## 10. Identity, accounts & Person↔Org links (IMPLEMENTED: Clerk + users table)
 
-- **`accounts`** — login + **verified email**, owns exactly one `entity` (the claimed profile). Most entities are harvested and have **no** account; an account appears when a person builds/claims their profile. `anfragen.created_by` and `contact_requests.from_entity_id` require an account (search is account-free; **Anfrage and contact require login** — spec §4.1).
-- **`entity_links`** — Person↔Organisation (`person_entity_id`, `org_entity_id`, `role`, `relation_type ∈ {employee, self_employed, founder, …}`, `hr_verified`, `public`). Rendered on both profiles, in search results, on Anfrage cards, and in the contact handoff so it's always clear *who from where* is acting (spec §12).
-- **`entities.affiliation_kind ∈ {company, self_employed, private}`** — Firma / Selbständig / Privatperson. A person is never shown without an origin; "Privatperson"/"Selbständig" are valid origins.
-- **`entities.hr_verified`** — Organizations matched against Handelsregister/Zefix carry the **HR-verifiziert** badge (set during `zefix` ingestion, §4.1). Person↔Org links to a verified org inherit verification; private-person links are self-declared.
+**Implementation note.** The design above used an `accounts` table. The built system uses **Clerk** for auth instead — no `accounts` table exists.
+
+- **Clerk JWT auth.** The backend is an OAuth2 resource server validating Clerk session tokens. `ClerkSecurityConfig` whitelists public routes (`POST /search`, `GET /entities/**`, `GET /board`, `GET /requests/**`, `GET /hubs`, `GET /regions`) and requires authentication for everything else.
+- **`users` table** (not `accounts`) — JIT-upserted by `UserProvisioningFilter` after successful auth. PK is the Clerk `sub` (text). Columns: `id`, `email`, `created_at`. Most entities are harvested and have **no** linked user; a `users` row + `entities.owner_id` link appears when a person builds/claims their profile through onboarding.
+- **`CurrentUser` abstraction** (`com.orbit.app.auth.CurrentUser`) — injected into services, exposes `userId()` / `email()`. Never accessed from controllers.
+- **Owner checks** in services via `loadOwnedEntity()` pattern — throws `EntityAccessDeniedException` (→403) if the current user doesn't own the entity.
+- **`entity_links`** — Person↔Organisation. **Not yet built** (the `entity_links` table doesn't exist). Person↔Org relationships are currently implicit via `org_name` on the entity. Building explicit links is a future stage.
+- **`entities.affiliation_kind`** — built as `affiliation_kind` column (V6). Values: `company` | `self_employed` | `private`.
+- **`entities.hr_verified`** — **not a column**. HR verification is derived at display time by checking if the entity has a `zefix` source type (`isHrVerified()` in `profileUtils.ts`). The Zefix ingestion adapter sets the source type to `zefix` and stores the UID in metadata.
 
 ---
 
-## 11. Contact handoff (sender context, gating)
+## 11. Contact handoff (sender context, gating) — NOT YET BUILT
 
-The platform's role **ends at first contact** — it's a one-time handoff to email, not an inbox (spec §11.3).
+The platform's role **ends at first contact** — it's a one-time handoff to email, not an inbox (spec §11.3). **This is not yet implemented.** The `contact_requests` table, `ContactService`, `ContactController`, and the frontend "Kontakt aufnehmen" flow are all pending. The `SearchResultCard` currently has only a "Profil ansehen" button — no contact button.
+
+**Design (for when it's built):**
 
 - **`contact_requests`** — `from_entity_id`, `to_entity_id`, `anfrage_id` (nullable: set when initiated from a board Anfrage), `message` (non-empty), `sender_context jsonb`, `created_at`. Creating one moves the related Anfrage to **`kontaktiert`**.
 - **Sender context** (jsonb snapshot, frozen at send time so later profile edits don't rewrite history): `{ name, role, org, short_description, searched_text }`. The recipient's notification/email shows *who fragt*, a 1–2 sentence description derived from the sender's source, the linked org, *what was searched*, the personal message, and the sender's email to continue off-platform (spec §11.2).
@@ -523,29 +614,32 @@ Query *"Suche Embedded-Team mit Zephyr + CI für Hardware-Tests"*, scope = **Hub
 
 1. **Ingestion (earlier).** Sentio's `zephyr-ci` repo, David's Embedded World 2025 paper (ORCID→OpenAlex), and `sentio-robotics.ch` ingested → one entity *David Aregger* via `github_login`, `orcid`, `domain`. Chunked + embedded (`passage:`). ORCID affiliation derived an **FHNW hub_membership** (confirmed); `home_region_id = Region Baden`. Tags `{Embedded, Zephyr, HIL-Testing}` derived.
 2. **Scope resolve.** Selection `hub:FHNW`, level HUB → `scope_hub_ids=[FHNW]`, `scope_region_ids=[]`.
-3. **Retrieve (hard filter).** Query embeds with `query:`. Scoped `hybrid_search` keeps only FHNW-affiliated entities; README chunk (Zephyr CI) + paper abstract rank high; `max` rollup gives David a strong `base_rrf`.
+3. **Retrieve (hard filter).** German query translated to English by Gemini. English query embeds with `query:`. Scoped `hybrid_search` (English FTS + pgvector + RRF) keeps only FHNW-affiliated entities; README chunk (Zephyr CI) + paper abstract rank high; `max` rollup gives David a strong `base_rrf`.
 4. **Evidence.** Top chunks → `S1` (paper), `S2` (repo), `S3` (site).
-5. **Re-rank.** availabilityOverlap(Aug–Okt 60 %) high; presence Hybrid → proximity counts; FHNW hub overlap +; open_to_requests +. `final` lifts David.
-6. **Generate.** Gemini Flash returns a German rationale citing `S1, S2`.
-7. **Validate.** `S1,S2` ∈ allowed → kept; `S3` not cited → not a chip.
-8. **Render.** Card: rationale, chips (paper + repo), org-link "Sentio Robotics GmbH · HR-verifiziert", "60 %, Aug–Okt", "8 Min. von FHNW Brugg".
+5. **Soft re-rank.** Min-max normalize base RRF. availabilityOverlap(Aug–Okt 60 %) high; open_to_requests +. `final` lifts David. Filter: best-evidence similarity above threshold (0.80) — David passes.
+6. **Cross-encoder rerank.** BAAI/bge-reranker-v2-m3 scores the (English query, David's doc text) pair. Score 0.87 ≥ threshold (0.55) — David stays. Irrelevant candidates are dropped here.
+7. **Generate.** Gemini Flash (parallelized) returns a German rationale citing `S1, S2`.
+8. **Validate.** `S1,S2` ∈ allowed → kept; `S3` not cited → not a chip.
+9. **Render.** Card: rationale, chips (paper + repo), org-link "Sentio Robotics GmbH · HR-verifiziert", "60 %, Aug–Okt", "8 Min. von FHNW Brugg".
 
 Had the query returned `< k_min` FHNW matches, step 3 would widen to **Region Baden**, then **CH** (§5.4). Had this been a *distributed Anfrage* instead of a live search, the cohort would be tag-based (`{Embedded, Zephyr}`) within FHNW, widening on 48 h silence if *Dringend* (§8).
 
 ---
 
-## 13. JPA / monolith implementation notes
+## 13. JPA / monolith implementation notes (IMPLEMENTED)
 
-Plain monolith → normal JPA associations (`@ManyToOne`/`@OneToMany`) across all tables. No module-boundary workarounds.
+The built system uses a **deliberately flat JPA model** — no `@ManyToOne`/`@OneToMany` associations, plain `Long` FKs resolved via repository calls. This diverges from the original design above (which assumed normal JPA associations) and was a conscious decision:
 
-- **`vector(1024)`** → `hibernate-vector` (Hibernate 6.4+). Don't store as `String`.
-- **`fts tsvector`** → DB-generated; map read-only (`@Column(insertable=false, updatable=false)`); never write from JPA.
-- **Array columns** (`preferred_collaboration text[]`, `languages text[]`, `matched_tags text[]`) and **`claims jsonb`**, **`sender_context jsonb`** → explicit Hibernate array / JSON type mappings; they don't default. (The scope arrays are function *parameters*, not stored columns.)
-- **Join tables with attributes** (`hub_memberships.affiliation/source`, `entity_tags.origin`, `anfrage_distributions.*`) → model as their own `@Entity` with `@EmbeddedId`, **not** `@ManyToMany`.
-- **`entity_links`** has two FKs to `entities` (person + org) → two distinct `@ManyToOne` to the same target; name the join columns explicitly.
-- **`regions` self-reference** (`parent_region_id`) → `@ManyToOne` to `Region`; resolve subtrees with a recursive CTE / closure table, not eager fetch.
-- **`accounts.entity_id`** is one-to-one to the claimed entity → `@OneToOne`.
-- **Schema authority** → the per-stage Flyway migrations are the source of truth. `ddl-auto: validate`. Hibernate won't generate HNSW indexes, generated `tsvector` columns, or the `hybrid_search` function.
+- **No JPA associations.** Plain `Long` FKs everywhere (`Hub.regionId` is `Long`, not `Region region`). Resolve via `repo.findById()`. This avoids Hibernate lazy-loading issues, N+1 queries, and the complexity of managing bidirectional relationships in a monolith.
+- **`@IdClass` for composite keys** on join tables: `HubMembership`, `TagSubscription`, `EntityTag`. Pattern: separate `*Id` class with the two `Long` fields.
+- **`vector(1024)`** → Hibernate vector support. Stored as a vector column, queried via native SQL.
+- **`fts tsvector`** → DB-generated; mapped read-only (`insertable=false, updatable=false`).
+- **PostgreSQL `text[]` arrays** mapped via `@JdbcTypeCode(SqlTypes.ARRAY)` with `columnDefinition = "text[]"` for simple string lists (`preferredCollaboration`, `languages`). JSONB (`@JdbcTypeCode(SqlTypes.JSON)`) for nested structures.
+- **`@Generated(event = EventType.INSERT)`** on `created_at`/`updated_at` — avoids `@IdClass` + `@Generated` conflicts in Hibernate 7.x.
+- **Auth uses Clerk, not `accounts`.** Clerk JWTs are validated as OAuth2 resource-server tokens. A `users` table (text PK = Clerk `sub`) is JIT-upserted by `UserProvisioningFilter` after successful auth. The `CurrentUser` abstraction exposes `userId()`/`email()` to services.
+- **Schema authority** → Flyway migrations are the source of truth. `ddl-auto: validate`. Hibernate never generates HNSW indexes, generated `tsvector` columns, or the `hybrid_search` function.
+- **Thin controllers, fat services.** Controllers are HTTP adapters only — no business logic, no repository access, no DTO assembly. All logic lives in `@Service` classes. DTO assembly (including nested data) happens in the service (`EntityService.toDto()`).
+- **Exception → HTTP mapping** via a single `@RestControllerAdvice` (`GlobalExceptionHandler`). Services throw `EntityAccessDeniedException` (→403), `IllegalArgumentException` (→400), or return `null` (→404).
 
 ---
 

@@ -11,21 +11,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Canonical spec:** `docs/Orbit_Spec.md` (v2 is current — see `.llm-wiki/wiki/syntheses/orbit-v2-canonical-architecture.md`).
 
-## Implementation status (updated July 11, 2026)
+## Implementation status (updated July 13, 2026)
 
-The **backend is substantially built** — not stubbed. The **frontend supply side is 100% complete**; the demand side has page placeholders only.
+The **backend is substantially built** — not stubbed. The **frontend supply side is 100% complete**; the demand-side **search is fully functional**, but the Anfrage lifecycle (board, requests, inbox, contact) is still placeholders.
 
 ### Backend — fully functional
-- **9 Flyway migrations** (V1–V9): users, discovery engine core (entities/sources/chunks), hybrid search function, entity ownership, tags+summary, supply availability, hubs/regions, tag subscriptions, profile mode.
+- **10 Flyway migrations** (V1–V10): users, discovery engine core (entities/sources/chunks), hybrid search function, entity ownership, tags+summary, supply availability, hubs/regions, tag subscriptions, profile mode, scoped hybrid search.
 - **7 ingestion adapters** all working: GitHub, OpenAlex, LinkedIn PDF, Zefix, Manual Text, Personal Website, Company Website.
-- **Hybrid search** (FTS + pgvector + RRF) validated at 95-96% pass rate.
+- **5-stage search pipeline**: (1) bi-encoder retrieval (FTS + pgvector + RRF, scoped), (2) soft re-rank (availability overlap + open-boost), (3) cross-encoder reranking (BAAI/bge-reranker-v2-m3 via Python microservice), (4) LLM grounding (Gemini Flash, German rationale + validated citations), (5) render. Query is translated to English before retrieval (FTS uses `'english'` config); rationale is generated in German.
 - **Entity enrichment**: LLM competence summary + AI-derived tags after each ingestion.
 - **Supply-side profile**: availability, affiliation, languages, location, hub membership, tag subscriptions, profile mode.
 - **Admin hub management**: config-driven admin allowlist, CRUD for hubs/regions.
+- **Test artifacts to remove**: `BulkIngestController`, `BulkIngestService`, `BulkIngestRequest`, and the security-config `permitAll` lines for `/api/v1/test/bulk-ingest`.
 
-### Frontend — supply side complete, demand side placeholders
+### Frontend — supply side complete, search functional, Anfrage lifecycle pending
 - **Supply side**: onboarding wizard (type→firm→sources→ingestion→availability+subscriptions→profile preview), profile page (completeness banner, availability editor, hub selector, subscribed topics, kompetenzen, sources, nachweise), profile mode switching (Ich suche / Ich biete), profile meta editor.
-- **Demand side**: routes and navigation structure complete (search, board, requests, inbox), but all four pages are `PlaceholderPage` components showing "In Arbeit — folgt in einer späteren Stufe".
+- **Demand side — search**: fully functional. `SearchPage` → `SearchView` with `SearchForm` (query, scope ladder, Zeitfilter, Pensum) → `SearchResults` → `SearchResultCard` (entity, rationale, citation chips, availability badge, distance, "Profil ansehen" button). No "Kontakt aufnehmen" button yet.
+- **Demand side — Anfrage lifecycle**: routes and navigation structure complete (`/board`, `/requests`, `/inbox`) but all three pages are 14-line `PlaceholderPage` stubs. No Anfrage entity, migration, service, or controller exists in the backend.
 - **Admin**: hub management page at `/admin/hubs`.
 
 ## Commands
