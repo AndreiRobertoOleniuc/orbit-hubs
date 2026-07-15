@@ -189,3 +189,74 @@ export interface ZefixCompanyDto {
   legalForm: string
   status: string
 }
+
+// ─── Requests (Anfrage lifecycle, reference §8) ───
+
+/** Lifecycle: open → distributed → contacted → closed. */
+export type RequestStatus = "open" | "distributed" | "contacted" | "closed"
+
+/** Drives the distribution/escalation strategy (reference §8.3). */
+export type RequestUrgency = "flexible" | "soon" | "urgent"
+
+/** Compact request summary — board lists and "Meine Anfragen". */
+export interface RequestSummaryDto {
+  id: number
+  title: string | null
+  description: string | null
+  queryText: string
+  scopeKind: ScopeKind
+  scopeHubName: string | null
+  scopeRegionName: string | null
+  urgency: RequestUrgency
+  deadline: string | null
+  status: RequestStatus
+  wantFrom: string | null
+  wantTo: string | null
+  wantPensumPct: number | null
+  tags: TagRefDto[]
+  authorEntityId: number | null
+  authorName: string | null
+  authorOrgName: string | null
+  authorType: EntityType | null
+  createdAt: string | null
+}
+
+/** Full request — detail view. `mine` gates the owner lifecycle controls. */
+export interface RequestDto {
+  id: number
+  title: string | null
+  description: string | null
+  queryText: string
+  scopeKind: ScopeKind
+  scopeHubId: number | null
+  scopeHubName: string | null
+  scopeRegionId: number | null
+  scopeRegionName: string | null
+  urgency: RequestUrgency
+  deadline: string | null
+  status: RequestStatus
+  wantFrom: string | null
+  wantTo: string | null
+  wantPensumPct: number | null
+  tags: TagRefDto[]
+  authorEntityId: number | null
+  authorName: string | null
+  authorOrgName: string | null
+  authorType: EntityType | null
+  mine: boolean
+  createdAt: string | null
+}
+
+/** POST /requests body. Only `queryText` is required. */
+export interface CreateRequestBody {
+  title?: string | null
+  description?: string | null
+  queryText: string
+  scope?: ScopeSelection
+  urgency?: RequestUrgency
+  deadline?: string | null
+  wantFrom?: string | null
+  wantTo?: string | null
+  wantPensumPct?: number | null
+  tags?: string[]
+}
