@@ -4,19 +4,15 @@
 # for Orbit's embedding and reranker models.
 #
 # Usage:
-#   1. Get an HF token: https://huggingface.co/settings/tokens (Create new token → Read)
+#   1. Get an HF token: https://huggingface.co/settings/tokens (Create → Read access)
 #   2. export HF_TOKEN=hf_xxxxxxxxxxxxxxxxxxxx
 #   3. bash docs/devops/test-hf-inference.sh
 #
-# This script tests:
-#   - Embedding: intfloat/multilingual-e5-large (feature-extraction, 1024 dims)
-#   - Reranker:  BAAI/bge-reranker-v2-m3 (text-classification, cross-encoder)
-#
-# Both models are confirmed "warm" on HF Inference as of July 2025.
+# Confirmed working formats (tested July 2025):
+#   Embedding:  {"inputs": "query: text"}              → [1024 floats]
+#   Reranker:   {"inputs": [{"text": q, "text_pair": d}]}  → [[{"label":"LABEL_0","score": 0.57}]]
 
 set -euo pipefail
-
-# ─── Config ───────────────────────────────────────────────────────────────────
 
 EMBED_MODEL="intfloat/multilingual-e5-large"
 RERANKER_MODEL="BAAI/bge-reranker-v2-m3"
@@ -31,196 +27,165 @@ fi
 echo "🔑 Using HF token: ${HF_TOKEN:0:8}..."
 echo ""
 
-# ─── 1. Embedding — single query ─────────────────────────────────────────────
-# This is what SearchService does: embed the translated/condensed search query.
-# The "query: " prefix is required by E5 models for asymmetric retrieval.
+# ─── 1. Embedding — query ────────────────────────────────────────────────────
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "1. EMBEDDING — query embedding (what SearchService calls per search)"
+echo "1. EMBEDDING — query embedding"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
-
-QUERY_TEXT="React developer for SaaS product"
-
-echo "POST $HF_BASE/$EMBED_MODEL"
-echo "Body: {\"inputs\": \"query: $QUERY_TEXT\"}"
 echo ""
 
 EMBED_RESPONSE=$(curl -s \
   -X POST "$HF_BASE/$EMBED_MODEL" \
   -H "Authorization: Bearer $HF_TOKEN" \
   -H "Content-Type: application/json" \
-  -d "{\"inputs\": \"query: $QUERY_TEXT\"}")
+  -d '{"inputs": "query: React developer for SaaS product"}')
 
 echo "Response (first 200 chars):"
 echo "$EMBED_RESPONSE" | head -c 200
 echo ""
-echo ""
 
-# Parse dimensions
 if command -v python3 &>/dev/null; then
-  DIMS=$(echo "$EMBED_RESPONSE" | python3 -c "import sys,json; v=json.load(sys.stdin); print(len(v[0]) if isinstance(v, list) and len(v)>0 and isinstance(v[0], list) else len(v))" 2>/dev/null || echo "parse error")
-  echo "✅ Embedding dimensions: $DIMS"
-  FIRST5=$(echo "$EMBED_RESPONSE" | python3 -c "import sys,json; v=json.load(sys.stdin); vec=v[0] if isinstance(v[0],list) else v; print([round(x,6) for x in vec[:5]])" 2>/dev/null || echo "parse error")
-  echo "   First 5 values: $FIRST5"
-else
-  echo "   (install python3 to parse dimensions)"
+  DIMS=$(echo "$EMBED_RESPONSE" | python3 -c "import sys,json; v=json.load(sys.stdin); print(len(v[0]) if isinstance(v,list) and len(v)>0 and isinstance(v[0],list) else len(v))" 2>/dev/null || echo "parse error")
+  echo "✅ Dimensions: $DIMS"
 fi
-
 echo ""
 
-# ─── 2. Embedding — passage embedding (what IngestionOrchestrator calls per chunk) ──
+# ─── 2. Embedding — passage ──────────────────────────────────────────────────
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "2. EMBEDDING — passage embedding (what IngestionOrchestrator calls per chunk)"
+echo "2. EMBEDDING — passage embedding"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
-
-PASSAGE_TEXT="Experienced React developer specializing in building scalable SaaS web applications using TypeScript, React, and modern frontend tooling."
-
-echo "POST $HF_BASE/$EMBED_MODEL"
-echo "Body: {\"inputs\": \"passage: $PASSAGE_TEXT\"}"
 echo ""
 
 PASSAGE_RESPONSE=$(curl -s \
   -X POST "$HF_BASE/$EMBED_MODEL" \
   -H "Authorization: Bearer $HF_TOKEN" \
   -H "Content-Type: application/json" \
-  -d "{\"inputs\": \"passage: $PASSAGE_TEXT\"}")
+  -d '{"inputs": "passage: Experienced React developer specializing in building scalable SaaS web applications using TypeScript, React, and modern frontend tooling."}')
 
 echo "Response (first 200 chars):"
 echo "$PASSAGE_RESPONSE" | head -c 200
 echo ""
 echo ""
 
-if command -v python3 &>/dev/null; then
-  PDIMS=$(echo "$PASSAGE_RESPONSE" | python3 -c "import sys,json; v=json.load(sys.stdin); print(len(v[0]) if isinstance(v, list) and len(v)>0 and isinstance(v[0], list) else len(v))" 2>/dev/null || echo "parse error")
-  echo "✅ Passage embedding dimensions: $PDIMS"
-fi
-
-echo ""
-
-# ─── 3. Reranker — single pair ──────────────────────────────────────────────
-# This is what CrossEncoderReranker calls: score a (query, document) pair.
-# The HF text-classification API accepts text + text_pair.
+# ─── 3. Reranker — single pair (Format C: the one that works) ────────────────
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "3. RERANKER — single pair (query vs one document)"
+echo "3. RERANKER — single pair (good match)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-
-RERANK_QUERY="React developer for SaaS product"
-RERANK_DOC_GOOD="Frontend engineer specializing in React, TypeScript, and building scalable SaaS web applications"
-RERANK_DOC_BAD="Java backend developer with Spring Boot and PostgreSQL experience"
-
-echo "POST $HF_BASE/$RERANKER_MODEL"
-echo "Body: {\"inputs\": {\"text\": \"$RERANK_QUERY\", \"text_pair\": \"$RERANK_DOC_GOOD\"}}"
+echo 'Body: {"inputs": [{"text": "React developer...", "text_pair": "Frontend engineer..."}]}'
 echo ""
 
-RERANK_SINGLE=$(curl -s \
+RERANK_GOOD=$(curl -s \
   -X POST "$HF_BASE/$RERANKER_MODEL" \
   -H "Authorization: Bearer $HF_TOKEN" \
   -H "Content-Type: application/json" \
-  -d "{\"inputs\": {\"text\": \"$RERANK_QUERY\", \"text_pair\": \"$RERANK_DOC_GOOD\"}}")
+  -d '{"inputs": [{"text": "React developer for SaaS product", "text_pair": "Frontend engineer specializing in React, TypeScript, and building scalable SaaS web applications"}]}')
 
-echo "Response:"
-echo "$RERANK_SINGLE"
+echo "Response: $RERANK_GOOD"
 echo ""
 
-echo "Now with a BAD match (Java backend vs React query):"
+echo "--- Now with a BAD match (Java backend vs React query): ---"
 echo ""
 
 RERANK_BAD=$(curl -s \
   -X POST "$HF_BASE/$RERANKER_MODEL" \
   -H "Authorization: Bearer $HF_TOKEN" \
   -H "Content-Type: application/json" \
-  -d "{\"inputs\": {\"text\": \"$RERANK_QUERY\", \"text_pair\": \"$RERANK_DOC_BAD\"}}")
+  -d '{"inputs": [{"text": "React developer for SaaS product", "text_pair": "Java backend developer with Spring Boot and PostgreSQL experience"}]}')
 
-echo "Response:"
-echo "$RERANK_BAD"
+echo "Response: $RERANK_BAD"
 echo ""
 
-# ─── 4. Reranker — batch (multiple documents against one query) ─────────────
-# This is what CrossEncoderReranker actually does: send all candidates at once.
-# HF text-classification may or may not support batch text_pair — test it.
+# ─── 4. Reranker — batch (all candidates at once, list of dicts) ─────────────
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "4. RERANKER — batch (query vs multiple documents — what CrossEncoderReranker does)"
+echo "4. RERANKER — batch (3 pairs at once — what CrossEncoderReranker does)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-
-echo "POST $HF_BASE/$RERANKER_MODEL"
-echo "Body: {\"inputs\": {\"text\": query, \"text_pair\": [doc1, doc2, doc3]}}"
+echo 'Body: {"inputs": [{"text": q, "text_pair": d1}, {"text": q, "text_pair": d2}, ...]}'
 echo ""
 
-RERANK_BATCH=$(curl -s \
-  -X POST "$HF_BASE/$RERANKER_MODEL" \
-  -H "Authorization: Bearer $HF_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "inputs": {
-      "text": "React developer for SaaS product",
-      "text_pair": [
-        "Frontend engineer specializing in React, TypeScript, and building scalable SaaS web applications",
-        "Java backend developer with Spring Boot and PostgreSQL experience",
-        "Full-stack developer experienced in React, Node.js, and SaaS platform development"
-      ]
-    }
-  }')
+# Use python3 to avoid shell JSON escaping issues
+python3 << 'PYEOF'
+import json, os, urllib.request
 
-echo "Response:"
-echo "$RERANK_BATCH"
+HF_TOKEN = os.environ["HF_TOKEN"]
+url = "https://router.huggingface.co/hf-inference/models/BAAI/bge-reranker-v2-m3"
+
+query = "React developer for SaaS product"
+docs = [
+    "Frontend engineer specializing in React, TypeScript, and building scalable SaaS web applications",
+    "Java backend developer with Spring Boot and PostgreSQL experience",
+    "Full-stack developer experienced in React, Node.js, and SaaS platform development",
+]
+
+payload = {
+    "inputs": [
+        {"text": query, "text_pair": doc}
+        for doc in docs
+    ]
+}
+
+print(f"Sending {len(docs)} pairs in one batch request...")
+print()
+
+data = json.dumps(payload).encode("utf-8")
+req = urllib.request.Request(url, data=data, headers={
+    "Authorization": f"Bearer {HF_TOKEN}",
+    "Content-Type": "application/json",
+})
+
+try:
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        result = json.loads(resp.read().decode())
+
+    print("Response:")
+    print(json.dumps(result, indent=2))
+    print()
+
+    print("Scores:")
+    labels = ["GOOD", "BAD", "MID"]
+    scores = []
+    for i, item in enumerate(result):
+        score = item[0]["score"] if isinstance(item, list) else item["score"]
+        scores.append(score)
+        print(f"  Doc {i} ({labels[i]}): {score:.4f}")
+    print()
+
+    if scores[0] > scores[1]:
+        print(f"✅ GOOD ({scores[0]:.4f}) > BAD ({scores[1]:.4f}) — reranker works!")
+    else:
+        print(f"❌ BAD scored higher than GOOD")
+
+except Exception as e:
+    print(f"❌ Error: {e}")
+PYEOF
+
 echo ""
 
-# ─── 5. If batch doesn't work, try sequential single pairs ──────────────────
-
-if echo "$RERANK_BATCH" | grep -qi "error\|Error\|422\|400"; then
-  echo "⚠️  Batch text_pair not supported. Falling back to sequential calls:"
-  echo ""
-
-  DOCS=(
-    "Frontend engineer specializing in React, TypeScript, and building scalable SaaS web applications"
-    "Java backend developer with Spring Boot and PostgreSQL experience"
-    "Full-stack developer experienced in React, Node.js, and SaaS platform development"
-  )
-
-  for i in "${!DOCS[@]}"; do
-    SCORE=$(curl -s \
-      -X POST "$HF_BASE/$RERANKER_MODEL" \
-      -H "Authorization: Bearer $HF_TOKEN" \
-      -H "Content-Type: application/json" \
-      -d "{\"inputs\": {\"text\": \"React developer for SaaS product\", \"text_pair\": \"${DOCS[$i]}\"}}")
-    echo "  Doc $i score: $SCORE"
-  done
-fi
-
-echo ""
-
-# ─── 6. Cosine similarity between query and passage embeddings ─────────────
-# Verify that the good match has higher similarity than a bad match.
+# ─── 5. Cosine similarity verification ───────────────────────────────────────
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "5. VERIFY — cosine similarity (query vs good doc, query vs bad doc)"
+echo "5. VERIFY — cosine similarity (embedding quality check)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-
-BAD_PASSAGE="Java backend developer with Spring Boot, PostgreSQL, and microservices architecture"
 
 BAD_RESPONSE=$(curl -s \
   -X POST "$HF_BASE/$EMBED_MODEL" \
   -H "Authorization: Bearer $HF_TOKEN" \
   -H "Content-Type: application/json" \
-  -d "{\"inputs\": \"passage: $BAD_PASSAGE\"}")
+  -d '{"inputs": "passage: Java backend developer with Spring Boot, PostgreSQL, and microservices architecture"}')
 
 if command -v python3 &>/dev/null; then
   python3 -c "
-import json, sys, math
+import json, math
 
 q = json.loads('''$EMBED_RESPONSE''')
 good = json.loads('''$PASSAGE_RESPONSE''')
 bad = json.loads('''$BAD_RESPONSE''')
 
-# Flatten if nested
 q = q[0] if isinstance(q[0], list) else q
 good = good[0] if isinstance(good[0], list) else good
 bad = bad[0] if isinstance(bad[0], list) else bad
@@ -234,24 +199,28 @@ def cosine(a, b):
 sim_good = cosine(q, good)
 sim_bad = cosine(q, bad)
 
-print(f'Query:        \"React developer for SaaS product\"')
-print(f'Good passage: \"Experienced React developer specializing in SaaS...\"')
-print(f'Bad passage:  \"Java backend developer with Spring Boot...\"')
-print()
 print(f'Cosine sim (query vs good): {sim_good:.4f}')
 print(f'Cosine sim (query vs bad):  {sim_bad:.4f}')
 print()
 if sim_good > sim_bad:
-    print(f'✅ Good match ({sim_good:.4f}) > Bad match ({sim_bad:.4f}) — embeddings work correctly!')
+    print(f'✅ Good match ({sim_good:.4f}) > Bad match ({sim_bad:.4f})')
 else:
-    print(f'❌ Something is wrong — bad match scored higher')
+    print(f'❌ Bad match scored higher')
 " 2>&1
-else
-  echo "(install python3 to compute cosine similarity)"
 fi
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "Done. If all checks passed, the HF Inference API works for both"
-echo "models. Next step: implement HfEmbeddingService in the backend."
+echo "SUMMARY"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "Embedding API:  POST .../models/intfloat/multilingual-e5-large"
+echo "  Request:  {\"inputs\": \"query: text\"} or \"passage: text\""
+echo "  Response: [0.02, -0.01, ... 1024 floats]"
+echo ""
+echo "Reranker API:   POST .../models/BAAI/bge-reranker-v2-m3"
+echo "  Request:  {\"inputs\": [{\"text\": query, \"text_pair\": doc}, ...]}"
+echo "  Response: [[{\"label\": \"LABEL_0\", \"score\": 0.57}], ...]"
+echo "  Note:     Score is already sigmoid-normalized [0,1]"
+echo "            No need to apply sigmoid in Java (unlike your Python server)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
