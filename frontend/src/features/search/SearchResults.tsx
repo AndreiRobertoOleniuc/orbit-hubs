@@ -1,5 +1,4 @@
 import { useEffect, useState, type CSSProperties } from "react"
-import { useNavigate } from "react-router-dom"
 import { Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -24,6 +23,8 @@ interface SearchResultsProps {
   hubs: HubDto[]
   onEdit: () => void
   onWiden: (scopeValue: string) => void
+  /** Opens the "Anfrage ausschreiben" form prefilled with this search. */
+  onCreateRequest: () => void
 }
 
 function WidenButton({
@@ -51,8 +52,8 @@ export function SearchResults({
   hubs,
   onEdit,
   onWiden,
+  onCreateRequest,
 }: SearchResultsProps) {
-  const navigate = useNavigate()
   const results = data?.results ?? []
   const hasResults = results.length > 0
 
@@ -163,9 +164,7 @@ export function SearchResults({
                   hubs={hubs}
                   onWiden={onWiden}
                 />
-                <Button onClick={() => navigate("/requests")}>
-                  Anfrage erstellen
-                </Button>
+                <Button onClick={onCreateRequest}>Anfrage erstellen</Button>
               </div>
             </div>
           )}

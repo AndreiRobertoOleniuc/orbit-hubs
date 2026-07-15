@@ -1,5 +1,7 @@
 import { useState } from "react"
+import { useNavigate } from "react-router-dom"
 
+import type { CreateRequestPrefill } from "@/features/requests/CreateRequestView"
 import { SearchForm, type SearchFormState } from "@/features/search/SearchForm"
 import { SearchResults } from "@/features/search/SearchResults"
 import { decodeScope, SCOPE_ALL } from "@/features/search/scopeUtils"
@@ -16,6 +18,7 @@ import type { SearchRequestBody } from "@/types/api"
  * §5.4): the widen control re-runs the same query one scope level broader.
  */
 export function SearchView() {
+  const navigate = useNavigate()
   const [form, setForm] = useState<SearchFormState>({
     query: "",
     scope: SCOPE_ALL,
@@ -49,6 +52,19 @@ export function SearchView() {
     runWith(scopeValue)
   }
 
+  // No match → carry the whole search over into the "Anfrage ausschreiben"
+  // form, so nothing has to be typed twice.
+  const onCreateRequest = () => {
+    const prefill: CreateRequestPrefill = {
+      queryText: form.query.trim(),
+      scope: form.scope,
+      wantFrom: form.wantFrom,
+      wantTo: form.wantTo,
+      wantPensum: form.wantPensum,
+    }
+    navigate("/requests/new", { state: prefill })
+  }
+
   if (submitted) {
     return (
       <SearchResults
@@ -61,11 +77,16 @@ export function SearchView() {
         hubs={hubs}
         onEdit={() => setSubmitted(false)}
         onWiden={onWiden}
+        onCreateRequest={onCreateRequest}
       />
     )
   }
 
   return (
-    <SearchForm {...form} onChange={patch} onSearch={() => runWith(form.scope)} />
+    <SearchForm
+      {...form}
+      onChange={patch}
+      onSearch={() => runWith(form.scope)}
+    />
   )
 }

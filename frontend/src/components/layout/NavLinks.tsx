@@ -7,11 +7,14 @@ import { useGetMeQuery } from "@/lib/api"
 interface NavItem {
   to: string
   label: string
+  /** Match the pathname exactly — for routes whose sub-paths are different pages
+   *  (e.g. /profile is "mine" but /profile/:id is someone else's). */
+  exact?: boolean
 }
 
-function isActive(path: string, pathname: string): boolean {
-  if (path === "/") return pathname === "/"
-  return pathname === path || pathname.startsWith(`${path}/`)
+function isActive(item: NavItem, pathname: string): boolean {
+  if (item.exact || item.to === "/") return pathname === item.to
+  return pathname === item.to || pathname.startsWith(`${item.to}/`)
 }
 
 interface NavLinksProps {
@@ -24,7 +27,8 @@ interface NavLinksProps {
 /**
  * Mode-dependent navigation (design: TopNav). With a profile, the demand mode
  * shows Suche + Meine Anfragen, the supply mode shows Anfrage-Board + Postfach;
- * Profil (and Admin, when applicable) are always present. Anonymous = just Start.
+ * Profil (and Admin, when applicable) are always present. Without a profile
+ * (anonymous or pre-onboarding) the two public surfaces are shown instead.
  */
 export function NavLinks({
   pathname,
@@ -49,8 +53,15 @@ export function NavLinks({
         { to: "/inbox", label: "Postfach" }
       )
     }
+  } else {
+    // Default nav — the token-free public surfaces
+    items.push(
+      { to: "/search", label: "Suche" },
+      { to: "/board", label: "Anfrage-Board" }
+    )
   }
-  if (isAuthenticated) items.push({ to: "/profile", label: "Mein Profil" })
+  if (isAuthenticated)
+    items.push({ to: "/profile", label: "Mein Profil", exact: true })
   if (isAdmin) items.push({ to: "/admin/hubs", label: "Admin" })
 
   return (
@@ -58,7 +69,7 @@ export function NavLinks({
       {items.map((item) => (
         <Button
           key={item.to}
-          variant={isActive(item.to, pathname) ? "secondary" : "ghost"}
+          variant={isActive(item, pathname) ? "secondary" : "ghost"}
           size="sm"
           asChild
           className={className}

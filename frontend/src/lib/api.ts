@@ -4,6 +4,7 @@ import type { BaseQueryApi, FetchArgs } from "@reduxjs/toolkit/query/react"
 import { getFreshToken } from "@/lib/clerkToken"
 import type {
   AffiliationKind,
+  CreateRequestBody,
   EntityDto,
   HubDto,
   IngestionRequestDto,
@@ -11,6 +12,9 @@ import type {
   MeDto,
   ProfileMode,
   RegionDto,
+  RequestDto,
+  RequestStatus,
+  RequestSummaryDto,
   ResyncResponseDto,
   SearchRequestBody,
   SearchResponseDto,
@@ -80,7 +84,15 @@ export const apiSlice = createApi({
   reducerPath: "api",
   baseQuery,
   refetchOnMountOrArgChange: true,
-  tagTypes: ["MyEntities", "Entity", "Hubs", "Subscriptions"],
+  tagTypes: [
+    "MyEntities",
+    "Entity",
+    "Hubs",
+    "Subscriptions",
+    "Board",
+    "MyRequests",
+    "Request",
+  ],
   endpoints: (builder) => ({
     getMe: builder.query<MeDto, void>({
       query: () => "/me",
@@ -264,6 +276,44 @@ export const apiSlice = createApi({
       ],
     }),
 
+    // ─── Requests (Anfrage lifecycle, reference §8) ───
+
+    getBoard: builder.query<RequestSummaryDto[], void>({
+      query: () => "/board",
+      providesTags: ["Board"],
+    }),
+
+    getMyRequests: builder.query<RequestSummaryDto[], void>({
+      query: () => "/requests",
+      providesTags: ["MyRequests"],
+    }),
+
+    getRequest: builder.query<RequestDto, number | string>({
+      query: (id) => `/requests/${id}`,
+      providesTags: (_result, _error, id) => [{ type: "Request", id }],
+    }),
+
+    createRequest: builder.mutation<RequestDto, CreateRequestBody>({
+      query: (body) => ({ url: "/requests", method: "POST", body }),
+      invalidatesTags: ["Board", "MyRequests"],
+    }),
+
+    updateRequestStatus: builder.mutation<
+      RequestDto,
+      { id: number; status: RequestStatus }
+    >({
+      query: ({ id, status }) => ({
+        url: `/requests/${id}/status`,
+        method: "PUT",
+        body: { status },
+      }),
+      invalidatesTags: (_result, _error, { id }) => [
+        "Board",
+        "MyRequests",
+        { type: "Request", id },
+      ],
+    }),
+
     // ─── Hubs (public list + admin management) ───
 
     getHubs: builder.query<HubDto[], void>({
@@ -327,6 +377,11 @@ export const {
   useUpdateEntityHubsMutation,
   useGetSubscriptionsQuery,
   useUpdateSubscriptionsMutation,
+  useGetBoardQuery,
+  useGetMyRequestsQuery,
+  useGetRequestQuery,
+  useCreateRequestMutation,
+  useUpdateRequestStatusMutation,
   useGetHubsQuery,
   useLazySearchTagsQuery,
   useGetAdminRegionsQuery,

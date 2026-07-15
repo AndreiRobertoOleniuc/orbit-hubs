@@ -6,9 +6,11 @@ import { AdminHubsPage } from "@/pages/AdminHubsPage"
 import { BoardPage } from "@/pages/BoardPage"
 import { InboxPage } from "@/pages/InboxPage"
 import { MyRequestsPage } from "@/pages/MyRequestsPage"
+import { NewRequestPage } from "@/pages/NewRequestPage"
 import { NotFoundPage } from "@/pages/NotFoundPage"
 import { OnboardingPage } from "@/pages/OnboardingPage"
 import { ProfilePage } from "@/pages/ProfilePage"
+import { RequestDetailPage } from "@/pages/RequestDetailPage"
 import { SearchPage } from "@/pages/SearchPage"
 import { StartPage } from "@/pages/StartPage"
 
@@ -25,6 +27,7 @@ export const router = createBrowserRouter([
       { index: true, element: <StartPage /> },
       { path: "search", element: <SearchPage /> },
       { path: "board", element: <BoardPage /> },
+      { path: "board/:requestId", element: <RequestDetailPage /> },
       { path: "profile/:entityId", element: <ProfilePage /> },
 
       // (auth)
@@ -34,6 +37,7 @@ export const router = createBrowserRouter([
           { path: "onboarding", element: <OnboardingPage /> },
           { path: "profile", element: <ProfilePage /> },
           { path: "requests", element: <MyRequestsPage /> },
+          { path: "requests/new", element: <NewRequestPage /> },
           { path: "inbox", element: <InboxPage /> },
           { path: "admin/hubs", element: <AdminHubsPage /> },
         ],

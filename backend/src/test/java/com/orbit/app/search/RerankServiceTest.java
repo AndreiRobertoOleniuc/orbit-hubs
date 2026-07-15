@@ -62,25 +62,33 @@ class RerankServiceTest {
     }
 
     @Test
-    void minMaxNormalizeSpreadsToUnitRange() {
-        double[] out = RerankService.minMaxNormalize(List.of(1.0, 2.0, 3.0));
-        assertThat(out).containsExactly(0.0, 0.5, 1.0);
-    }
-
-    @Test
-    void minMaxNormalizeAllEqualIsNeutral() {
-        double[] out = RerankService.minMaxNormalize(List.of(2.0, 2.0));
-        assertThat(out).containsExactly(1.0, 1.0);
-    }
-
-    @Test
     void openToRequestsBoostRanksOpenProfileHigher() {
         DiscoveryEntity open = entity(null, null, null);
         open.setOpenToRequests(true);
         DiscoveryEntity closed = entity(null, null, null);
         closed.setOpenToRequests(false);
-        double[] finals = rerank.finalScores(
-                List.of(1.0, 1.0), List.of(open, closed), null, null, null);
-        assertThat(finals[0]).isGreaterThan(finals[1]);
+        double[] factors = rerank.boostFactors(List.of(open, closed), null, null, null);
+        assertThat(factors[0]).isGreaterThan(factors[1]);
+    }
+
+    @Test
+    void zeroOverlapClosedProfileGetsNoBoostButNoPenalty() {
+        // Availability entirely outside the requested window → overlap 0; the
+        // factor bottoms out at exactly 1.0 (soft signals reorder, never punish).
+        DiscoveryEntity e = entity(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31), 10);
+        e.setOpenToRequests(false);
+        double[] factors = rerank.boostFactors(List.of(e),
+                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 10, 31), 80);
+        assertThat(factors[0]).isEqualTo(1.0);
+    }
+
+    @Test
+    void fullAvailabilityAndOpenYieldsMaximalBoost() {
+        DiscoveryEntity e = entity(LocalDate.of(2026, 7, 1), LocalDate.of(2026, 12, 31), 100);
+        e.setOpenToRequests(true);
+        double[] factors = rerank.boostFactors(List.of(e),
+                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 10, 31), 60);
+        // 1 + W_avail * 1.0 + W_open * 1.0 with the weights from the constructor
+        assertThat(factors[0]).isCloseTo(1.4, within(0.001));
     }
 }

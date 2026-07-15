@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
@@ -22,6 +23,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -56,13 +58,42 @@ class ClerkAuthIntegrationTest {
     @BeforeEach
     void setUp() {
         jdbc = JdbcClient.create(dataSource);
+        jdbc.sql("DELETE FROM requests WHERE created_by LIKE 'user_test_%'").update();
         jdbc.sql("DELETE FROM users WHERE id LIKE 'user_test_%'").update();
     }
 
     @Test
     void publicRouteIsReachableWithoutToken() throws Exception {
-        // /api/v1/board is not implemented in this test slice; 404 proves it was not rejected as 401
+        // /api/v1/board is a whitelisted public route — 200 (not 401) without a token
         mockMvc.perform(get("/api/v1/board"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void authenticatedUserCanCreateRequest() throws Exception {
+        // Regression: CurrentUser must be constructor-injected in the service —
+        // a CurrentUser handler-method parameter breaks all request routes.
+        String token = token("user_test_req", "req@orbit.test", "Req", "http://localhost:5173");
+
+        mockMvc.perform(post("/api/v1/requests")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"title": "UXUI Expert", "queryText": "Ich suche einen UIUX Experten",
+                                 "scope": {"kind": "all"}, "urgency": "flexible",
+                                 "deadline": "2026-08-07", "wantFrom": "2026-07-30",
+                                 "wantTo": "2026-08-22", "wantPensumPct": 20,
+                                 "tags": ["UI", "UX"]}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.queryText").value("Ich suche einen UIUX Experten"))
+                .andExpect(jsonPath("$.status").value("open"))
+                .andExpect(jsonPath("$.mine").value(true));
+    }
+
+    @Test
+    void missingRequestIs404NotBadRequest() throws Exception {
+        mockMvc.perform(get("/api/v1/requests/999999999"))
                 .andExpect(status().isNotFound());
     }
 

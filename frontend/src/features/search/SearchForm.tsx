@@ -11,7 +11,8 @@ import { useGetHubsQuery, useGetRegionsQuery } from "@/lib/api"
 const FIELD =
   "h-9 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
 
-const CAP = "text-[11px] font-semibold tracking-wide text-muted-foreground uppercase"
+const CAP =
+  "text-[11px] font-semibold tracking-wide text-muted-foreground uppercase"
 
 export interface SearchFormState {
   query: string
@@ -127,7 +128,8 @@ export function SearchForm({
 
       <p className="mx-auto mt-3 max-w-md text-center text-[13px] leading-relaxed text-muted-foreground">
         <MapPin className="mr-1 inline size-3.5 align-[-2px]" />
-        <strong className="text-foreground/80">{hint.name}</strong> — {hint.hint}
+        <strong className="text-foreground/80">{hint.name}</strong> —{" "}
+        {hint.hint}
       </p>
       <p className="mt-4 text-center text-sm text-muted-foreground">
         Kein Konto nötig zum Suchen.
@@ -145,7 +147,20 @@ export function SearchForm({
           Profile werden benachrichtigt.
         </p>
         {isAuthenticated ? (
-          <Button variant="outline" onClick={() => navigate("/requests")}>
+          <Button
+            variant="outline"
+            onClick={() =>
+              navigate("/requests/new", {
+                state: {
+                  queryText: query.trim(),
+                  scope,
+                  wantFrom,
+                  wantTo,
+                  wantPensum,
+                },
+              })
+            }
+          >
             Anfrage ausschreiben
           </Button>
         ) : (

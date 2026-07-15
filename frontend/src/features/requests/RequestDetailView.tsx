@@ -1,0 +1,286 @@
+import { Link } from "react-router-dom"
+import {
+  ArrowLeft,
+  CalendarClock,
+  CalendarX2,
+  Check,
+  Loader2,
+  Lock,
+  MapPin,
+} from "lucide-react"
+
+import { NotFoundState } from "@/components/NotFoundState"
+import { Button } from "@/components/ui/button"
+import { useAuth } from "@/features/auth/useAuth"
+import {
+  AuthorKindBadge,
+  RequestStatusBadge,
+  UrgencyBadge,
+} from "@/features/requests/RequestBadges"
+import { RequestAuthor } from "@/features/requests/RequestAuthor"
+import {
+  STATUS_HINT,
+  STATUS_LABEL,
+  STATUS_ORDER,
+  daysUntil,
+  formatDayYear,
+  relativeTime,
+  scopeLabel,
+  wantWindowLabel,
+} from "@/features/requests/requestUtils"
+import { useGetRequestQuery, useUpdateRequestStatusMutation } from "@/lib/api"
+import { cn } from "@/lib/utils"
+import type { RequestDto, RequestStatus } from "@/types/api"
+
+/**
+ * The lifecycle as a compact stepper: Offen → Verteilt → Kontaktiert →
+ * Geschlossen. Reached stages are filled; upcoming stages stay muted. A
+ * request closed early simply shows the terminal stage as reached.
+ */
+function LifecycleStepper({ status }: { status: RequestStatus }) {
+  const current = STATUS_ORDER.indexOf(status)
+  return (
+    <ol className="flex items-center gap-0">
+      {STATUS_ORDER.map((s, i) => {
+        const reached = i <= current
+        const isCurrent = i === current
+        return (
+          <li key={s} className="flex flex-1 items-center last:flex-none">
+            <span className="flex flex-col items-center gap-1.5">
+              <span
+                className={cn(
+                  "flex size-6 items-center justify-center rounded-full text-[10px] font-semibold transition-colors",
+                  reached
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground",
+                  isCurrent && "ring-2 ring-primary/30"
+                )}
+              >
+                {i < current ? <Check className="size-3.5" /> : i + 1}
+              </span>
+              <span
+                className={cn(
+                  "text-[11px] whitespace-nowrap",
+                  isCurrent
+                    ? "font-semibold text-foreground"
+                    : "text-muted-foreground"
+                )}
+              >
+                {STATUS_LABEL[s]}
+              </span>
+            </span>
+            {i < STATUS_ORDER.length - 1 && (
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "mx-2 mb-5 h-px flex-1",
+                  i < current ? "bg-primary" : "bg-border"
+                )}
+              />
+            )}
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
+/** Owner-only lifecycle card: stepper, stage explanation, close action. */
+function OwnerLifecycle({ request }: { request: RequestDto }) {
+  const [updateStatus, { isLoading }] = useUpdateRequestStatusMutation()
+  const closed = request.status === "closed"
+
+  return (
+    <section className="rounded-xl bg-card p-6 ring-1 ring-foreground/10">
+      <h2 className="text-sm font-semibold">Deine Anfrage — Lebenszyklus</h2>
+      <div className="mt-5">
+        <LifecycleStepper status={request.status} />
+      </div>
+      <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+        {STATUS_HINT[request.status]}
+      </p>
+      {!closed && (
+        <div className="mt-4 flex flex-wrap items-center gap-3 border-t pt-4">
+          <Button
+            variant="outline"
+            disabled={isLoading}
+            onClick={() => updateStatus({ id: request.id, status: "closed" })}
+          >
+            {isLoading && <Loader2 className="size-4 animate-spin" />}
+            Anfrage schliessen
+          </Button>
+          <span className="text-xs text-muted-foreground">
+            Gelöst oder nicht mehr aktuell? Geschlossene Anfragen verschwinden
+            vom Board, bleiben aber für dich sichtbar.
+          </span>
+        </div>
+      )}
+    </section>
+  )
+}
+
+/**
+ * Public request detail (design: DetailScreen) — full text, meta, tags, and
+ * author. Owners additionally manage the lifecycle here; everyone else sees
+ * the contact call-to-action (handoff itself follows in a later stage).
+ */
+export function RequestDetailView({ requestId }: { requestId: string }) {
+  const { isAuthenticated } = useAuth()
+  const { data: request, isLoading, isError } = useGetRequestQuery(requestId)
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center gap-4 py-24 text-center">
+        <Loader2 className="size-6 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Anfrage wird geladen…</p>
+      </div>
+    )
+  }
+
+  if (isError || !request) {
+    return (
+      <NotFoundState
+        title="Anfrage nicht gefunden"
+        description="Diese Anfrage existiert nicht oder wurde entfernt."
+        actionLabel="Zum Anfrage-Board"
+        actionTo="/board"
+      />
+    )
+  }
+
+  const title = request.title?.trim() || request.queryText
+  const body =
+    request.description?.trim() ||
+    (request.title?.trim() ? request.queryText : null)
+  const showQuery =
+    Boolean(request.title?.trim()) &&
+    Boolean(request.description?.trim()) &&
+    request.queryText !== request.description
+  const window = wantWindowLabel(
+    request.wantFrom,
+    request.wantTo,
+    request.wantPensumPct
+  )
+  const remaining = daysUntil(request.deadline)
+
+  return (
+    <div className="mx-auto max-w-2xl py-6">
+      <Link
+        to={request.mine ? "/requests" : "/board"}
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="size-4" />
+        {request.mine ? "Meine Anfragen" : "Anfrage-Board"}
+      </Link>
+
+      <div className="mt-4 rounded-xl bg-card p-7 ring-1 ring-foreground/10">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <RequestStatusBadge status={request.status} />
+          <UrgencyBadge urgency={request.urgency} />
+          <AuthorKindBadge type={request.authorType} />
+          <span className="inline-flex h-5 items-center gap-1 rounded-4xl border px-2 text-xs text-muted-foreground">
+            <MapPin className="size-3" />
+            {scopeLabel(request)}
+          </span>
+        </div>
+
+        <h1 className="mt-4 text-[22px] leading-snug font-bold tracking-tight">
+          {title}
+        </h1>
+
+        {body && <p className="mt-3.5 text-[15.5px] leading-relaxed">{body}</p>}
+
+        {showQuery && (
+          <p className="mt-3 border-l-2 border-primary/30 pl-3 text-sm text-muted-foreground italic">
+            Gesucht: «{request.queryText}»
+          </p>
+        )}
+
+        {(window || request.deadline) && (
+          <div className="mt-5 space-y-1.5 rounded-lg bg-muted/50 px-4 py-3 text-sm">
+            {window && (
+              <div className="flex items-center gap-2">
+                <CalendarClock className="size-4 text-muted-foreground" />
+                <span>
+                  <span className="text-muted-foreground">Zeitraum:</span>{" "}
+                  {window}
+                </span>
+              </div>
+            )}
+            {request.deadline && (
+              <div className="flex items-center gap-2">
+                <CalendarX2 className="size-4 text-muted-foreground" />
+                <span>
+                  <span className="text-muted-foreground">Antworten bis:</span>{" "}
+                  {formatDayYear(request.deadline)}
+                  {remaining != null && remaining >= 0 && (
+                    <span
+                      className={cn(
+                        "ml-1.5 font-medium",
+                        remaining <= 3
+                          ? "text-red-600 dark:text-red-400"
+                          : "text-amber-700 dark:text-amber-400"
+                      )}
+                    >
+                      ({remaining === 0 ? "heute" : `noch ${remaining} Tage`})
+                    </span>
+                  )}
+                  {remaining != null && remaining < 0 && (
+                    <span className="ml-1.5 text-muted-foreground">
+                      (abgelaufen)
+                    </span>
+                  )}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {request.tags.length > 0 && (
+          <div className="mt-5 flex flex-wrap gap-1.5">
+            {request.tags.map((t) => (
+              <span
+                key={t.id}
+                className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-sm text-primary"
+              >
+                {t.label}
+              </span>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-6 flex flex-wrap items-center gap-3 border-t pt-4">
+          <RequestAuthor
+            entityId={request.authorEntityId}
+            name={request.authorName}
+            orgName={request.authorOrgName}
+            type={request.authorType}
+          />
+          {request.createdAt && (
+            <span className="ml-auto text-sm text-muted-foreground">
+              Veröffentlicht {relativeTime(request.createdAt)}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-5">
+        {request.mine ? (
+          <OwnerLifecycle request={request} />
+        ) : (
+          <div className="text-center">
+            <Button className="w-full" disabled>
+              {!isAuthenticated && <Lock className="size-3.5" />}
+              Kontakt aufnehmen
+            </Button>
+            <p className="mt-2.5 text-xs text-muted-foreground">
+              {isAuthenticated
+                ? "Der Kontakt-Handoff folgt in einer späteren Stufe."
+                : "Anmeldung nötig, um Kontakt aufzunehmen — der Handoff folgt in einer späteren Stufe."}
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
