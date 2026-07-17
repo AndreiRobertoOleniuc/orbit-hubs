@@ -15,6 +15,7 @@ import { NotFoundState } from "@/components/NotFoundState"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/features/auth/useAuth"
 import { ContactModal } from "@/features/contact/ContactModal"
+import { initials } from "@/features/profile/profileUtils"
 import {
   AuthorKindBadge,
   RequestStatusBadge,
@@ -37,7 +38,11 @@ import {
   useUpdateRequestStatusMutation,
 } from "@/lib/api"
 import { cn } from "@/lib/utils"
-import type { RequestDto, RequestStatus } from "@/types/api"
+import type {
+  DistributedProfileDto,
+  RequestDto,
+  RequestStatus,
+} from "@/types/api"
 
 /**
  * The lifecycle as a compact stepper: Offen → Verteilt → Kontaktiert →
@@ -92,6 +97,88 @@ function LifecycleStepper({ status }: { status: RequestStatus }) {
   )
 }
 
+/** How a profile ended up in the request's distribution (§8.2). */
+function distributedReason(profile: DistributedProfileDto): string {
+  const tags = (profile.matchedTags ?? []).map((t) => `«${t}»`).join(", ")
+  if (profile.reason === "subscription") {
+    return tags ? `Abonniertes Thema ${tags}` : "Abonniertes Thema"
+  }
+  return tags ? `Profil-Tags ${tags}` : "Profil-Match"
+}
+
+/** One notified profile — identity, why it matched, and a direct contact. */
+function NotifiedProfileRow({
+  profile,
+  request,
+}: {
+  profile: DistributedProfileDto
+  request: RequestDto
+}) {
+  const [contactOpen, setContactOpen] = useState(false)
+  const name = profile.name ?? "Profil"
+  return (
+    <li className="flex flex-wrap items-center gap-3 py-3">
+      <span
+        aria-hidden="true"
+        className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary"
+      >
+        {initials(name)}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-medium">
+          <Link
+            to={`/profile/${profile.entityId}`}
+            className="underline-offset-2 hover:underline"
+          >
+            {name}
+          </Link>
+          {profile.orgName && (
+            <span className="font-normal text-muted-foreground">
+              {" · "}
+              {profile.orgName}
+            </span>
+          )}
+        </div>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {distributedReason(profile)}
+        </p>
+      </div>
+      <Button size="sm" onClick={() => setContactOpen(true)}>
+        Kontaktieren
+      </Button>
+      <ContactModal
+        toEntityId={profile.entityId}
+        toName={name}
+        quote={`«${request.title?.trim() || request.queryText}»`}
+        requestId={request.id}
+        searchedText={request.queryText}
+        open={contactOpen}
+        onOpenChange={setContactOpen}
+      />
+    </li>
+  )
+}
+
+/** The notified-profiles list on the owner's request (owner-only). */
+function NotifiedProfiles({ request }: { request: RequestDto }) {
+  const profiles = request.distributions ?? []
+  if (profiles.length === 0) return null
+  return (
+    <div className="mt-4 border-t pt-4">
+      <h3 className="text-sm font-medium">Benachrichtigte Profile</h3>
+      <p className="mt-0.5 text-xs text-muted-foreground">
+        Diese Profile wurden über deine Anfrage informiert. Du kannst sie auch
+        direkt kontaktieren.
+      </p>
+      <ul className="mt-2 divide-y">
+        {profiles.map((p) => (
+          <NotifiedProfileRow key={p.entityId} profile={p} request={request} />
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 /** Owner-only lifecycle card: stepper, stage explanation, close action. */
 function OwnerLifecycle({ request }: { request: RequestDto }) {
   const [updateStatus, { isLoading }] = useUpdateRequestStatusMutation()
@@ -126,6 +213,7 @@ function OwnerLifecycle({ request }: { request: RequestDto }) {
           )}
         </p>
       )}
+      <NotifiedProfiles request={request} />
       {!closed && (
         <div className="mt-4 flex flex-wrap items-center gap-3 border-t pt-4">
           <Button
@@ -152,14 +240,22 @@ function OwnerLifecycle({ request }: { request: RequestDto }) {
  * contact the author via the handoff dialog (§11).
  */
 export function RequestDetailView({ requestId }: { requestId: string }) {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, status } = useAuth()
   const [contactOpen, setContactOpen] = useState(false)
-  const { data: request, isLoading, isError } = useGetRequestQuery(requestId)
+  // `mine` is resolved from the caller's token, so the request must not be
+  // fetched until Clerk has settled — otherwise a hard reload fires the public
+  // GET before the token is attached and the owner sees the read-only view.
+  const authSettled = status === "authenticated" || status === "unauthenticated"
+  const {
+    data: request,
+    isLoading,
+    isError,
+  } = useGetRequestQuery(requestId, { skip: !authSettled })
   const { data: contactedIds } = useGetContactedEntityIdsQuery(undefined, {
     skip: !isAuthenticated,
   })
 
-  if (isLoading) {
+  if (!authSettled || isLoading) {
     return (
       <div className="flex flex-col items-center gap-4 py-24 text-center">
         <Loader2 className="size-6 animate-spin text-primary" />

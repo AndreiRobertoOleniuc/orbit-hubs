@@ -7,6 +7,7 @@ import java.util.Set;
 
 import com.orbit.app.auth.CurrentUser;
 import com.orbit.app.controllers.dto.CreateRequest;
+import com.orbit.app.controllers.dto.DistributedProfileDto;
 import com.orbit.app.controllers.dto.RequestDto;
 import com.orbit.app.controllers.dto.RequestSummaryDto;
 import com.orbit.app.controllers.dto.TagRefDto;
@@ -235,7 +236,22 @@ public class RequestService {
                 mine,
                 mine ? (int) distributionRepository.countByRequestId(r.getId()) : null,
                 mine ? distributionService.effectiveScope(r).kind() : null,
+                mine ? loadDistributedProfiles(r.getId()) : null,
                 r.getCreatedAt());
+    }
+
+    /** The notified profiles for a request — owner-only (§8.2). */
+    private List<DistributedProfileDto> loadDistributedProfiles(Long requestId) {
+        return distributionRepository.findByRequestId(requestId).stream()
+                .map(d -> {
+                    DiscoveryEntity e = entityRepository.findById(d.getEntityId()).orElse(null);
+                    if (e == null) return null;
+                    return new DistributedProfileDto(
+                            e.getId(), e.getDisplayName(), e.getOrgName(), e.getEntityType(),
+                            d.getReason(), d.getMatchedTags(), d.getNotifiedAt());
+                })
+                .filter(dto -> dto != null)
+                .toList();
     }
 
     private RequestSummaryDto toSummary(Request r, List<Tag> tags) {

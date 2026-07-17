@@ -12,9 +12,10 @@ import java.util.List;
  * {@link RequestSummaryDto}: identity resolved from the creator's entity
  * profile, {@code null} when none exists.
  * <p>
- * {@code distributionCount} and {@code wideningLevel} ("X Profile
- * benachrichtigt" + current escalation scope kind) are owner-only — both
- * {@code null} when {@code mine} is false.
+ * {@code distributionCount}, {@code wideningLevel} ("X Profile benachrichtigt"
+ * + current escalation scope kind) and {@code distributions} (the notified
+ * profiles with their reason) are owner-only — {@code null} when {@code mine}
+ * is false.
  */
 public record RequestDto(
         Long id,
@@ -40,5 +41,6 @@ public record RequestDto(
         boolean mine,
         Integer distributionCount,
         String wideningLevel,
+        List<DistributedProfileDto> distributions,
         Instant createdAt
 ) {}

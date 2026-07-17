@@ -223,6 +223,20 @@ export interface RequestSummaryDto {
   createdAt: string | null
 }
 
+/** Why a request was distributed to a profile (§8.2). */
+export type DistributionReason = "profile_match" | "subscription"
+
+/** One profile a request was distributed to — owner-only (§8.2). */
+export interface DistributedProfileDto {
+  entityId: number
+  name: string | null
+  orgName: string | null
+  entityType: EntityType | null
+  reason: DistributionReason
+  matchedTags: string[] | null
+  notifiedAt: string | null
+}
+
 /** Full request — detail view. `mine` gates the owner lifecycle controls. */
 export interface RequestDto {
   id: number
@@ -250,6 +264,8 @@ export interface RequestDto {
   distributionCount: number | null
   /** Owner-only: effective escalation scope kind — null on foreign requests. */
   wideningLevel: ScopeKind | null
+  /** Owner-only: the profiles this request was distributed to — null on foreign requests. */
+  distributions: DistributedProfileDto[] | null
   createdAt: string | null
 }
 
@@ -313,9 +329,6 @@ export interface SenderContextDto {
   description: string | null
   searchedText: string | null
 }
-
-/** Why a request was distributed to a profile (§8.2). */
-export type DistributionReason = "profile_match" | "subscription"
 
 /** One incoming contact request in the Postfach "Erhalten" section.
  *  `fromEmail` is revealed only once `status === "accepted"` (mutual opt-in). */

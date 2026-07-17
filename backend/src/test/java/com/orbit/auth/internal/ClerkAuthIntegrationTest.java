@@ -209,7 +209,7 @@ class ClerkAuthIntegrationTest {
         jdbc.sql("INSERT INTO entity_tags (entity_id, tag_id, origin) VALUES (:e, :t, 'manual')")
                 .param("e", entityB).param("t", tagId).update();
 
-        mockMvc.perform(post("/api/v1/requests")
+        String created = mockMvc.perform(post("/api/v1/requests")
                         .header("Authorization", "Bearer " + tokenA)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -220,13 +220,29 @@ class ClerkAuthIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("distributed"))
                 .andExpect(jsonPath("$.distributionCount").value(1))
-                .andExpect(jsonPath("$.wideningLevel").value("all"));
+                .andExpect(jsonPath("$.wideningLevel").value("all"))
+                // The creator sees WHO was notified + why.
+                .andExpect(jsonPath("$.distributions[0].name").value("IT-Test Bea"))
+                .andExpect(jsonPath("$.distributions[0].entityId").value((int) entityB))
+                .andExpect(jsonPath("$.distributions[0].reason").value("profile_match"))
+                .andExpect(jsonPath("$.distributions[0].matchedTags[0]").value("Embedded"))
+                .andReturn().getResponse().getContentAsString();
+        long requestId = ((Number) com.jayway.jsonpath.JsonPath.read(created, "$.id")).longValue();
 
+        // The notified profile sees the request in their Postfach.
         mockMvc.perform(get("/api/v1/inbox").header("Authorization", "Bearer " + tokenB))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.distributions[0].title").value("Firmware-Audit"))
                 .andExpect(jsonPath("$.distributions[0].reason").value("profile_match"))
                 .andExpect(jsonPath("$.distributions[0].matchedTags[0]").value("Embedded"));
+
+        // A non-owner (public read) never sees the notified-profiles list.
+        mockMvc.perform(get("/api/v1/requests/" + requestId)
+                        .header("Authorization", "Bearer " + tokenB))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mine").value(false))
+                .andExpect(jsonPath("$.distributions").doesNotExist())
+                .andExpect(jsonPath("$.distributionCount").doesNotExist());
     }
 
     @Test
