@@ -7,6 +7,7 @@ import {
   Check,
   Loader2,
   Lock,
+  Mail,
   MapPin,
   Users,
 } from "lucide-react"
@@ -193,8 +194,17 @@ function OwnerLifecycle({ request }: { request: RequestDto }) {
       <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
         {STATUS_HINT[request.status]}
       </p>
+      {(request.status === "contacted" || request.status === "closed") && (
+        <Link
+          to="/inbox"
+          className="mt-2 flex w-fit items-center gap-1 text-sm font-medium text-primary underline-offset-2 hover:underline"
+        >
+          <Mail className="size-4" />
+          Kontaktaufnahmen im Postfach ansehen
+        </Link>
+      )}
       {request.distributionCount != null && request.status !== "open" && (
-        <p className="mt-2 inline-flex items-center gap-1.5 text-sm">
+        <p className="mt-2 flex items-center gap-1.5 text-sm">
           <Users className="size-4 text-muted-foreground" />
           <span className="font-medium">
             {request.distributionCount}{" "}
