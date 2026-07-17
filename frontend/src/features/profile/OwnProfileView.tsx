@@ -327,9 +327,6 @@ export function OwnProfileView({ entity }: { entity: EntityDto }) {
                   ? builtFrom.join(", ")
                   : "manueller Eingabe"}
               </span>
-              {(isLoading || resyncing) && (
-                <RefreshCw className="size-3.5 animate-spin" />
-              )}
               <button
                 className="flex items-center gap-1 text-xs text-primary hover:underline disabled:opacity-50"
                 onClick={() => void handleResync()}
@@ -337,7 +334,11 @@ export function OwnProfileView({ entity }: { entity: EntityDto }) {
                 title="Quellen neu auswerten — aktualisiert Kompetenzen und Nachweise aus allen verknüpften Quellen"
               >
                 <RefreshCw
-                  className={resyncing ? "size-3.5 animate-spin" : "size-3.5"}
+                  className={
+                    resyncing || isLoading
+                      ? "size-3.5 animate-spin"
+                      : "size-3.5"
+                  }
                 />
                 Quellen neu auswerten
               </button>
