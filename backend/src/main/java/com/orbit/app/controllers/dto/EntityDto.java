@@ -9,6 +9,9 @@ import tools.jackson.databind.JsonNode;
  * Entity DTO for the entity profile API — the full profile read model with
  * nested sources, tags, and the supply-side signals (availability, affiliation,
  * languages, location, hubs, home region).
+ * <p>
+ * {@code claimed} — whether a user owns this profile. Unclaimed (harvested)
+ * profiles can't receive contact requests (§11); the UI disables the button.
  */
 public record EntityDto(
         Long id,
@@ -28,5 +31,6 @@ public record EntityDto(
         List<String> languages,
         String locationLabel,
         List<HubDto> hubs,
-        RegionDto homeRegion) {
+        RegionDto homeRegion,
+        boolean claimed) {
 }

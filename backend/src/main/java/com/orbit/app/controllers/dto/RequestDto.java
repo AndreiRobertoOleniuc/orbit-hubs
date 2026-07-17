@@ -11,6 +11,10 @@ import java.util.List;
  * detail view then shows the owner lifecycle controls). Author fields mirror
  * {@link RequestSummaryDto}: identity resolved from the creator's entity
  * profile, {@code null} when none exists.
+ * <p>
+ * {@code distributionCount} and {@code wideningLevel} ("X Profile
+ * benachrichtigt" + current escalation scope kind) are owner-only — both
+ * {@code null} when {@code mine} is false.
  */
 public record RequestDto(
         Long id,
@@ -34,5 +38,7 @@ public record RequestDto(
         String authorOrgName,
         String authorType,
         boolean mine,
+        Integer distributionCount,
+        String wideningLevel,
         Instant createdAt
 ) {}

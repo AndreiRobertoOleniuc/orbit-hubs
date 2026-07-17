@@ -21,6 +21,7 @@ import com.orbit.domain.entity.Tag;
 import com.orbit.domain.repository.DiscoveryEntityRepository;
 import com.orbit.domain.repository.HubRepository;
 import com.orbit.domain.repository.RegionRepository;
+import com.orbit.domain.repository.RequestDistributionRepository;
 import com.orbit.domain.repository.RequestRepository;
 import com.orbit.domain.repository.RequestTagRepository;
 import com.orbit.domain.repository.TagRepository;
@@ -49,6 +50,8 @@ public class RequestService {
     private final HubRepository hubRepository;
     private final RegionRepository regionRepository;
     private final DiscoveryEntityRepository entityRepository;
+    private final RequestDistributionRepository distributionRepository;
+    private final DistributionService distributionService;
     private final CurrentUser currentUser;
 
     public RequestService(RequestRepository requestRepository,
@@ -57,6 +60,8 @@ public class RequestService {
                           HubRepository hubRepository,
                           RegionRepository regionRepository,
                           DiscoveryEntityRepository entityRepository,
+                          RequestDistributionRepository distributionRepository,
+                          DistributionService distributionService,
                           CurrentUser currentUser) {
         this.requestRepository = requestRepository;
         this.requestTagRepository = requestTagRepository;
@@ -64,6 +69,8 @@ public class RequestService {
         this.hubRepository = hubRepository;
         this.regionRepository = regionRepository;
         this.entityRepository = entityRepository;
+        this.distributionRepository = distributionRepository;
+        this.distributionService = distributionService;
         this.currentUser = currentUser;
     }
 
@@ -101,6 +108,10 @@ public class RequestService {
             requestTagRepository.save(new RequestTag(request.getId(), tag.getId()));
         }
 
+        // Distribute immediately (§8.2) — the response already carries
+        // status='distributed' and the notified-profile count.
+        distributionService.distribute(request);
+
         return toDto(request, resolvedTags, true);
     }
 
@@ -119,10 +130,10 @@ public class RequestService {
         return toDto(r, loadTags(id), mine);
     }
 
-    /** Public board — all open requests, newest first. */
+    /** Public board — every live request (all but closed), newest first (§8.1). */
     @Transactional(readOnly = true)
     public List<RequestSummaryDto> listBoard() {
-        return requestRepository.findByStatusOrderByCreatedAtDesc("open").stream()
+        return requestRepository.findByStatusNotOrderByCreatedAtDesc("closed").stream()
                 .map(r -> toSummary(r, loadTags(r.getId())))
                 .toList();
     }
@@ -222,6 +233,8 @@ public class RequestService {
                 author != null ? author.getOrgName() : null,
                 author != null ? author.getEntityType() : null,
                 mine,
+                mine ? (int) distributionRepository.countByRequestId(r.getId()) : null,
+                mine ? distributionService.effectiveScope(r).kind() : null,
                 r.getCreatedAt());
     }
 

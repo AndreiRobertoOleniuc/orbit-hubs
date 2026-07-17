@@ -1,5 +1,6 @@
 package com.orbit.domain.repository;
 
+import java.util.Collection;
 import java.util.List;
 
 import com.orbit.domain.entity.EntityTag;
@@ -14,4 +15,7 @@ public interface EntityTagRepository extends JpaRepository<EntityTag, EntityTagI
 
     /** Only the derived tags of one entity — these get replaced on re-harvest. */
     List<EntityTag> findByEntityIdAndOrigin(Long entityId, String origin);
+
+    /** Reverse lookup for distribution (§8.2): all entities carrying any of these tags. */
+    List<EntityTag> findByTagIdIn(Collection<Long> tagIds);
 }

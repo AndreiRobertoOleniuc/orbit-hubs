@@ -1,18 +1,29 @@
-import { BadgeCheck, Languages, MapPin, Pencil } from "lucide-react"
+import { useState } from "react"
+import {
+  BadgeCheck,
+  Check,
+  Languages,
+  Lock,
+  MapPin,
+  Pencil,
+} from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { useAuth } from "@/features/auth/useAuth"
+import { ContactModal } from "@/features/contact/ContactModal"
 import { AvailabilityBadge } from "@/features/profile/AvailabilityBadge"
 import {
   initials,
   isHrVerified,
   zefixUid,
 } from "@/features/profile/profileUtils"
+import { useGetContactedEntityIdsQuery } from "@/lib/api"
 import type { AffiliationKind, EntityDto } from "@/types/api"
 
 interface ProfileHeaderProps {
   entity: EntityDto
-  /** Public view shows the (not yet functional) contact call-to-action. */
+  /** Public view shows the contact call-to-action (handoff dialog, §11). */
   showContact?: boolean
   /** Own private view: show the Kopf-edit pencil (affiliation/languages/location). */
   editable?: boolean
@@ -31,9 +42,16 @@ export function ProfileHeader({
   editable,
   onEditMeta,
 }: ProfileHeaderProps) {
+  const { isAuthenticated } = useAuth()
+  const [contactOpen, setContactOpen] = useState(false)
   const isOrgEntity = entity.entityType === "organization"
   const uid = zefixUid(entity)
   const languages = entity.languages ?? []
+  const contactable = isAuthenticated && entity.claimed
+  const { data: contactedIds } = useGetContactedEntityIdsQuery(undefined, {
+    skip: !isAuthenticated,
+  })
+  const alreadyContacted = contactedIds?.includes(entity.id) ?? false
 
   return (
     <header className="flex flex-wrap items-start gap-5">
@@ -113,9 +131,32 @@ export function ProfileHeader({
         )}
       </div>
       {showContact && (
-        <Button disabled title="Bald verfügbar">
-          Kontakt aufnehmen
-        </Button>
+        <>
+          <Button
+            variant={alreadyContacted ? "outline" : "default"}
+            disabled={!contactable}
+            title={
+              contactable
+                ? undefined
+                : !isAuthenticated
+                  ? "Anmeldung nötig"
+                  : "Profil nicht beansprucht — Kontakt nicht möglich"
+            }
+            onClick={() => setContactOpen(true)}
+          >
+            {!isAuthenticated && <Lock className="size-3.5" />}
+            {alreadyContacted && <Check className="size-4" />}
+            {alreadyContacted ? "Erneut kontaktieren" : "Kontakt aufnehmen"}
+          </Button>
+          {contactable && (
+            <ContactModal
+              toEntityId={entity.id}
+              toName={entity.displayName}
+              open={contactOpen}
+              onOpenChange={setContactOpen}
+            />
+          )}
+        </>
       )}
     </header>
   )

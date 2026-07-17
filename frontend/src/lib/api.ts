@@ -4,9 +4,14 @@ import type { BaseQueryApi, FetchArgs } from "@reduxjs/toolkit/query/react"
 import { getFreshToken } from "@/lib/clerkToken"
 import type {
   AffiliationKind,
+  ContactGatingDto,
+  ContactRequestDto,
+  CreateContactRequestBody,
   CreateRequestBody,
+  RespondContactBody,
   EntityDto,
   HubDto,
+  InboxDto,
   IngestionRequestDto,
   IngestionResponseDto,
   MeDto,
@@ -92,6 +97,8 @@ export const apiSlice = createApi({
     "Board",
     "MyRequests",
     "Request",
+    "Inbox",
+    "ContactedEntities",
   ],
   endpoints: (builder) => ({
     getMe: builder.query<MeDto, void>({
@@ -314,6 +321,51 @@ export const apiSlice = createApi({
       ],
     }),
 
+    // ─── Contact handoff + Postfach (reference §8.2, §11) ───
+
+    getContactGating: builder.query<ContactGatingDto, void>({
+      query: () => "/contacts/gating",
+    }),
+
+    createContactRequest: builder.mutation<
+      ContactRequestDto,
+      CreateContactRequestBody
+    >({
+      query: (body) => ({ url: "/contacts", method: "POST", body }),
+      // First contact flips the linked request to 'contacted' → refresh it.
+      invalidatesTags: (_result, _error, { requestId }) => [
+        "Board",
+        "MyRequests",
+        "Inbox",
+        "ContactedEntities",
+        ...(requestId != null
+          ? [{ type: "Request" as const, id: requestId }]
+          : []),
+      ],
+    }),
+
+    respondContact: builder.mutation<
+      ContactRequestDto,
+      { id: number; body: RespondContactBody }
+    >({
+      query: ({ id, body }) => ({
+        url: `/contacts/${id}/respond`,
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["Inbox"],
+    }),
+
+    getInbox: builder.query<InboxDto, void>({
+      query: () => "/inbox",
+      providesTags: ["Inbox"],
+    }),
+
+    getContactedEntityIds: builder.query<number[], void>({
+      query: () => "/contacts/contacted-entity-ids",
+      providesTags: ["ContactedEntities"],
+    }),
+
     // ─── Hubs (public list + admin management) ───
 
     getHubs: builder.query<HubDto[], void>({
@@ -382,6 +434,11 @@ export const {
   useGetRequestQuery,
   useCreateRequestMutation,
   useUpdateRequestStatusMutation,
+  useGetContactGatingQuery,
+  useCreateContactRequestMutation,
+  useRespondContactMutation,
+  useGetInboxQuery,
+  useGetContactedEntityIdsQuery,
   useGetHubsQuery,
   useLazySearchTagsQuery,
   useGetAdminRegionsQuery,

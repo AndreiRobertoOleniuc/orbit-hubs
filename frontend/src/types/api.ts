@@ -133,6 +133,8 @@ export interface EntityDto {
   locationLabel: string | null
   hubs: HubDto[]
   homeRegion: RegionDto | null
+  /** Whether a user owns this profile — unclaimed profiles can't be contacted. */
+  claimed: boolean
 }
 
 // ─── Search (discovery) ───
@@ -244,6 +246,10 @@ export interface RequestDto {
   authorOrgName: string | null
   authorType: EntityType | null
   mine: boolean
+  /** Owner-only: "X Profile benachrichtigt" — null on foreign requests. */
+  distributionCount: number | null
+  /** Owner-only: effective escalation scope kind — null on foreign requests. */
+  wideningLevel: ScopeKind | null
   createdAt: string | null
 }
 
@@ -259,4 +265,111 @@ export interface CreateRequestBody {
   wantTo?: string | null
   wantPensumPct?: number | null
   tags?: string[]
+}
+
+// ─── Contact handoff + Postfach (reference §8.2, §11) ───
+
+/** Gating check id that can block a contact send (§11.1). */
+export type ContactGatingCheck = "entity" | "email" | "affiliation" | "source"
+
+/** GET /contacts/gating — evaluated before the dialog sends. */
+export interface ContactGatingDto {
+  allowed: boolean
+  missing: ContactGatingCheck[]
+}
+
+/** POST /contacts body. */
+export interface CreateContactRequestBody {
+  toEntityId: number
+  requestId?: number | null
+  message: string
+  searchedText?: string | null
+}
+
+/** POST /contacts response — the brokered handoff. */
+export interface ContactRequestDto {
+  id: number
+  fromEntityId: number
+  toEntityId: number
+  requestId: number | null
+  message: string
+  createdAt: string | null
+}
+
+/** The recipient's one-time handshake outcome (§11). */
+export type ContactStatus = "pending" | "accepted" | "declined"
+
+/** POST /contacts/{id}/respond body — accept (with message) or decline. */
+export interface RespondContactBody {
+  accept: boolean
+  message?: string
+}
+
+/** Frozen sender snapshot carried by a contact request (§11.2). */
+export interface SenderContextDto {
+  name: string | null
+  role: string | null
+  org: string | null
+  description: string | null
+  searchedText: string | null
+}
+
+/** Why a request was distributed to a profile (§8.2). */
+export type DistributionReason = "profile_match" | "subscription"
+
+/** One incoming contact request in the Postfach "Erhalten" section.
+ *  `fromEmail` is revealed only once `status === "accepted"` (mutual opt-in). */
+export interface InboxContactDto {
+  id: number
+  fromEntityId: number
+  fromName: string | null
+  fromOrgName: string | null
+  fromEmail: string | null
+  senderContext: SenderContextDto | null
+  message: string
+  requestId: number | null
+  requestTitle: string | null
+  status: ContactStatus
+  replyMessage: string | null
+  respondedAt: string | null
+  createdAt: string | null
+}
+
+/** One outgoing contact request in the Postfach "Gesendet" section.
+ *  `toEmail` and `replyMessage` appear only once `status === "accepted"`. */
+export interface InboxSentContactDto {
+  id: number
+  toEntityId: number
+  toName: string | null
+  toOrgName: string | null
+  toEmail: string | null
+  message: string
+  status: ContactStatus
+  replyMessage: string | null
+  requestId: number | null
+  requestTitle: string | null
+  respondedAt: string | null
+  createdAt: string | null
+}
+
+/** One distributed request in the Postfach — "Verteilt, weil …". */
+export interface InboxDistributionDto {
+  requestId: number
+  title: string | null
+  queryText: string
+  authorEntityId: number | null
+  authorName: string | null
+  authorOrgName: string | null
+  reason: DistributionReason
+  matchedTags: string[] | null
+  wideningLevel: ScopeKind
+  requestStatus: RequestStatus
+  notifiedAt: string | null
+}
+
+/** GET /inbox — the Postfach payload (received + sent + distributions). */
+export interface InboxDto {
+  received: InboxContactDto[]
+  sent: InboxSentContactDto[]
+  distributions: InboxDistributionDto[]
 }

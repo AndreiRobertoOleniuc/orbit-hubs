@@ -289,7 +289,8 @@ public class EntityService {
                 entity.getLanguages(),
                 entity.getLocationLabel(),
                 buildHubDtos(entity.getId()),
-                buildHomeRegion(entity));
+                buildHomeRegion(entity),
+                entity.getOwnerId() != null);
     }
 
     private AvailabilityDto buildAvailability(DiscoveryEntity entity) {

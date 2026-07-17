@@ -1,9 +1,13 @@
-import { MapPin, Trophy } from "lucide-react"
+import { useState } from "react"
+import { Check, MapPin, Trophy } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { useAuth } from "@/features/auth/useAuth"
+import { ContactModal } from "@/features/contact/ContactModal"
 import { AvailabilityBadge } from "@/features/profile/AvailabilityBadge"
 import { sourceTypeInfo } from "@/features/profile/profileUtils"
+import { useGetContactedEntityIdsQuery } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import type { SearchCitationDto, SearchResultDto } from "@/types/api"
 
@@ -38,6 +42,8 @@ function CitationChip({ citation }: { citation: SearchCitationDto }) {
 interface SearchResultCardProps {
   result: SearchResultDto
   rank: number
+  /** The search query — frozen into the contact's sender context. */
+  query: string
   selected: boolean
   onSelect: () => void
 }
@@ -56,13 +62,21 @@ interface SearchResultCardProps {
 export function SearchResultCard({
   result,
   rank,
+  query,
   selected,
   onSelect,
 }: SearchResultCardProps) {
+  const { isAuthenticated } = useAuth()
+  const [contactOpen, setContactOpen] = useState(false)
+  const { data: contactedIds } = useGetContactedEntityIdsQuery(undefined, {
+    skip: !isAuthenticated,
+  })
   const { entity, rationale, citations, distance } = result
   const collab = entity.availability?.preferredCollaboration ?? []
   const description = rationale ?? entity.summary
   const isTopMatch = rank === 0
+  const contactable = isAuthenticated && entity.claimed
+  const alreadyContacted = contactedIds?.includes(entity.id) ?? false
 
   return (
     <div
@@ -158,10 +172,43 @@ export function SearchResultCard({
             </>
           )}
         </span>
-        <Button variant="outline" onClick={onSelect}>
-          Profil ansehen
-        </Button>
+        <span className="flex items-center gap-2">
+          <Button variant="outline" onClick={onSelect}>
+            Profil ansehen
+          </Button>
+          <Button
+            variant={alreadyContacted ? "outline" : "default"}
+            disabled={!contactable}
+            title={
+              contactable
+                ? undefined
+                : !isAuthenticated
+                  ? "Anmeldung nötig"
+                  : "Profil nicht beansprucht — Kontakt nicht möglich"
+            }
+            onClick={(e) => {
+              e.stopPropagation()
+              setContactOpen(true)
+            }}
+          >
+            {alreadyContacted && <Check className="size-4" />}
+            {alreadyContacted ? "Erneut kontaktieren" : "Kontakt aufnehmen"}
+          </Button>
+        </span>
       </div>
+
+      {contactable && (
+        <span onClick={(e) => e.stopPropagation()}>
+          <ContactModal
+            toEntityId={entity.id}
+            toName={entity.displayName}
+            quote={`«${query}»`}
+            searchedText={query}
+            open={contactOpen}
+            onOpenChange={setContactOpen}
+          />
+        </span>
+      )}
     </div>
   )
 }

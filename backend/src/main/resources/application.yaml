@@ -55,6 +55,13 @@ orbit:
     # (returns all candidates unfiltered) if the service is unavailable.
     reranker-url: ${ORBIT_SEARCH_RERANKER_URL:http://localhost:8001}
     reranker-threshold: ${ORBIT_SEARCH_RERANKER_THRESHOLD:0.55}
+  requests:
+    # Urgency-driven escalation of distributed requests (§8.3). ISO-8601
+    # durations; shrink via env for demos (e.g. ORBIT_REQUESTS_URGENT_ESCALATE_AFTER=PT2M).
+    poll-interval: ${ORBIT_REQUESTS_POLL_INTERVAL:PT5M}
+    urgent-escalate-after: ${ORBIT_REQUESTS_URGENT_ESCALATE_AFTER:PT48H}
+    soon-remind-after: ${ORBIT_REQUESTS_SOON_REMIND_AFTER:PT120H}
+    deadline-wave-before: ${ORBIT_REQUESTS_DEADLINE_WAVE_BEFORE:PT24H}
   embedding:
     # Provider-agnostic embedding config (see EmbeddingProperties). Defaults target a
     # local Ollama serving multilingual-e5-large at 1024 dims; override via env in other

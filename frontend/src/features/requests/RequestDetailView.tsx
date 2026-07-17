@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { Link } from "react-router-dom"
 import {
   ArrowLeft,
@@ -7,11 +8,13 @@ import {
   Loader2,
   Lock,
   MapPin,
+  Users,
 } from "lucide-react"
 
 import { NotFoundState } from "@/components/NotFoundState"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/features/auth/useAuth"
+import { ContactModal } from "@/features/contact/ContactModal"
 import {
   AuthorKindBadge,
   RequestStatusBadge,
@@ -28,7 +31,11 @@ import {
   scopeLabel,
   wantWindowLabel,
 } from "@/features/requests/requestUtils"
-import { useGetRequestQuery, useUpdateRequestStatusMutation } from "@/lib/api"
+import {
+  useGetContactedEntityIdsQuery,
+  useGetRequestQuery,
+  useUpdateRequestStatusMutation,
+} from "@/lib/api"
 import { cn } from "@/lib/utils"
 import type { RequestDto, RequestStatus } from "@/types/api"
 
@@ -99,6 +106,26 @@ function OwnerLifecycle({ request }: { request: RequestDto }) {
       <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
         {STATUS_HINT[request.status]}
       </p>
+      {request.distributionCount != null && request.status !== "open" && (
+        <p className="mt-2 inline-flex items-center gap-1.5 text-sm">
+          <Users className="size-4 text-muted-foreground" />
+          <span className="font-medium">
+            {request.distributionCount}{" "}
+            {request.distributionCount === 1 ? "Profil" : "Profile"}{" "}
+            benachrichtigt
+          </span>
+          {request.wideningLevel && (
+            <span className="text-muted-foreground">
+              · Stufe:{" "}
+              {request.wideningLevel === "hub"
+                ? "Hub"
+                : request.wideningLevel === "region"
+                  ? "Region"
+                  : "Ganze Schweiz"}
+            </span>
+          )}
+        </p>
+      )}
       {!closed && (
         <div className="mt-4 flex flex-wrap items-center gap-3 border-t pt-4">
           <Button
@@ -121,12 +148,16 @@ function OwnerLifecycle({ request }: { request: RequestDto }) {
 
 /**
  * Public request detail (design: DetailScreen) — full text, meta, tags, and
- * author. Owners additionally manage the lifecycle here; everyone else sees
- * the contact call-to-action (handoff itself follows in a later stage).
+ * author. Owners additionally manage the lifecycle here; everyone else can
+ * contact the author via the handoff dialog (§11).
  */
 export function RequestDetailView({ requestId }: { requestId: string }) {
   const { isAuthenticated } = useAuth()
+  const [contactOpen, setContactOpen] = useState(false)
   const { data: request, isLoading, isError } = useGetRequestQuery(requestId)
+  const { data: contactedIds } = useGetContactedEntityIdsQuery(undefined, {
+    skip: !isAuthenticated,
+  })
 
   if (isLoading) {
     return (
@@ -269,15 +300,43 @@ export function RequestDetailView({ requestId }: { requestId: string }) {
           <OwnerLifecycle request={request} />
         ) : (
           <div className="text-center">
-            <Button className="w-full" disabled>
-              {!isAuthenticated && <Lock className="size-3.5" />}
-              Kontakt aufnehmen
-            </Button>
-            <p className="mt-2.5 text-xs text-muted-foreground">
-              {isAuthenticated
-                ? "Der Kontakt-Handoff folgt in einer späteren Stufe."
-                : "Anmeldung nötig, um Kontakt aufzunehmen — der Handoff folgt in einer späteren Stufe."}
-            </p>
+            {(() => {
+              const alreadyContacted =
+                request.authorEntityId != null &&
+                (contactedIds?.includes(request.authorEntityId) ?? false)
+              return (
+                <Button
+                  className="w-full"
+                  variant={alreadyContacted ? "outline" : "default"}
+                  disabled={!isAuthenticated || request.authorEntityId == null}
+                  onClick={() => setContactOpen(true)}
+                >
+                  {!isAuthenticated && <Lock className="size-3.5" />}
+                  {alreadyContacted && <Check className="size-4" />}
+                  {alreadyContacted
+                    ? "Erneut kontaktieren"
+                    : "Kontakt aufnehmen"}
+                </Button>
+              )
+            })()}
+            {(!isAuthenticated || request.authorEntityId == null) && (
+              <p className="mt-2.5 text-xs text-muted-foreground">
+                {!isAuthenticated
+                  ? "Anmeldung nötig, um Kontakt aufzunehmen."
+                  : "Diese Anfrage hat kein verknüpftes Profil — Kontakt nicht möglich."}
+              </p>
+            )}
+            {request.authorEntityId != null && (
+              <ContactModal
+                toEntityId={request.authorEntityId}
+                toName={request.authorName ?? "Die Person"}
+                quote={`«${title}»`}
+                requestId={request.id}
+                searchedText={request.queryText}
+                open={contactOpen}
+                onOpenChange={setContactOpen}
+              />
+            )}
           </div>
         )}
       </div>

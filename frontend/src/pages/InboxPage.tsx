@@ -1,14 +1,6 @@
-import { Inbox } from "lucide-react"
+import { InboxView } from "@/features/inbox/InboxView"
 
-import { PlaceholderPage } from "@/components/PlaceholderPage"
-
-/** Supply surface (placeholder): incoming contact requests + matching Anfragen. */
+/** Supply surface: incoming contact requests + matching distributed Anfragen. */
 export function InboxPage() {
-  return (
-    <PlaceholderPage
-      title="Postfach"
-      subtitle="Eingehende Kontaktanfragen zu deinem Profil und offene passende Anfragen, die du direkt beantworten kannst."
-      icon={<Inbox className="size-6" />}
-    />
-  )
+  return <InboxView />
 }

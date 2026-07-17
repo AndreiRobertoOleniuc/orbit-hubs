@@ -26,7 +26,8 @@ interface NavLinksProps {
 
 /**
  * Mode-dependent navigation (design: TopNav). With a profile, the demand mode
- * shows Suche + Meine Anfragen, the supply mode shows Anfrage-Board + Postfach;
+ * shows Suche + Meine Anfragen, the supply mode shows Anfrage-Board; the
+ * Postfach is shown in both modes (sent + received contacts live there).
  * Profil (and Admin, when applicable) are always present. Without a profile
  * (anonymous or pre-onboarding) the two public surfaces are shown instead.
  */
@@ -48,11 +49,10 @@ export function NavLinks({
         { to: "/requests", label: "Meine Anfragen" }
       )
     } else {
-      items.push(
-        { to: "/board", label: "Anfrage-Board" },
-        { to: "/inbox", label: "Postfach" }
-      )
+      items.push({ to: "/board", label: "Anfrage-Board" })
     }
+    // Postfach serves both modes: sent contacts + incoming requests/replies.
+    items.push({ to: "/inbox", label: "Postfach" })
   } else {
     // Default nav — the token-free public surfaces
     items.push(

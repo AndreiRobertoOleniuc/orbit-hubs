@@ -71,6 +71,18 @@ public class Request {
     @Column(name = "want_pensum_pct")
     private Integer wantPensumPct;
 
+    /** Widening steps applied so far (§8.3) — effective scope = original scope widened this many times. */
+    @Column(name = "escalation_level", nullable = false)
+    private int escalationLevel = 0;
+
+    /** When the last distribution wave ran (initial or escalation/reminder/deadline wave). */
+    @Column(name = "last_wave_at")
+    private Instant lastWaveAt;
+
+    /** One-shot guard for the 'soon' reminder wave. */
+    @Column(name = "reminder_sent", nullable = false)
+    private boolean reminderSent = false;
+
     @Column(name = "created_at", updatable = false, insertable = false)
     @Generated(event = EventType.INSERT)
     private Instant createdAt;
@@ -117,6 +129,12 @@ public class Request {
     public LocalDate getWantFrom() { return wantFrom; }
     public LocalDate getWantTo() { return wantTo; }
     public Integer getWantPensumPct() { return wantPensumPct; }
+    public int getEscalationLevel() { return escalationLevel; }
+    public void setEscalationLevel(int escalationLevel) { this.escalationLevel = escalationLevel; }
+    public Instant getLastWaveAt() { return lastWaveAt; }
+    public void setLastWaveAt(Instant lastWaveAt) { this.lastWaveAt = lastWaveAt; }
+    public boolean isReminderSent() { return reminderSent; }
+    public void setReminderSent(boolean reminderSent) { this.reminderSent = reminderSent; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 }

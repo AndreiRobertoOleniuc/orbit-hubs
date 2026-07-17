@@ -128,6 +128,7 @@ export function SearchResults({
                     key={r.entity.id}
                     result={r}
                     rank={i}
+                    query={query}
                     selected={panelOpen && selected?.id === r.entity.id}
                     onSelect={() => openProfile(r.entity)}
                   />

@@ -5,9 +5,10 @@ import { useUpdateEntityModeMutation } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import type { ProfileMode } from "@/types/api"
 
-/** Pages that only exist in one mode — used to re-route on a mode switch. */
+/** Pages that only exist in one mode — used to re-route on a mode switch.
+ *  (Postfach `/inbox` is intentionally absent: it exists in both modes.) */
 const DEMAND_PAGES = ["/search", "/requests"]
-const SUPPLY_PAGES = ["/board", "/inbox"]
+const SUPPLY_PAGES = ["/board"]
 
 /**
  * The «Ich suche» / «Ich biete» header switch (design: TopNav `nav-mode`).
