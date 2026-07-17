@@ -10,11 +10,22 @@ interface NavItem {
   /** Match the pathname exactly — for routes whose sub-paths are different pages
    *  (e.g. /profile is "mine" but /profile/:id is someone else's). */
   exact?: boolean
+  /** Extra path prefixes that also mark this item active — for detail pages
+   *  that live under a different route (e.g. a request detail at /board/:id
+   *  belongs to "Meine Anfragen" in demand mode). */
+  match?: string[]
+}
+
+/** Active when the pathname equals a prefix or is nested beneath it (`/x` or `/x/…`). */
+function matchesPrefix(pathname: string, prefix: string): boolean {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`)
 }
 
 function isActive(item: NavItem, pathname: string): boolean {
   if (item.exact || item.to === "/") return pathname === item.to
-  return pathname === item.to || pathname.startsWith(`${item.to}/`)
+  return [item.to, ...(item.match ?? [])].some((p) =>
+    matchesPrefix(pathname, p)
+  )
 }
 
 interface NavLinksProps {
@@ -46,7 +57,8 @@ export function NavLinks({
     if (mode === "demand") {
       items.push(
         { to: "/search", label: "Suche" },
-        { to: "/requests", label: "Meine Anfragen" }
+        // Request details live at /board/:id — reached from here in demand mode.
+        { to: "/requests", label: "Meine Anfragen", match: ["/board"] }
       )
     } else {
       items.push({ to: "/board", label: "Anfrage-Board" })
