@@ -281,7 +281,7 @@ class ClerkAuthIntegrationTest {
                 .andReturn().getResponse().getContentAsString();
         long requestId = ((Number) com.jayway.jsonpath.JsonPath.read(created, "$.id")).longValue();
 
-        // B is gated OK (entity + email + affiliation + manual_text source).
+        // B is gated OK (entity + email + manual_text source; affiliation not required).
         mockMvc.perform(get("/api/v1/contacts/gating").header("Authorization", "Bearer " + tokenB))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.allowed").value(true));

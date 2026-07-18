@@ -32,9 +32,10 @@ import tools.jackson.databind.json.JsonMapper;
  * frozen sender context; everything after runs off-platform via email shown in
  * the recipient's Postfach. No SMTP — the handoff is in-app only.
  * <p>
- * Gating (§11.1): a sender needs a signed-in profile with a verified email, a
- * set affiliation, and at least one self-describing source (LinkedIn, website
- * or own description). NOT required: availability, complete skill profile.
+ * Gating (§11.1): a sender needs a signed-in profile with a verified email and
+ * at least one self-describing source (LinkedIn, website or own description).
+ * NOT required: affiliation, availability, complete skill profile. The rule is
+ * simply "anyone with a profile can contact anyone" — person or organization.
  */
 @Service
 public class ContactService {
@@ -76,12 +77,8 @@ public class ContactService {
         DiscoveryEntity sender = senderEntity();
         if (sender == null) {
             missing.add("entity");
-            missing.add("affiliation");
             missing.add("source");
             return new ContactGatingDto(false, missing);
-        }
-        if (sender.getAffiliationKind() == null || sender.getAffiliationKind().isBlank()) {
-            missing.add("affiliation");
         }
         boolean hasSource = sourceRepository.findByEntityIdOrderByCreatedAtAsc(sender.getId()).stream()
                 .map(Source::getSourceType)

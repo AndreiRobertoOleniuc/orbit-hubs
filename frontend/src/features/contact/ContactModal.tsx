@@ -23,7 +23,6 @@ import type { ContactGatingCheck } from "@/types/api"
 const MISSING_LABELS: Record<ContactGatingCheck, string> = {
   entity: "Ein eigenes Profil",
   email: "Eine bestätigte E-Mail-Adresse",
-  affiliation: "Deine Zugehörigkeit (Firma / Selbständig / Privatperson)",
   source:
     "Mindestens eine Quelle — LinkedIn, Website oder eine eigene Beschreibung",
 }
@@ -146,7 +145,7 @@ export function ContactModal({
                     {sender.orgName ? ` · ${sender.orgName}` : ""}
                   </p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    Der Empfänger sieht deinen Namen, deine Zugehörigkeit und
+                    Der Empfänger sieht deinen Namen, deinen Arbeitgeber und
                     wonach du gesucht hast.
                   </p>
                 </div>
