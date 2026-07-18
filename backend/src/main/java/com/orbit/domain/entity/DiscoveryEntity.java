@@ -140,8 +140,16 @@ public class DiscoveryEntity {
         return headline;
     }
 
+    public void setHeadline(String headline) {
+        this.headline = headline;
+    }
+
     public String getOrgName() {
         return orgName;
+    }
+
+    public void setOrgName(String orgName) {
+        this.orgName = orgName;
     }
 
     public String getSummary() {

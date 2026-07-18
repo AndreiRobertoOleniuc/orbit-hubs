@@ -402,7 +402,7 @@ export function OwnProfileView({ entity }: { entity: EntityDto }) {
       </ProfileSectionCard>
 
       <ProfileSectionCard title="Nachweise">
-        <NachweisList sources={entity.sources} />
+        <NachweisList sources={entity.sources} entityId={entity.id} />
       </ProfileSectionCard>
     </div>
   )

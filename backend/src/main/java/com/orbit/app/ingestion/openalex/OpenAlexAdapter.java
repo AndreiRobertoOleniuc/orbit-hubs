@@ -220,14 +220,14 @@ public class OpenAlexAdapter implements SourceAdapter {
         String orcid = (String) meta.getOrDefault("orcid", "");
 
         String name = displayName != null && !displayName.isBlank() ? displayName : "Researcher";
-        String headline = affiliation != null && !affiliation.isBlank()
-                ? affiliation
-                : "Researcher";
-
+        // Headline is left null on purpose: OpenAlex has no job title, and using the
+        // (often stale) institution as the headline just duplicates org_name. The
+        // post-ingestion enrichment derives a real role headline from the summary
+        // (§2b). org_name keeps the institution as the workplace signal.
         return new EntityProfile(
                 "person",
                 name,
-                headline,
+                null,
                 affiliation != null && !affiliation.isBlank() ? affiliation : null,
                 null, null,
                 Map.of("orcid", orcid != null ? orcid : "")

@@ -11,5 +11,6 @@ public record SourceDto(
         String label,
         String sourceUrl,
         String fetchStatus,
-        Instant fetchedAt) {
+        Instant fetchedAt,
+        boolean active) {
 }

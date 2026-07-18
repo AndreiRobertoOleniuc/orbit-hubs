@@ -48,6 +48,8 @@ export interface EntitySourceDto {
   sourceUrl: string | null
   fetchStatus: string | null
   fetchedAt: string | null
+  /** Source curation: when false, this repo/work is excluded from search. */
+  active: boolean
 }
 
 export type TagOrigin = "derived" | "manual"
@@ -111,6 +113,13 @@ export interface TagRefDto {
   label: string
 }
 
+/** A resolved Person→Organisation link (§10) — present only when linked. */
+export interface OrgLinkDto {
+  entityId: number
+  name: string
+  hrVerified: boolean
+}
+
 /** Which mode the profile is presented in — set by the onboarding fork. */
 export type ProfileMode = "supply" | "demand"
 
@@ -133,6 +142,8 @@ export interface EntityDto {
   locationLabel: string | null
   hubs: HubDto[]
   homeRegion: RegionDto | null
+  /** The linked organization (§10) — null unless a Person↔Org link exists. */
+  orgLink: OrgLinkDto | null
   /** Whether a user owns this profile — unclaimed profiles can't be contacted. */
   claimed: boolean
 }
@@ -286,7 +297,7 @@ export interface CreateRequestBody {
 // ─── Contact handoff + Postfach (reference §8.2, §11) ───
 
 /** Gating check id that can block a contact send (§11.1). */
-export type ContactGatingCheck = "entity" | "email" | "affiliation" | "source"
+export type ContactGatingCheck = "entity" | "email" | "source"
 
 /** GET /contacts/gating — evaluated before the dialog sends. */
 export interface ContactGatingDto {

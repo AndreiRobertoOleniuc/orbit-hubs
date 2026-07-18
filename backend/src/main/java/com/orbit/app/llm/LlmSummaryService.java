@@ -557,6 +557,70 @@ public class LlmSummaryService {
     }
 
     /**
+     * Derive a short professional headline (a title / role line) from an already
+     * generated competence summary. Used to give harvested profiles a real role
+     * instead of duplicating the institution name (OpenAlex has no job title and
+     * its last-known institution is often stale).
+     * <p>
+     * Only called when the entity has no headline yet, so it fills once and never
+     * overwrites a user's manual edit. Returns {@code null} on failure (the caller
+     * leaves the headline empty).
+     *
+     * @param entityName display name (for context)
+     * @param entityType "person" or "organization"
+     * @param summary    the competence summary to condense into a headline
+     * @return a short German headline (e.g. "Forscher · Embedded Systems"), or {@code null}
+     */
+    public String generateRoleHeadline(String entityName, String entityType, String summary) {
+        if (summary == null || summary.isBlank()) return null;
+
+        boolean isOrg = "organization".equalsIgnoreCase(entityType);
+        String what = isOrg ? "the organization's focus" : "the person's role/profession";
+        String prompt = """
+                From the competence description below, write ONE short headline (a title line
+                capturing %s) for "%s".
+
+                Rules:
+                - Max 6 words. No trailing period. Not a full sentence.
+                - A role/title or focus area — NOT just a company/institution name.
+                - Write in German (Swiss context).
+                - You may use " · " to join a role with 1–2 focus areas.
+                - Examples: "Forscher · Embedded Systems", "Professorin für Soziale Arbeit", "Data Scientist · NLP".
+                - Output ONLY the headline text, nothing else.
+
+                Name: %s
+                Description: %s
+                """.formatted(what, entityName, entityName, summary);
+
+        for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                String response = chatModel.call(new Prompt(prompt)).getResult().getOutput().getText();
+                if (response != null && !response.isBlank()) {
+                    String headline = response.trim().replaceAll("^[\"'“”]+|[\"'“”]+$", "").trim();
+                    if (headline.length() > 80) headline = headline.substring(0, 80).trim();
+                    if (!headline.isBlank()) {
+                        log.info("Role headline for {} (attempt {}/{}): {}", entityName, attempt, MAX_RETRIES, headline);
+                        return headline;
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Role headline attempt {}/{} failed for {} ({}): {}",
+                        attempt, MAX_RETRIES, entityName, e.getClass().getSimpleName(), e.getMessage());
+                if (attempt < MAX_RETRIES) {
+                    try {
+                        Thread.sleep(2000L * attempt);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+        }
+        log.warn("All {} attempts failed for role headline of {} — leaving empty", MAX_RETRIES, entityName);
+        return null;
+    }
+
+    /**
      * Derive competence tags (Kompetenzen) from an entity's sources. The LLM
      * analyses ALL source contents and returns a list of short, specific tags
          * that describe the entity's skills, expertise, and domain.

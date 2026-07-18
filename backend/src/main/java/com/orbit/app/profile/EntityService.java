@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.orbit.app.auth.CurrentUser;
+import com.orbit.app.ingestion.EntityLinkResolver;
 import com.orbit.app.ingestion.IngestionOrchestrator;
 import com.orbit.app.ingestion.dto.IngestionResult;
 import com.orbit.app.util.HubDtos;
@@ -14,6 +15,7 @@ import com.orbit.app.util.SlugUtils;
 import com.orbit.app.controllers.dto.AvailabilityDto;
 import com.orbit.app.controllers.dto.EntityDto;
 import com.orbit.app.controllers.dto.HubDto;
+import com.orbit.app.controllers.dto.OrgLinkDto;
 import com.orbit.app.controllers.dto.RegionDto;
 import com.orbit.app.controllers.dto.ResyncResponse;
 import com.orbit.app.controllers.dto.SourceDto;
@@ -24,10 +26,12 @@ import com.orbit.domain.entity.EntityTag;
 import com.orbit.domain.entity.EntityTagId;
 import com.orbit.domain.entity.Hub;
 import com.orbit.domain.entity.HubMembership;
+import com.orbit.domain.entity.Source;
 import com.orbit.domain.entity.Tag;
 import com.orbit.domain.entity.TagSubscription;
 import com.orbit.domain.entity.TagSubscriptionId;
 import com.orbit.domain.repository.DiscoveryEntityRepository;
+import com.orbit.domain.repository.EntityLinkRepository;
 import com.orbit.domain.repository.EntityTagRepository;
 import com.orbit.domain.repository.HubMembershipRepository;
 import com.orbit.domain.repository.HubRepository;
@@ -61,6 +65,8 @@ public class EntityService {
     private final HubRepository hubRepo;
     private final HubMembershipRepository hubMembershipRepo;
     private final TagSubscriptionRepository subscriptionRepo;
+    private final EntityLinkRepository entityLinkRepo;
+    private final EntityLinkResolver linkResolver;
     private final IngestionOrchestrator orchestrator;
     private final CurrentUser currentUser;
 
@@ -69,6 +75,8 @@ public class EntityService {
                          RegionRepository regionRepo, HubRepository hubRepo,
                          HubMembershipRepository hubMembershipRepo,
                          TagSubscriptionRepository subscriptionRepo,
+                         EntityLinkRepository entityLinkRepo,
+                         EntityLinkResolver linkResolver,
                          IngestionOrchestrator orchestrator,
                          CurrentUser currentUser) {
         this.entities = entities;
@@ -79,6 +87,8 @@ public class EntityService {
         this.hubRepo = hubRepo;
         this.hubMembershipRepo = hubMembershipRepo;
         this.subscriptionRepo = subscriptionRepo;
+        this.entityLinkRepo = entityLinkRepo;
+        this.linkResolver = linkResolver;
         this.orchestrator = orchestrator;
         this.currentUser = currentUser;
     }
@@ -175,15 +185,47 @@ public class EntityService {
     // ─── Profile meta ───
 
     @Transactional
-    public EntityDto updateProfileMeta(Long id, String affiliationKind,
-                                      List<String> languages, String locationLabel) {
+    public EntityDto updateProfileMeta(Long id, String headline, String orgName,
+                                      String affiliationKind, List<String> languages,
+                                      String locationLabel) {
         DiscoveryEntity entity = loadOwnedEntity(id);
         if (entity == null) return null;
 
+        entity.setHeadline(blankToNull(headline));
+        entity.setOrgName(blankToNull(orgName));
         entity.setAffiliationKind(affiliationKind);
         entity.setLanguages(languages);
         entity.setLocationLabel(locationLabel);
         entities.save(entity);
+        // Re-resolve the Person↔Org link against the (possibly Zefix-picked) org
+        // name: links to a matching org entity, or clears a stale link. Never
+        // creates an org entity.
+        linkResolver.resolveForPerson(entity);
+        return toDto(entity);
+    }
+
+    private static String blankToNull(String s) {
+        return s == null || s.isBlank() ? null : s.trim();
+    }
+
+    // ─── Sources (curation) ───
+
+    /**
+     * Switch a single source (a GitHub repo / OpenAlex work) on or off for the
+     * owning entity. An inactive source keeps its chunks but is excluded from
+     * search (hybrid_search + evidence). Owner-gated.
+     */
+    @Transactional
+    public EntityDto setSourceActive(Long entityId, Long sourceId, boolean active) {
+        DiscoveryEntity entity = loadOwnedEntity(entityId);
+        if (entity == null) return null;
+
+        Source source = sources.findById(sourceId).orElse(null);
+        if (source == null || !entityId.equals(source.getEntityId())) {
+            return null;   // unknown source, or not part of this entity → 404
+        }
+        source.setActive(active);
+        sources.save(source);
         return toDto(entity);
     }
 
@@ -269,7 +311,7 @@ public class EntityService {
         List<SourceDto> sourceDtos = sources.findByEntityIdOrderByCreatedAtAsc(entity.getId()).stream()
                 .map(s -> new SourceDto(
                         s.getId(), s.getSourceType(), s.getLabel(),
-                        s.getSourceUrl(), s.getFetchStatus(), s.getFetchedAt()))
+                        s.getSourceUrl(), s.getFetchStatus(), s.getFetchedAt(), s.isActive()))
                 .toList();
         return new EntityDto(
                 entity.getId(),
@@ -290,7 +332,26 @@ public class EntityService {
                 entity.getLocationLabel(),
                 buildHubDtos(entity.getId()),
                 buildHomeRegion(entity),
+                buildOrgLink(entity),
                 entity.getOwnerId() != null);
+    }
+
+    /**
+     * The person's linked organization (§10), or null. Only present when an
+     * entity_links row exists — never fabricated from the plain org_name string.
+     */
+    private OrgLinkDto buildOrgLink(DiscoveryEntity entity) {
+        if (!"person".equalsIgnoreCase(entity.getEntityType())) return null;
+        return entityLinkRepo.findFirstByPersonEntityId(entity.getId())
+                .map(link -> entities.findById(link.getOrgEntityId()).orElse(null))
+                .map(org -> new OrgLinkDto(org.getId(), org.getDisplayName(), isHrVerified(org.getId())))
+                .orElse(null);
+    }
+
+    /** True when the org entity has a Handelsregister (Zefix) source. */
+    private boolean isHrVerified(Long orgEntityId) {
+        return sources.findByEntityIdOrderByCreatedAtAsc(orgEntityId).stream()
+                .anyMatch(s -> "zefix".equals(s.getSourceType()));
     }
 
     private AvailabilityDto buildAvailability(DiscoveryEntity entity) {

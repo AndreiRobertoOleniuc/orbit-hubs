@@ -32,5 +32,6 @@ public record EntityDto(
         String locationLabel,
         List<HubDto> hubs,
         RegionDto homeRegion,
+        OrgLinkDto orgLink,
         boolean claimed) {
 }

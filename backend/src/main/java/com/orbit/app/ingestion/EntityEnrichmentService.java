@@ -59,19 +59,22 @@ public class EntityEnrichmentService {
     private final TagRepository tagRepo;
     private final EntityTagRepository entityTagRepo;
     private final LlmSummaryService llm;
+    private final EntityLinkResolver linkResolver;
 
     public EntityEnrichmentService(DiscoveryEntityRepository entities,
                                     SourceRepository sources,
                                     ChunkRepository chunks,
                                     TagRepository tagRepo,
                                     EntityTagRepository entityTagRepo,
-                                    LlmSummaryService llm) {
+                                    LlmSummaryService llm,
+                                    EntityLinkResolver linkResolver) {
         this.entities = entities;
         this.sources = sources;
         this.chunks = chunks;
         this.tagRepo = tagRepo;
         this.entityTagRepo = entityTagRepo;
         this.llm = llm;
+        this.linkResolver = linkResolver;
     }
 
     /**
@@ -110,6 +113,21 @@ public class EntityEnrichmentService {
                     sourceContents);
             if (summary != null && !summary.isBlank()) {
                 entity.setSummary(summary);
+
+                // Fill a role-style headline ONLY when the entity has none yet.
+                // This gives harvested (esp. OpenAlex) profiles a real title
+                // instead of the duplicated institution name — and, because it
+                // only fills when blank, it never overwrites a user's manual edit
+                // (§2a) or re-derives on every re-harvest.
+                if (entity.getHeadline() == null || entity.getHeadline().isBlank()) {
+                    String headline = llm.generateRoleHeadline(
+                            entity.getDisplayName(), entity.getEntityType(), summary);
+                    if (headline != null && !headline.isBlank()) {
+                        entity.setHeadline(headline);
+                        log.info("Derived role headline for entity #{}: {}", entityId, headline);
+                    }
+                }
+
                 entities.save(entity);
                 entities.flush();
                 log.info("Updated summary for entity #{}: {} chars", entityId, summary.length());
@@ -135,6 +153,13 @@ public class EntityEnrichmentService {
             }
         } catch (Exception e) {
             log.warn("Tag derivation failed for entity #{}: {}", entityId, e.getMessage());
+        }
+
+        // 4. Resolve Person↔Org link (best-effort; links only to an existing org)
+        try {
+            linkResolver.resolveForPerson(entity);
+        } catch (Exception e) {
+            log.warn("Person↔Org link resolution failed for entity #{}: {}", entityId, e.getMessage());
         }
     }
 

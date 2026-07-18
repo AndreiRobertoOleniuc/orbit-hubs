@@ -54,6 +54,11 @@ public class Source {
     @Column(name = "fetched_at")
     private Instant fetchedAt;
 
+    // Source curation (V15): a user can switch an individual repo/work OFF so it
+    // stops influencing search. Defaults true; excluded from hybrid_search when false.
+    @Column(name = "active", nullable = false)
+    private boolean active = true;
+
     @Generated(event = EventType.INSERT)
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;
@@ -122,6 +127,14 @@ public class Source {
 
     public Instant getFetchedAt() {
         return fetchedAt;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
     }
 
     public Instant getCreatedAt() {

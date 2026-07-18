@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.orbit.app.controllers.dto.EntityDto;
 import com.orbit.app.controllers.dto.ResyncResponse;
+import com.orbit.app.controllers.dto.SetSourceActiveRequest;
 import com.orbit.app.controllers.dto.SubscriptionDto;
 import com.orbit.app.controllers.dto.UpdateAvailabilityRequest;
 import com.orbit.app.controllers.dto.UpdateHubsRequest;
@@ -77,7 +78,8 @@ class EntityController {
     ResponseEntity<EntityDto> updateProfileMeta(@PathVariable Long id,
                                                  @RequestBody UpdateProfileMetaRequest request) {
         EntityDto dto = entityService.updateProfileMeta(
-                id, request.affiliationKind(), request.languages(), request.locationLabel());
+                id, request.headline(), request.orgName(),
+                request.affiliationKind(), request.languages(), request.locationLabel());
         return resolveEntityResponse(dto);
     }
 
@@ -93,6 +95,14 @@ class EntityController {
     ResponseEntity<EntityDto> updateMode(@PathVariable Long id,
                                          @RequestBody UpdateModeRequest request) {
         EntityDto dto = entityService.updateMode(id, request.mode());
+        return resolveEntityResponse(dto);
+    }
+
+    @PatchMapping("/api/v1/entities/{entityId}/sources/{sourceId}")
+    ResponseEntity<EntityDto> setSourceActive(@PathVariable Long entityId,
+                                              @PathVariable Long sourceId,
+                                              @RequestBody SetSourceActiveRequest request) {
+        EntityDto dto = entityService.setSourceActive(entityId, sourceId, request.active());
         return resolveEntityResponse(dto);
     }
 

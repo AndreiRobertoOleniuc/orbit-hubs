@@ -40,6 +40,8 @@ export interface UpdateAvailabilityBody {
 
 /** Body for PUT /entities/{id}/profile-meta. */
 export interface UpdateProfileMetaBody {
+  headline: string | null
+  orgName: string | null
   affiliationKind: AffiliationKind | null
   languages: string[]
   locationLabel: string | null
@@ -245,6 +247,22 @@ export const apiSlice = createApi({
       ],
     }),
 
+    // ─── Source curation (deselect repos / works) ───
+    setSourceActive: builder.mutation<
+      EntityDto,
+      { entityId: number; sourceId: number; active: boolean }
+    >({
+      query: ({ entityId, sourceId, active }) => ({
+        url: `/entities/${entityId}/sources/${sourceId}`,
+        method: "PATCH",
+        body: { active },
+      }),
+      invalidatesTags: (_result, _error, { entityId }) => [
+        { type: "Entity", id: entityId },
+        "MyEntities",
+      ],
+    }),
+
     updateEntityHubs: builder.mutation<
       EntityDto,
       { entityId: number; hubIds: number[] }
@@ -426,6 +444,7 @@ export const {
   useUpdateAvailabilityMutation,
   useUpdateProfileMetaMutation,
   useUpdateEntityModeMutation,
+  useSetSourceActiveMutation,
   useUpdateEntityHubsMutation,
   useGetSubscriptionsQuery,
   useUpdateSubscriptionsMutation,

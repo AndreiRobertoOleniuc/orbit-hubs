@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { Link } from "react-router-dom"
 import {
   BadgeCheck,
   Check,
@@ -19,7 +20,7 @@ import {
   zefixUid,
 } from "@/features/profile/profileUtils"
 import { useGetContactedEntityIdsQuery } from "@/lib/api"
-import type { AffiliationKind, EntityDto } from "@/types/api"
+import type { EntityDto } from "@/types/api"
 
 interface ProfileHeaderProps {
   entity: EntityDto
@@ -28,12 +29,6 @@ interface ProfileHeaderProps {
   /** Own private view: show the Kopf-edit pencil (affiliation/languages/location). */
   editable?: boolean
   onEditMeta?: () => void
-}
-
-const AFFILIATION_LABELS: Record<AffiliationKind, string> = {
-  company: "Firma",
-  self_employed: "Selbständig",
-  private: "Privatperson",
 }
 
 export function ProfileHeader({
@@ -72,18 +67,28 @@ export function ProfileHeader({
             {entity.headline}
           </p>
         )}
-        {!isOrgEntity && entity.orgName && (
-          <p className="mt-2 text-sm text-muted-foreground">{entity.orgName}</p>
+        {!isOrgEntity && (entity.orgLink || entity.orgName) && (
+          <p className="mt-2 text-sm text-muted-foreground">
+            {entity.orgLink ? (
+              <Link
+                to={`/profile/${entity.orgLink.entityId}`}
+                className="inline-flex items-center gap-1 hover:text-foreground hover:underline"
+                title="Zum Organisationsprofil"
+              >
+                {entity.orgLink.name}
+                {entity.orgLink.hrVerified && (
+                  <BadgeCheck className="size-3.5 text-green-600 dark:text-green-400" />
+                )}
+              </Link>
+            ) : (
+              entity.orgName
+            )}
+          </p>
         )}
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <Badge variant="secondary">
             {isOrgEntity ? "Organisation" : "Person"}
           </Badge>
-          {entity.affiliationKind && (
-            <Badge variant="outline">
-              {AFFILIATION_LABELS[entity.affiliationKind]}
-            </Badge>
-          )}
           {isHrVerified(entity) && (
             <a
               href="https://www.zefix.ch"
@@ -105,7 +110,7 @@ export function ProfileHeader({
             <button
               type="button"
               onClick={onEditMeta}
-              aria-label="Zugehörigkeit, Sprachen und Standort bearbeiten"
+              aria-label="Titel, Arbeitgeber, Sprachen und Standort bearbeiten"
               title="Kopf bearbeiten"
               className="inline-flex size-6 items-center justify-center rounded-md border text-muted-foreground hover:bg-muted"
             >

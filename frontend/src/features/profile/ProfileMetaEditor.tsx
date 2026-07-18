@@ -4,22 +4,17 @@ import { X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { ZefixOrgInput } from "@/features/profile/ZefixOrgInput"
 import { useUpdateProfileMetaMutation } from "@/lib/api"
 import { cn } from "@/lib/utils"
-import type { AffiliationKind, EntityDto } from "@/types/api"
-
-const AFFILIATIONS: { value: AffiliationKind; label: string }[] = [
-  { value: "company", label: "Firma" },
-  { value: "self_employed", label: "Selbständig" },
-  { value: "private", label: "Privatperson" },
-]
+import type { EntityDto } from "@/types/api"
 
 const COMMON_LANGUAGES = ["DE", "EN", "FR", "IT"]
 
 /**
- * Edits the profile Kopf metadata (spec §5.1): Zugehörigkeit (Firma/Selbständig/
- * Privatperson), languages, and location — via the existing PUT /profile-meta.
- * Shown only in the own private view; opened from the header pencil.
+ * Edits the profile Kopf metadata: title/role, employer, languages, and
+ * location — via the existing PUT /profile-meta. Shown only in the own private
+ * view; opened from the header pencil.
  */
 export function ProfileMetaEditor({
   entity,
@@ -28,9 +23,8 @@ export function ProfileMetaEditor({
   entity: EntityDto
   onClose: () => void
 }) {
-  const [affiliation, setAffiliation] = useState<AffiliationKind | null>(
-    entity.affiliationKind
-  )
+  const [headline, setHeadline] = useState(entity.headline ?? "")
+  const [orgName, setOrgName] = useState(entity.orgName ?? "")
   const [languages, setLanguages] = useState<string[]>(entity.languages ?? [])
   const [location, setLocation] = useState(entity.locationLabel ?? "")
   const [newLang, setNewLang] = useState("")
@@ -50,7 +44,10 @@ export function ProfileMetaEditor({
     await updateProfileMeta({
       entityId: entity.id,
       body: {
-        affiliationKind: affiliation,
+        headline: headline.trim() || null,
+        orgName: orgName.trim() || null,
+        // Zugehörigkeit was dropped from the UI; preserve any existing value.
+        affiliationKind: entity.affiliationKind,
         languages,
         locationLabel: location.trim() || null,
       },
@@ -60,28 +57,21 @@ export function ProfileMetaEditor({
 
   return (
     <div className="space-y-5 rounded-lg border bg-muted/30 p-4">
-      {/* Zugehörigkeit */}
+      {/* Titel / Rolle */}
       <div className="space-y-1.5">
-        <Label>Zugehörigkeit</Label>
-        <div className="flex flex-wrap gap-2">
-          {AFFILIATIONS.map((a) => (
-            <button
-              key={a.value}
-              type="button"
-              onClick={() =>
-                setAffiliation(affiliation === a.value ? null : a.value)
-              }
-              className={cn(
-                "rounded-full border px-3 py-1 text-sm transition-colors",
-                affiliation === a.value
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-input text-muted-foreground hover:bg-muted"
-              )}
-            >
-              {a.label}
-            </button>
-          ))}
-        </div>
+        <Label htmlFor="meta-headline">Titel / Rolle</Label>
+        <Input
+          id="meta-headline"
+          placeholder="z.B. Professor für Embedded Systems"
+          value={headline}
+          onChange={(e) => setHeadline(e.target.value)}
+        />
+      </div>
+
+      {/* Arbeitgeber / Organisation — with Handelsregister (Zefix) search */}
+      <div className="space-y-1.5">
+        <Label htmlFor="meta-org">Arbeitgeber / Organisation</Label>
+        <ZefixOrgInput id="meta-org" value={orgName} onChange={setOrgName} />
       </div>
 
       {/* Sprachen */}

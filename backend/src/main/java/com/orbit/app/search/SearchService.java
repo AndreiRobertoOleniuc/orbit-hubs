@@ -354,6 +354,7 @@ public class SearchService {
                   JOIN sources s ON c.source_id = s.id
                   WHERE c.entity_id = ?
                     AND c.embedding IS NOT NULL
+                    AND s.active
                   ORDER BY s.id, c.embedding <#> ?::vector
                 ) AS best_per_source
                 ORDER BY distance

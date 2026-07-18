@@ -10,4 +10,7 @@ public interface DiscoveryEntityRepository extends JpaRepository<DiscoveryEntity
 
     /** All entities created through ingestion by this user (newest first). */
     List<DiscoveryEntity> findByOwnerIdOrderByCreatedAtDesc(String ownerId);
+
+    /** All entities of a given type (e.g. "organization") — for Person↔Org matching. */
+    List<DiscoveryEntity> findByEntityType(String entityType);
 }
