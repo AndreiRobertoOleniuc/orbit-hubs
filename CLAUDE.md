@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Supply side** — profiles auto-generated from linked sources (GitHub, ORCID, LinkedIn PDF, Zefix, websites). Users set availability ("Offen für Anfragen"), subscribe to topics, and join hubs.
 - **Demand side** — free-text semantic search returning ranked people/companies with cited evidence. Anfrage lifecycle (Offen→Verteilt→Kontaktiert→Geschlossen), matching, distribution, Postfach inbox.
 
-**Canonical spec:** `docs/Orbit_Spec.md` (v2 is current — see `.llm-wiki/wiki/syntheses/orbit-v2-canonical-architecture.md`).
+**Canonical spec:** `docs/Orbit_Spec.md` (v2 is current).
 
 ## Implementation status (updated July 13, 2026)
 
@@ -290,14 +290,6 @@ frontend/src/
 9. **`@Transactional` on service methods, never on controllers.**
 10. **Owner checks in services, not controllers.** Throw `EntityAccessDeniedException` for 403.
 
-## LLM Wiki (project knowledge base)
-
-A self-maintaining wiki lives at `.llm-wiki/`. Its operating manual is `.llm-wiki/WIKI_SCHEMA.md`.
-- Before non-trivial work: check `.llm-wiki/wiki/` for relevant prior pages.
-- After meaningful work: file a durable insight as a markdown page under the right `.llm-wiki/wiki/` subfolder using `[[wikilinks]]`.
-- Only do heavyweight ingestion or reorganization when explicitly asked.
-
 ## Other notes
 
-- `.llm-wiki/` is a generated knowledge wiki (reference, not a build target).
 - `prototyping/` is a scratch area outside the build.
