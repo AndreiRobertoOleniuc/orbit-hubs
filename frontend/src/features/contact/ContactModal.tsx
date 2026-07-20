@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { Check, Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -60,6 +60,7 @@ export function ContactModal({
   onOpenChange,
 }: ContactModalProps) {
   const { isAuthenticated } = useAuth()
+  const navigate = useNavigate()
   const [message, setMessage] = useState("")
   const [sent, setSent] = useState(false)
 
@@ -111,15 +112,22 @@ export function ContactModal({
             </span>
             <p className="mt-3 font-semibold">Kontaktanfrage gesendet.</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              {toName} meldet sich direkt bei dir.
+              {toName} meldet sich direkt bei dir. Du findest sie unter{" "}
+              „Gesendet" in deinem Postfach.
             </p>
-            <Button
-              variant="outline"
-              className="mt-5"
-              onClick={() => handleOpenChange(false)}
-            >
-              Schliessen
-            </Button>
+            <div className="mt-5 flex items-center justify-center gap-2">
+              <Button variant="outline" onClick={() => handleOpenChange(false)}>
+                Schliessen
+              </Button>
+              <Button
+                onClick={() => {
+                  handleOpenChange(false)
+                  navigate("/inbox?tab=sent")
+                }}
+              >
+                Zum Postfach
+              </Button>
+            </div>
           </div>
         ) : (
           <>

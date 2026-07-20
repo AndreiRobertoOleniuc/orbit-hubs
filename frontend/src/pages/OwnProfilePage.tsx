@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { Link } from "react-router-dom"
+import { Eye, Pencil } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { ProfileSkeleton } from "@/components/ProfileSkeleton"
@@ -76,26 +77,15 @@ export function OwnProfilePage() {
           <span />
         )}
         {supply ? (
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Ansicht</span>
-            <div className="flex rounded-lg border p-0.5">
-              {(["privat", "oeffentlich"] as const).map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  className={cn(
-                    "rounded-md px-3 py-1 text-sm transition-colors",
-                    view === v
-                      ? "bg-secondary font-medium"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                  onClick={() => setView(v)}
-                >
-                  {v === "privat" ? "Privat" : "Öffentlich"}
-                </button>
-              ))}
-            </div>
-          </div>
+          effectiveView === "privat" ? (
+            <Button variant="outline" onClick={() => setView("oeffentlich")}>
+              <Eye className="size-4" /> So sehen dich andere
+            </Button>
+          ) : (
+            <Button onClick={() => setView("privat")}>
+              <Pencil className="size-4" /> Profil bearbeiten
+            </Button>
+          )
         ) : (
           <span />
         )}
@@ -104,7 +94,18 @@ export function OwnProfilePage() {
       {effectiveView === "privat" ? (
         <OwnProfileView entity={entity} />
       ) : (
-        <PublicProfileView entity={entity} />
+        <>
+          <div className="mb-5 flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm">
+            <Eye className="size-4 shrink-0 text-primary" />
+            <span>
+              <strong className="font-medium text-foreground">Vorschau</strong>{" "}
+              <span className="text-muted-foreground">
+                — so erscheint dein Profil in Suche, Board und für andere.
+              </span>
+            </span>
+          </div>
+          <PublicProfileView entity={entity} />
+        </>
       )}
     </div>
   )

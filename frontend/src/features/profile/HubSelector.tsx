@@ -3,7 +3,7 @@ import { Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { useGetHubsQuery, useUpdateEntityHubsMutation } from "@/lib/api"
-import { cn } from "@/lib/utils"
+import { cn, sameSet } from "@/lib/utils"
 import type { EntityDto } from "@/types/api"
 
 /**
@@ -22,6 +22,11 @@ export function HubSelector({ entity }: { entity: EntityDto }) {
     setSelected((prev) =>
       prev.includes(id) ? prev.filter((h) => h !== id) : [...prev, id]
     )
+
+  const dirty = !sameSet(
+    selected,
+    entity.hubs.map((h) => h.id)
+  )
 
   const save = async () => {
     setSaved(false)
@@ -79,7 +84,11 @@ export function HubSelector({ entity }: { entity: EntityDto }) {
         {saved && (
           <span className="text-xs text-muted-foreground">✓ gespeichert</span>
         )}
-        <Button size="sm" onClick={() => void save()} disabled={isSaving}>
+        <Button
+          size="sm"
+          onClick={() => void save()}
+          disabled={!dirty || isSaving}
+        >
           Speichern
         </Button>
       </div>

@@ -1,5 +1,14 @@
 import { useLocation, useNavigate } from "react-router-dom"
+import { ChevronDown } from "lucide-react"
 
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { useProfileMode } from "@/features/profile/useProfileMode"
 import { useUpdateEntityModeMutation } from "@/lib/api"
 import { cn } from "@/lib/utils"
@@ -10,11 +19,16 @@ import type { ProfileMode } from "@/types/api"
 const DEMAND_PAGES = ["/search", "/requests"]
 const SUPPLY_PAGES = ["/board"]
 
+const MODE_LABEL: Record<ProfileMode, string> = {
+  demand: "Ich suche",
+  supply: "Ich biete",
+}
+
 /**
- * The «Ich suche» / «Ich biete» header switch (design: TopNav `nav-mode`).
- * Persists the choice on the user's entity and, if the current page doesn't
- * exist in the new mode, routes to that mode's landing page. Hidden until the
- * user has a profile.
+ * The «Ich suche» / «Ich biete» mode switch — a deliberate dropdown (not a
+ * one-click header toggle, which testers flipped by accident). Persists the
+ * choice on the user's entity and, if the current page doesn't exist in the new
+ * mode, routes to that mode's landing page. Hidden until the user has a profile.
  */
 export function ModeSwitch({ className }: { className?: string }) {
   const { mode, entityId, hasEntity } = useProfileMode()
@@ -33,37 +47,33 @@ export function ModeSwitch({ className }: { className?: string }) {
   }
 
   return (
-    <div
-      className={cn("flex rounded-lg border p-0.5", className)}
-      role="group"
-      aria-label="Modus"
-    >
-      <button
-        type="button"
-        onClick={() => switchMode("demand")}
-        title="Suchen & Anfragen stellen"
-        className={cn(
-          "rounded-md px-2.5 py-1 text-sm transition-colors",
-          mode === "demand"
-            ? "bg-secondary font-medium"
-            : "text-muted-foreground hover:text-foreground"
-        )}
-      >
-        Ich suche
-      </button>
-      <button
-        type="button"
-        onClick={() => switchMode("supply")}
-        title="Gefunden werden & auf Anfragen antworten"
-        className={cn(
-          "rounded-md px-2.5 py-1 text-sm transition-colors",
-          mode === "supply"
-            ? "bg-secondary font-medium"
-            : "text-muted-foreground hover:text-foreground"
-        )}
-      >
-        Ich biete
-      </button>
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className={cn("gap-1.5", className)}
+          aria-label="Modus wechseln"
+        >
+          {MODE_LABEL[mode]}
+          <ChevronDown className="size-3.5 opacity-60" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>Modus</DropdownMenuLabel>
+        <DropdownMenuCheckboxItem
+          checked={mode === "demand"}
+          onSelect={() => switchMode("demand")}
+        >
+          Ich suche
+        </DropdownMenuCheckboxItem>
+        <DropdownMenuCheckboxItem
+          checked={mode === "supply"}
+          onSelect={() => switchMode("supply")}
+        >
+          Ich biete
+        </DropdownMenuCheckboxItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

@@ -7,6 +7,7 @@ import { useAuth } from "@/features/auth/useAuth"
 import { HubRegionSelect } from "@/features/search/HubRegionSelect"
 import { scopeHint } from "@/features/search/scopeUtils"
 import { useGetHubsQuery, useGetRegionsQuery } from "@/lib/api"
+import { todayIso } from "@/lib/utils"
 
 const FIELD =
   "h-9 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
@@ -81,6 +82,8 @@ export function SearchForm({
               type="date"
               aria-label="Verfügbar von"
               className={FIELD}
+              min={todayIso()}
+              max={wantTo || undefined}
               value={wantFrom}
               onChange={(e) => onChange({ wantFrom: e.target.value })}
             />
@@ -91,6 +94,7 @@ export function SearchForm({
               type="date"
               aria-label="Verfügbar bis"
               className={FIELD}
+              min={wantFrom || todayIso()}
               value={wantTo}
               onChange={(e) => onChange({ wantTo: e.target.value })}
             />

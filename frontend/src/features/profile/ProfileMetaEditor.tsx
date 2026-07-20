@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ZefixOrgInput } from "@/features/profile/ZefixOrgInput"
 import { useUpdateProfileMetaMutation } from "@/lib/api"
-import { cn } from "@/lib/utils"
+import { cn, sameSet } from "@/lib/utils"
 import type { EntityDto } from "@/types/api"
 
 const COMMON_LANGUAGES = ["DE", "EN", "FR", "IT"]
@@ -39,6 +39,12 @@ export function ProfileMetaEditor({
     if (v && !languages.includes(v)) setLanguages([...languages, v])
     setNewLang("")
   }
+
+  const dirty =
+    headline !== (entity.headline ?? "") ||
+    orgName !== (entity.orgName ?? "") ||
+    location !== (entity.locationLabel ?? "") ||
+    !sameSet(languages, entity.languages ?? [])
 
   const save = async () => {
     await updateProfileMeta({
@@ -140,7 +146,11 @@ export function ProfileMetaEditor({
         <Button size="sm" variant="ghost" onClick={onClose}>
           Abbrechen
         </Button>
-        <Button size="sm" onClick={() => void save()} disabled={isLoading}>
+        <Button
+          size="sm"
+          onClick={() => void save()}
+          disabled={!dirty || isLoading}
+        >
           Speichern
         </Button>
       </div>

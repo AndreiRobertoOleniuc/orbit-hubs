@@ -1,8 +1,9 @@
 import { useState } from "react"
-import { Link } from "react-router-dom"
+import { Link, useSearchParams } from "react-router-dom"
 import { Inbox, Loader2, Mail, Send } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ContactModal } from "@/features/contact/ContactModal"
 import { ContactRespondModal } from "@/features/contact/ContactRespondModal"
 import { ContactStatusBadge } from "@/features/contact/ContactStatusBadge"
@@ -290,14 +291,6 @@ function DistributionCard({
   )
 }
 
-function SectionHeading({ children }: { children: React.ReactNode }) {
-  return (
-    <h2 className="mt-8 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-      {children}
-    </h2>
-  )
-}
-
 function EmptyRow({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-3 rounded-xl border border-dashed px-5 py-6 text-sm text-muted-foreground">
@@ -314,9 +307,17 @@ function EmptyRow({ children }: { children: React.ReactNode }) {
  * Emails are exchanged only once a request is accepted; everything after runs
  * off-platform.
  */
+const TABS = ["received", "sent", "matched"] as const
+type InboxTab = (typeof TABS)[number]
+
 export function InboxView() {
   const { data, isLoading, isError } = useGetInboxQuery()
   const [reply, setReply] = useState<InboxDistributionDto | null>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const requestedTab = searchParams.get("tab")
+  const activeTab: InboxTab = TABS.includes(requestedTab as InboxTab)
+    ? (requestedTab as InboxTab)
+    : "received"
 
   if (isLoading) {
     return (
@@ -347,50 +348,72 @@ export function InboxView() {
         Profil passen.
       </p>
 
-      <SectionHeading>Erhaltene Kontaktanfragen</SectionHeading>
-      <div className="mt-3 flex flex-col gap-4">
-        {data.received.length === 0 ? (
-          <EmptyRow>
-            Noch keine Kontaktanfragen — halte dein Profil aktuell, um gefunden
-            zu werden.
-          </EmptyRow>
-        ) : (
-          data.received.map((c) => <ReceivedCard key={c.id} contact={c} />)
-        )}
-      </div>
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => {
+          searchParams.set("tab", v)
+          setSearchParams(searchParams, { replace: true })
+        }}
+        className="mt-6"
+      >
+        <TabsList className="w-full">
+          <TabsTrigger value="received">
+            Erhalten ({data.received.length})
+          </TabsTrigger>
+          <TabsTrigger value="sent">Gesendet ({data.sent.length})</TabsTrigger>
+          <TabsTrigger value="matched">
+            Passende Anfragen ({openDistributions.length})
+          </TabsTrigger>
+        </TabsList>
 
-      <SectionHeading>Gesendete Kontaktanfragen</SectionHeading>
-      <div className="mt-3 flex flex-col gap-4">
-        {data.sent.length === 0 ? (
-          <EmptyRow>
-            <span className="inline-flex items-center gap-2">
-              <Send className="size-4" />
-              Du hast noch niemanden kontaktiert. Über die Suche findest du
-              passende Profile.
-            </span>
-          </EmptyRow>
-        ) : (
-          data.sent.map((c) => <SentCard key={c.id} contact={c} />)
-        )}
-      </div>
+        <TabsContent value="received">
+          <div className="flex flex-col gap-4">
+            {data.received.length === 0 ? (
+              <EmptyRow>
+                Noch keine Kontaktanfragen — halte dein Profil aktuell, um
+                gefunden zu werden.
+              </EmptyRow>
+            ) : (
+              data.received.map((c) => <ReceivedCard key={c.id} contact={c} />)
+            )}
+          </div>
+        </TabsContent>
 
-      <SectionHeading>Offene passende Anfragen</SectionHeading>
-      <div className="mt-3 flex flex-col gap-4">
-        {openDistributions.length === 0 ? (
-          <EmptyRow>
-            Zurzeit keine passenden Anfragen. Abonniere Themen auf deinem
-            Profil, um bei neuen Anfragen benachrichtigt zu werden.
-          </EmptyRow>
-        ) : (
-          openDistributions.map((d) => (
-            <DistributionCard
-              key={`${d.requestId}`}
-              distribution={d}
-              onReply={setReply}
-            />
-          ))
-        )}
-      </div>
+        <TabsContent value="sent">
+          <div className="flex flex-col gap-4">
+            {data.sent.length === 0 ? (
+              <EmptyRow>
+                <span className="inline-flex items-center gap-2">
+                  <Send className="size-4" />
+                  Du hast noch niemanden kontaktiert. Über die Suche findest du
+                  passende Profile.
+                </span>
+              </EmptyRow>
+            ) : (
+              data.sent.map((c) => <SentCard key={c.id} contact={c} />)
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="matched">
+          <div className="flex flex-col gap-4">
+            {openDistributions.length === 0 ? (
+              <EmptyRow>
+                Zurzeit keine passenden Anfragen. Abonniere Themen auf deinem
+                Profil, um bei neuen Anfragen benachrichtigt zu werden.
+              </EmptyRow>
+            ) : (
+              openDistributions.map((d) => (
+                <DistributionCard
+                  key={`${d.requestId}`}
+                  distribution={d}
+                  onReply={setReply}
+                />
+              ))
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {reply && reply.authorEntityId != null && (
         <ContactModal

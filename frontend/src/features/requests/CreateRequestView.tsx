@@ -13,7 +13,7 @@ import {
   URGENCY_STRATEGY,
 } from "@/features/requests/requestUtils"
 import { useCreateRequestMutation } from "@/lib/api"
-import { cn } from "@/lib/utils"
+import { cn, todayIso } from "@/lib/utils"
 import type { RequestUrgency } from "@/types/api"
 
 const FIELD =
@@ -91,10 +91,14 @@ export function CreateRequestView() {
         Profile werden benachrichtigt und können sich direkt bei dir melden.
       </p>
 
-      <div className="mt-6 flex flex-col gap-6">
+      <p className="mt-4 text-xs text-muted-foreground">
+        <span className="text-destructive">*</span> Pflichtfeld
+      </p>
+
+      <div className="mt-4 flex flex-col gap-6">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="req-query" className={CAP}>
-            Was suchst du?
+            Was suchst du? <span className="text-destructive">*</span>
           </label>
           <Textarea
             id="req-query"
@@ -144,6 +148,8 @@ export function CreateRequestView() {
                 type="date"
                 aria-label="Von"
                 className={FIELD}
+                min={todayIso()}
+                max={wantTo || undefined}
                 value={wantFrom}
                 onChange={(e) => setWantFrom(e.target.value)}
               />
@@ -154,6 +160,7 @@ export function CreateRequestView() {
                 type="date"
                 aria-label="Bis"
                 className={FIELD}
+                min={wantFrom || todayIso()}
                 value={wantTo}
                 onChange={(e) => setWantTo(e.target.value)}
               />
@@ -220,6 +227,7 @@ export function CreateRequestView() {
             id="req-deadline"
             type="date"
             className={cn(FIELD, "w-fit")}
+            min={todayIso()}
             value={deadline}
             onChange={(e) => setDeadline(e.target.value)}
           />

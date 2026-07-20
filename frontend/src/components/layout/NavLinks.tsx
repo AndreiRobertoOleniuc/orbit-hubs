@@ -2,7 +2,8 @@ import { Link } from "react-router-dom"
 
 import { Button } from "@/components/ui/button"
 import { useProfileMode } from "@/features/profile/useProfileMode"
-import { useGetMeQuery } from "@/lib/api"
+import { useGetInboxQuery, useGetMeQuery } from "@/lib/api"
+import { cn } from "@/lib/utils"
 
 interface NavItem {
   to: string
@@ -14,6 +15,8 @@ interface NavItem {
    *  that live under a different route (e.g. a request detail at /board/:id
    *  belongs to "Meine Anfragen" in demand mode). */
   match?: string[]
+  /** Unread/actionable count shown as a notification badge (e.g. Postfach). */
+  badge?: number
 }
 
 /** Active when the pathname equals a prefix or is nested beneath it (`/x` or `/x/…`). */
@@ -51,6 +54,13 @@ export function NavLinks({
   const { data: me } = useGetMeQuery(undefined, { skip: !isAuthenticated })
   const isAdmin = me?.isAdmin ?? false
   const { mode, hasEntity } = useProfileMode()
+  const { data: inbox } = useGetInboxQuery(undefined, {
+    skip: !isAuthenticated || !hasEntity,
+  })
+
+  // Incoming contact requests awaiting a response — the actionable Postfach count.
+  const pendingReceived =
+    inbox?.received.filter((c) => c.status === "pending").length ?? 0
 
   const items: NavItem[] = []
   if (hasEntity) {
@@ -64,7 +74,7 @@ export function NavLinks({
       items.push({ to: "/board", label: "Anfrage-Board" })
     }
     // Postfach serves both modes: sent contacts + incoming requests/replies.
-    items.push({ to: "/inbox", label: "Postfach" })
+    items.push({ to: "/inbox", label: "Postfach", badge: pendingReceived })
   } else {
     // Default nav — the token-free public surfaces
     items.push(
@@ -87,7 +97,22 @@ export function NavLinks({
           className={className}
           onClick={onNavigate}
         >
-          <Link to={item.to}>{item.label}</Link>
+          <Link to={item.to}>
+            {item.label}
+            {item.badge != null && item.badge > 0 && (
+              <span
+                aria-label={`${item.badge} neue Kontaktanfragen`}
+                className={cn(
+                  "ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-xs font-semibold",
+                  isActive(item, pathname)
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-primary/15 text-primary"
+                )}
+              >
+                {item.badge}
+              </span>
+            )}
+          </Link>
         </Button>
       ))}
     </>

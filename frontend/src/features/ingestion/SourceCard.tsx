@@ -59,6 +59,12 @@ export function SourceCard({
           <span className="block text-xs text-muted-foreground">
             {def.hint}
           </span>
+          {def.guide && !added && !open && (
+            <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary">
+              <ExternalLink className="size-3" />
+              So kommst du an diese Quelle — hier klicken
+            </span>
+          )}
         </span>
         {busy ? (
           <Loader2 className="size-4 animate-spin text-muted-foreground" />
@@ -101,23 +107,24 @@ export function SourceCard({
       {open && !added && (
         <div className="border-t">
           {def.guide && (
-            <div className="space-y-1 px-4 pt-3 text-xs text-muted-foreground">
-              <p className="font-medium text-foreground">{def.guide.intro}</p>
-              <ol className="list-decimal space-y-0.5 pl-4">
+            <div className="mx-4 mt-3 space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm">
+              <p className="font-semibold text-foreground">{def.guide.intro}</p>
+              <ol className="list-decimal space-y-1 pl-5 text-muted-foreground">
                 {def.guide.steps.map((step, i) => (
                   <li key={i}>{step}</li>
                 ))}
               </ol>
               {def.guide.link && (
-                <a
-                  href={def.guide.link.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-primary hover:underline"
-                >
-                  {def.guide.link.label}
-                  <ExternalLink className="size-3" />
-                </a>
+                <Button asChild size="sm" variant="outline" className="mt-1">
+                  <a
+                    href={def.guide.link.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {def.guide.link.label}
+                    <ExternalLink className="size-3.5" />
+                  </a>
+                </Button>
               )}
             </div>
           )}

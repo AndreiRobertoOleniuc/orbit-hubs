@@ -7,6 +7,7 @@ import {
   useGetSubscriptionsQuery,
   useUpdateSubscriptionsMutation,
 } from "@/lib/api"
+import { sameSet } from "@/lib/utils"
 
 /**
  * "Abonnierte Themen" — the tags a user subscribes to so they're notified when
@@ -28,6 +29,11 @@ export function SubscribedTopics({ entityId }: { entityId: number }) {
     await updateSubscriptions({ entityId, tags: draft }).unwrap()
     setEditing(false)
   }
+
+  const dirty = !sameSet(
+    draft,
+    (subscriptions ?? []).map((s) => s.label)
+  )
 
   if (isLoading) {
     return (
@@ -66,7 +72,7 @@ export function SubscribedTopics({ entityId }: { entityId: number }) {
           <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
             Abbrechen
           </Button>
-          <Button size="sm" onClick={() => void save()}>
+          <Button size="sm" onClick={() => void save()} disabled={!dirty}>
             Speichern
           </Button>
         </div>

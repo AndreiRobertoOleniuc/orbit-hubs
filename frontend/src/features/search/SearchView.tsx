@@ -1,15 +1,20 @@
-import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 
 import type { CreateRequestPrefill } from "@/features/requests/CreateRequestView"
 import { SearchForm, type SearchFormState } from "@/features/search/SearchForm"
 import { SearchResults } from "@/features/search/SearchResults"
-import { decodeScope, SCOPE_ALL } from "@/features/search/scopeUtils"
+import {
+  patchSearchForm,
+  setSearchResults,
+  setSearchSubmitted,
+} from "@/features/search/searchSlice"
+import { decodeScope } from "@/features/search/scopeUtils"
 import {
   useGetHubsQuery,
   useGetRegionsQuery,
   useSearchMutation,
 } from "@/lib/api"
+import { useAppDispatch, useAppSelector } from "@/lib/hooks"
 import type { SearchRequestBody } from "@/types/api"
 
 /**
@@ -19,22 +24,23 @@ import type { SearchRequestBody } from "@/types/api"
  */
 export function SearchView() {
   const navigate = useNavigate()
-  const [form, setForm] = useState<SearchFormState>({
-    query: "",
-    scope: SCOPE_ALL,
-    wantFrom: "",
-    wantTo: "",
-    wantPensum: "",
-  })
-  const [submitted, setSubmitted] = useState(false)
+  const dispatch = useAppDispatch()
+  // Search state lives in Redux so leaving /search and returning restores the
+  // last query, filters, and results (persisted across navigation).
+  const form = useAppSelector((s) => s.search.form)
+  const submitted = useAppSelector((s) => s.search.submitted)
+  const persistedResults = useAppSelector((s) => s.search.results)
   const [runSearch, { data, isLoading, isError }] = useSearchMutation()
   const { data: regions = [] } = useGetRegionsQuery()
   const { data: hubs = [] } = useGetHubsQuery()
 
-  const patch = (p: Partial<SearchFormState>) =>
-    setForm((f) => ({ ...f, ...p }))
+  // Prefer this session's live mutation result; fall back to the persisted one
+  // when we've navigated back to an earlier search.
+  const results = data ?? persistedResults ?? undefined
 
-  const runWith = (scopeValue: string) => {
+  const patch = (p: Partial<SearchFormState>) => dispatch(patchSearchForm(p))
+
+  const runWith = async (scopeValue: string) => {
     if (!form.query.trim()) return
     const body: SearchRequestBody = {
       query: form.query.trim(),
@@ -43,13 +49,18 @@ export function SearchView() {
       wantTo: form.wantTo || null,
       wantPensumPct: form.wantPensum ? Number(form.wantPensum) : null,
     }
-    setSubmitted(true)
-    runSearch(body)
+    dispatch(setSearchSubmitted(true))
+    try {
+      const res = await runSearch(body).unwrap()
+      dispatch(setSearchResults(res))
+    } catch {
+      // isError surfaces the failure in SearchResults.
+    }
   }
 
   const onWiden = (scopeValue: string) => {
     patch({ scope: scopeValue })
-    runWith(scopeValue)
+    void runWith(scopeValue)
   }
 
   // No match → carry the whole search over into the "Anfrage ausschreiben"
@@ -69,13 +80,13 @@ export function SearchView() {
     return (
       <SearchResults
         query={form.query}
-        data={data}
+        data={results}
         isLoading={isLoading}
         isError={isError}
         scope={form.scope}
         regions={regions}
         hubs={hubs}
-        onEdit={() => setSubmitted(false)}
+        onEdit={() => dispatch(setSearchSubmitted(false))}
         onWiden={onWiden}
         onCreateRequest={onCreateRequest}
       />
@@ -86,7 +97,7 @@ export function SearchView() {
     <SearchForm
       {...form}
       onChange={patch}
-      onSearch={() => runWith(form.scope)}
+      onSearch={() => void runWith(form.scope)}
     />
   )
 }

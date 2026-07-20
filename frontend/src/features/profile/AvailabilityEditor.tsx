@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { COLLABORATION_TYPES } from "@/features/profile/availabilityUtils"
 import { useUpdateAvailabilityMutation } from "@/lib/api"
-import { cn } from "@/lib/utils"
+import { cn, sameSet, todayIso } from "@/lib/utils"
 import type { EntityDto } from "@/types/api"
 
 /**
@@ -30,6 +30,15 @@ export function AvailabilityEditor({ entity }: { entity: EntityDto }) {
     setCollaboration((prev) =>
       prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
     )
+
+  // Only enable Speichern once something actually changed vs. the saved state.
+  const dirty =
+    open !== (a?.openToRequests ?? false) ||
+    from !== (a?.availableFrom ?? "") ||
+    to !== (a?.availableTo ?? "") ||
+    pensum !== (a?.pensumPct ?? 100) ||
+    note !== (a?.note ?? "") ||
+    !sameSet(collaboration, a?.preferredCollaboration ?? [])
 
   const save = async () => {
     setSaved(false)
@@ -88,6 +97,8 @@ export function AvailabilityEditor({ entity }: { entity: EntityDto }) {
               <Input
                 id="avail-from"
                 type="date"
+                min={todayIso()}
+                max={to || undefined}
                 value={from}
                 onChange={(e) => setFrom(e.target.value)}
               />
@@ -97,6 +108,7 @@ export function AvailabilityEditor({ entity }: { entity: EntityDto }) {
               <Input
                 id="avail-to"
                 type="date"
+                min={from || todayIso()}
                 value={to}
                 onChange={(e) => setTo(e.target.value)}
               />
@@ -162,7 +174,11 @@ export function AvailabilityEditor({ entity }: { entity: EntityDto }) {
         {saved && (
           <span className="text-xs text-muted-foreground">✓ gespeichert</span>
         )}
-        <Button size="sm" onClick={() => void save()} disabled={isLoading}>
+        <Button
+          size="sm"
+          onClick={() => void save()}
+          disabled={!dirty || isLoading}
+        >
           Speichern
         </Button>
       </div>
