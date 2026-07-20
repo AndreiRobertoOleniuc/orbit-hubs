@@ -31,9 +31,6 @@ public class EscalationScheduler {
 
     private static final Logger log = LoggerFactory.getLogger(EscalationScheduler.class);
 
-    /** What the scheduler should do with one distributed request right now. */
-    enum WaveAction { NONE, ESCALATE, REMIND, DEADLINE_WAVE }
-
     private final RequestRepository requestRepository;
     private final DistributionService distributionService;
     private final RequestsProperties properties;

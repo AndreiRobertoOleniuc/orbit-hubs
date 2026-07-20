@@ -12,7 +12,7 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { useRespondContactMutation } from "@/lib/api"
 
-export interface ContactRespondModalProps {
+interface ContactRespondModalProps {
   /** The contact request being answered. */
   contactId: number
   /** Who reached out — shown in the header + success line. */

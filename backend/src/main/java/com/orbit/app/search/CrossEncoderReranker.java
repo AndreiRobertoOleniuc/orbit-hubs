@@ -8,8 +8,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import com.orbit.domain.entity.DiscoveryEntity;
-
 /**
  * Cross-encoder reranker — the deterministic relevance gatekeeper.
  * <p>
@@ -125,15 +123,5 @@ public class CrossEncoderReranker {
         String result = sb.toString();
         // Hard cap at 300 chars to avoid edge cases with very long sentences.
         return result.length() > 300 ? result.substring(0, 300) : result;
-    }
-
-    // ─── Public records ───
-
-    /** Input: a candidate with its entity, base score, and top evidence text. */
-    public record RerankCandidate(DiscoveryEntity entity, double baseScore, String topEvidence) {
-    }
-
-    /** Output: a candidate with its cross-encoder score. */
-    public record RerankResult(RerankCandidate candidate, double rerankerScore) {
     }
 }

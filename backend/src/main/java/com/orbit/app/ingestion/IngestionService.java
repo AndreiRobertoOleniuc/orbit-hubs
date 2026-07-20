@@ -13,6 +13,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.orbit.app.auth.CurrentUser;
 import com.orbit.app.ingestion.dto.IngestionResult;
+import com.orbit.app.ingestion.dto.IngestionStatus;
 import com.orbit.app.ingestion.dto.SourceRef;
 import com.orbit.app.ingestion.website.WebsiteContentExtractor;
 import com.orbit.app.util.HashUtils;
@@ -134,9 +135,9 @@ public class IngestionService {
 
     public Map<String, Object> summarizeResults(String sourceType, List<IngestionResult> results) {
         int totalChunks = results.stream().mapToInt(IngestionResult::chunkCount).sum();
-        int ingested = (int) results.stream().filter(r -> r.status() == IngestionResult.Status.INGESTED).count();
-        int skipped = (int) results.stream().filter(r -> r.status() == IngestionResult.Status.SKIPPED).count();
-        int errors = (int) results.stream().filter(r -> r.status() == IngestionResult.Status.ERROR).count();
+        int ingested = (int) results.stream().filter(r -> r.status() == IngestionStatus.INGESTED).count();
+        int skipped = (int) results.stream().filter(r -> r.status() == IngestionStatus.SKIPPED).count();
+        int errors = (int) results.stream().filter(r -> r.status() == IngestionStatus.ERROR).count();
 
         return Map.of(
                 "sourceType", sourceType,

@@ -27,7 +27,7 @@ const MISSING_LABELS: Record<ContactGatingCheck, string> = {
     "Mindestens eine Quelle — LinkedIn, Website oder eine eigene Beschreibung",
 }
 
-export interface ContactModalProps {
+interface ContactModalProps {
   /** Recipient entity (must be a claimed profile). */
   toEntityId: number
   /** Recipient display name — shown in the success state. */

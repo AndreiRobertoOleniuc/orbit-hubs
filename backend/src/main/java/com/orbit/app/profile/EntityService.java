@@ -9,7 +9,7 @@ import java.util.Map;
 import com.orbit.app.auth.CurrentUser;
 import com.orbit.app.ingestion.EntityLinkResolver;
 import com.orbit.app.ingestion.IngestionOrchestrator;
-import com.orbit.app.ingestion.dto.IngestionResult;
+import com.orbit.app.ingestion.dto.IngestionStatus;
 import com.orbit.app.util.HubDtos;
 import com.orbit.app.util.SlugUtils;
 import com.orbit.app.controllers.dto.AvailabilityDto;
@@ -131,9 +131,9 @@ public class EntityService {
         if (entity == null) return null;
 
         var results = orchestrator.resyncEntity(id);
-        int ingested = (int) results.stream().filter(r -> r.status() == IngestionResult.Status.INGESTED).count();
-        int skipped = (int) results.stream().filter(r -> r.status() == IngestionResult.Status.SKIPPED).count();
-        int errors = (int) results.stream().filter(r -> r.status() == IngestionResult.Status.ERROR).count();
+        int ingested = (int) results.stream().filter(r -> r.status() == IngestionStatus.INGESTED).count();
+        int skipped = (int) results.stream().filter(r -> r.status() == IngestionStatus.SKIPPED).count();
+        int errors = (int) results.stream().filter(r -> r.status() == IngestionStatus.ERROR).count();
 
         DiscoveryEntity refreshed = entities.findById(id).orElse(entity);
         return new ResyncResponse(toDto(refreshed), ingested, skipped, errors);

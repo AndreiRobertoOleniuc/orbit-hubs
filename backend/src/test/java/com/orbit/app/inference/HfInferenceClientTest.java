@@ -20,7 +20,7 @@ class HfInferenceClientTest {
 
     @Test
     void waitsForEstimatedLoadingTimeThenRetries() {
-        Queue<HfInferenceClient.Response> responses = new ArrayDeque<>(List.of(
+        Queue<HfInferenceResponse> responses = new ArrayDeque<>(List.of(
                 response(503, "{\"error\":\"loading\",\"estimated_time\":0.5}"),
                 response(200, "[1,2,3]")));
         AtomicLong nanos = new AtomicLong();
@@ -37,8 +37,8 @@ class HfInferenceClientTest {
 
     @Test
     void honorsRetryAfterBeforeEstimatedTime() {
-        Queue<HfInferenceClient.Response> responses = new ArrayDeque<>(List.of(
-                new HfInferenceClient.Response(503, Map.of("Retry-After", List.of("2")),
+        Queue<HfInferenceResponse> responses = new ArrayDeque<>(List.of(
+                new HfInferenceResponse(503, Map.of("Retry-After", List.of("2")),
                         "{\"estimated_time\":20}"),
                 response(200, "[]")));
         AtomicLong nanos = new AtomicLong();
@@ -55,7 +55,7 @@ class HfInferenceClientTest {
 
     @Test
     void stopsAtConfiguredDeadline() {
-        Queue<HfInferenceClient.Response> responses = new ArrayDeque<>(List.of(
+        Queue<HfInferenceResponse> responses = new ArrayDeque<>(List.of(
                 response(503, "{\"estimated_time\":30}")));
         AtomicLong nanos = new AtomicLong();
         HfInferenceClient client = client(responses, Duration.ofSeconds(1), nanos,
@@ -68,7 +68,7 @@ class HfInferenceClientTest {
 
     @Test
     void doesNotRetryAuthenticationFailure() {
-        Queue<HfInferenceClient.Response> responses = new ArrayDeque<>(List.of(response(401, "unauthorized")));
+        Queue<HfInferenceResponse> responses = new ArrayDeque<>(List.of(response(401, "unauthorized")));
         AtomicLong nanos = new AtomicLong();
         HfInferenceClient client = client(responses, Duration.ofSeconds(5), nanos, millis -> {
             throw new AssertionError("must not sleep");
@@ -80,8 +80,8 @@ class HfInferenceClientTest {
         assertThat(responses).isEmpty();
     }
 
-    private HfInferenceClient client(Queue<HfInferenceClient.Response> responses, Duration maxWait,
-            AtomicLong nanos, HfInferenceClient.Sleeper sleeper) {
+    private HfInferenceClient client(Queue<HfInferenceResponse> responses, Duration maxWait,
+            AtomicLong nanos, InferenceSleeper sleeper) {
         HfInferenceProperties props = new HfInferenceProperties(
                 "hf_test", "https://example.test/models", "embedding", "reranker",
                 maxWait, Duration.ofSeconds(1), Duration.ofSeconds(1));
@@ -89,7 +89,7 @@ class HfInferenceClientTest {
                 (uri, token, body, timeout) -> responses.remove(), sleeper, nanos::get);
     }
 
-    private static HfInferenceClient.Response response(int status, String body) {
-        return new HfInferenceClient.Response(status, Map.of(), body);
+    private static HfInferenceResponse response(int status, String body) {
+        return new HfInferenceResponse(status, Map.of(), body);
     }
 }

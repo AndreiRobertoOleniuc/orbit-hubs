@@ -1,10 +1,7 @@
 import type { EntityDto, EntitySourceDto } from "@/types/api"
 
 /** German display name + card glyph per sources.source_type. */
-export const SOURCE_TYPE_INFO: Record<
-  string,
-  { label: string; glyph: string }
-> = {
+const SOURCE_TYPE_INFO: Record<string, { label: string; glyph: string }> = {
   github: { label: "GitHub", glyph: "GH" },
   orcid_pub: { label: "Publikation", glyph: "iD" },
   zefix: { label: "Handelsregister", glyph: "HR" },

@@ -12,8 +12,6 @@ import com.orbit.app.llm.dto.MatchRationale;
 import com.orbit.app.llm.dto.RationaleClaim;
 import com.orbit.app.llm.dto.RationaleEvidence;
 import com.orbit.app.profile.EntityService;
-import com.orbit.app.search.CrossEncoderReranker.RerankCandidate;
-import com.orbit.app.search.CrossEncoderReranker.RerankResult;
 import com.orbit.app.search.dto.Citation;
 import com.orbit.app.search.dto.ResolvedScope;
 import com.orbit.app.search.dto.ScopeSelection;

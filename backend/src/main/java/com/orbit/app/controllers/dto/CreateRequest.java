@@ -8,7 +8,7 @@ public record CreateRequest(
         String title,
         String description,
         String queryText,
-        ScopeSelection scope,
+        RequestScopeSelection scope,
         String urgency,
         LocalDate deadline,
         LocalDate wantFrom,
@@ -16,5 +16,4 @@ public record CreateRequest(
         Integer wantPensumPct,
         List<String> tags
 ) {
-    public record ScopeSelection(String kind, Long hubId, Long regionId) {}
 }

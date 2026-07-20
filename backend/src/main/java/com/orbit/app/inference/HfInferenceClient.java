@@ -9,8 +9,6 @@ import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.LongSupplier;
@@ -31,8 +29,8 @@ public class HfInferenceClient {
 
     private final HfInferenceProperties props;
     private final JsonMapper objectMapper;
-    private final Transport transport;
-    private final Sleeper sleeper;
+    private final HfInferenceTransport transport;
+    private final InferenceSleeper sleeper;
     private final LongSupplier nanoTime;
 
     @Autowired
@@ -41,7 +39,7 @@ public class HfInferenceClient {
     }
 
     HfInferenceClient(HfInferenceProperties props, JsonMapper objectMapper,
-            Transport transport, Sleeper sleeper, LongSupplier nanoTime) {
+            HfInferenceTransport transport, InferenceSleeper sleeper, LongSupplier nanoTime) {
         this.props = props;
         this.objectMapper = objectMapper;
         this.transport = transport;
@@ -57,7 +55,8 @@ public class HfInferenceClient {
 
         while (true) {
             try {
-                Response response = transport.post(uri, token, objectMapper.writeValueAsString(requestBody), props.requestTimeout());
+                HfInferenceResponse response = transport.post(
+                        uri, token, objectMapper.writeValueAsString(requestBody), props.requestTimeout());
                 if (response.statusCode() >= 200 && response.statusCode() < 300) {
                     return objectMapper.readTree(response.body());
                 }
@@ -88,7 +87,8 @@ public class HfInferenceClient {
         }
     }
 
-    private void waitBeforeRetry(String model, Response response, int retry, long deadline) throws InterruptedException {
+    private void waitBeforeRetry(String model, HfInferenceResponse response, int retry, long deadline)
+            throws InterruptedException {
         Duration delay = retryAfter(response).orElseGet(() -> estimatedLoadingTime(response)
                 .orElseGet(() -> fallbackDelay(retry)));
         waitFor(model, delay, deadline, "HTTP " + response.statusCode());
@@ -110,7 +110,7 @@ public class HfInferenceClient {
         }
     }
 
-    private Optional<Duration> estimatedLoadingTime(Response response) {
+    private Optional<Duration> estimatedLoadingTime(HfInferenceResponse response) {
         if (response.statusCode() != 503 || response.body() == null || response.body().isBlank()) {
             return Optional.empty();
         }
@@ -126,7 +126,7 @@ public class HfInferenceClient {
         return Optional.empty();
     }
 
-    private Optional<Duration> retryAfter(Response response) {
+    private Optional<Duration> retryAfter(HfInferenceResponse response) {
         Optional<String> header = response.firstHeader("Retry-After");
         if (header.isEmpty()) return Optional.empty();
         String value = header.get().trim();
@@ -165,7 +165,7 @@ public class HfInferenceClient {
         return value.endsWith("/") ? value.substring(0, value.length() - 1) : value;
     }
 
-    private static Transport javaTransport(HfInferenceProperties props) {
+    private static HfInferenceTransport javaTransport(HfInferenceProperties props) {
         HttpClient client = HttpClient.newBuilder().connectTimeout(props.connectTimeout()).build();
         return (uri, token, body, timeout) -> {
             HttpRequest request = HttpRequest.newBuilder(uri)
@@ -175,26 +175,7 @@ public class HfInferenceClient {
                     .POST(HttpRequest.BodyPublishers.ofString(body))
                     .build();
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            return new Response(response.statusCode(), response.headers().map(), response.body());
+            return new HfInferenceResponse(response.statusCode(), response.headers().map(), response.body());
         };
-    }
-
-    record Response(int statusCode, Map<String, List<String>> headers, String body) {
-        Optional<String> firstHeader(String name) {
-            return headers.entrySet().stream()
-                    .filter(entry -> entry.getKey().equalsIgnoreCase(name))
-                    .flatMap(entry -> entry.getValue().stream())
-                    .findFirst();
-        }
-    }
-
-    @FunctionalInterface
-    interface Transport {
-        Response post(URI uri, String token, String body, Duration timeout) throws IOException, InterruptedException;
-    }
-
-    @FunctionalInterface
-    interface Sleeper {
-        void sleep(long millis) throws InterruptedException;
     }
 }

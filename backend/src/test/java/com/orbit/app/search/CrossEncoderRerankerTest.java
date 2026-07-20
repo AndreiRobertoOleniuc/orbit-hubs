@@ -15,14 +15,14 @@ class CrossEncoderRerankerTest {
     @Test
     void filtersAndSortsScoresFromInputOrder() {
         CrossEncoderReranker reranker = new CrossEncoderReranker((query, documents) -> List.of(0.7, 0.2, 0.9), 0.55);
-        List<CrossEncoderReranker.RerankCandidate> candidates = List.of(
+        List<RerankCandidate> candidates = List.of(
                 candidate("A"), candidate("B"), candidate("C"));
 
-        List<CrossEncoderReranker.RerankResult> results = reranker.rerank("security expert", candidates);
+        List<RerankResult> results = reranker.rerank("security expert", candidates);
 
         assertThat(results).extracting(result -> result.candidate().entity().getDisplayName())
                 .containsExactly("C", "A");
-        assertThat(results).extracting(CrossEncoderReranker.RerankResult::rerankerScore)
+        assertThat(results).extracting(RerankResult::rerankerScore)
                 .containsExactly(0.9, 0.7);
     }
 
@@ -36,9 +36,9 @@ class CrossEncoderRerankerTest {
                 .isInstanceOf(InferenceUnavailableException.class);
     }
 
-    private static CrossEncoderReranker.RerankCandidate candidate(String name) {
+    private static RerankCandidate candidate(String name) {
         DiscoveryEntity entity = new DiscoveryEntity("person", name, "Researcher", null);
         entity.setSummary("First sentence. Second sentence. Third sentence. Fourth sentence.");
-        return new CrossEncoderReranker.RerankCandidate(entity, 0.5, "evidence");
+        return new RerankCandidate(entity, 0.5, "evidence");
     }
 }

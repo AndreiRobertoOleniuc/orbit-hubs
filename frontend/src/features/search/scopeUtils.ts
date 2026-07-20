@@ -40,7 +40,7 @@ export function regionsBySpecificity(regions: RegionDto[]): RegionDto[] {
   )
 }
 
-export interface WiderScope {
+interface WiderScope {
   value: string
   /** Human label of the wider target, e.g. "Aargau" or "alle Profile". */
   label: string

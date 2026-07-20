@@ -22,7 +22,6 @@ The **backend is substantially built** — not stubbed. The **frontend supply si
 - **Entity enrichment**: LLM competence summary + AI-derived tags after each ingestion.
 - **Supply-side profile**: availability, affiliation, languages, location, hub membership, tag subscriptions, profile mode.
 - **Admin hub management**: config-driven admin allowlist, CRUD for hubs/regions.
-- **Test artifacts to remove**: `BulkIngestController`, `BulkIngestService`, `BulkIngestRequest`, and the security-config `permitAll` lines for `/api/v1/test/bulk-ingest`.
 
 ### Frontend — supply side complete, search functional, Anfrage lifecycle pending
 - **Supply side**: onboarding wizard (type→firm→sources→ingestion→availability+subscriptions→profile preview), profile page (completeness banner, availability editor, hub selector, subscribed topics, kompetenzen, sources, nachweise), profile mode switching (Ich suche / Ich biete), profile meta editor.
