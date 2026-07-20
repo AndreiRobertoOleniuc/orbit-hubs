@@ -106,6 +106,62 @@ class ClerkAuthIntegrationTest {
         mockMvc.perform(get("/api/v1/board"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.title=='IT-Board-Test')]").isEmpty());
+
+        // Closed details are private: anonymous and unrelated users see 404,
+        // while the creator can still open the request from "Meine Anfragen".
+        mockMvc.perform(get("/api/v1/requests/" + requestId))
+                .andExpect(status().isNotFound());
+
+        String unrelatedToken = token("user_test_board_other", "other@orbit.test", "Other",
+                "http://localhost:5173");
+        mockMvc.perform(get("/api/v1/requests/" + requestId)
+                        .header("Authorization", "Bearer " + unrelatedToken))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(get("/api/v1/requests/" + requestId)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mine").value(true))
+                .andExpect(jsonPath("$.status").value("closed"));
+    }
+
+    @Test
+    void nonOwnerCannotResyncOrEditEntityTagsAndSummary() throws Exception {
+        String ownerToken = token("user_test_entity_owner", "owner@orbit.test", "Owner",
+                "http://localhost:5173");
+        String attackerToken = token("user_test_entity_attacker", "attacker@orbit.test", "Attacker",
+                "http://localhost:5173");
+        provision(ownerToken);
+        provision(attackerToken);
+        long entityId = insertEntity("user_test_entity_owner", "IT-Test Protected", "company");
+
+        mockMvc.perform(post("/api/v1/entities/" + entityId + "/resync")
+                        .header("Authorization", "Bearer " + attackerToken))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(put("/api/v1/entities/" + entityId + "/tags")
+                        .header("Authorization", "Bearer " + attackerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tags\":[\"Stolen\"]}"))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(put("/api/v1/entities/" + entityId + "/summary")
+                        .header("Authorization", "Bearer " + attackerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"summary\":\"Changed by attacker\"}"))
+                .andExpect(status().isForbidden());
+
+        String summary = jdbc.sql("SELECT summary FROM entities WHERE id = :id")
+                .param("id", entityId)
+                .query(String.class)
+                .optional()
+                .orElse(null);
+        Long tagCount = jdbc.sql("SELECT COUNT(*) FROM entity_tags WHERE entity_id = :id")
+                .param("id", entityId)
+                .query(Long.class)
+                .single();
+        assertThat(summary).isNull();
+        assertThat(tagCount).isZero();
     }
 
     @Test
@@ -336,6 +392,56 @@ class ClerkAuthIntegrationTest {
                 .andExpect(jsonPath("$.sent[0].status").value("accepted"))
                 .andExpect(jsonPath("$.sent[0].toEmail").value("ca@orbit.test"))
                 .andExpect(jsonPath("$.sent[0].replyMessage").value("Ja, gerne — melde dich!"));
+    }
+
+    @Test
+    void contactCannotLinkOrTransitionAnUnrelatedRequest() throws Exception {
+        String requestOwnerToken = token("user_test_link_owner", "link-owner@orbit.test", "Owner",
+                "http://localhost:5173");
+        String senderToken = token("user_test_link_sender", "link-sender@orbit.test", "Sender",
+                "http://localhost:5173");
+        String recipientToken = token("user_test_link_recipient", "link-recipient@orbit.test", "Recipient",
+                "http://localhost:5173");
+        provision(requestOwnerToken);
+        provision(senderToken);
+        provision(recipientToken);
+
+        long senderEntity = insertEntity("user_test_link_sender", "IT-Test Link Sender", "self_employed");
+        long recipientEntity = insertEntity("user_test_link_recipient", "IT-Test Link Recipient", "company");
+        insertSource(senderEntity, "manual_text");
+
+        String created = mockMvc.perform(post("/api/v1/requests")
+                        .header("Authorization", "Bearer " + requestOwnerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Protected Request\",\"queryText\":\"Protected\",\"scope\":{\"kind\":\"all\"}}"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        long requestId = ((Number) com.jayway.jsonpath.JsonPath.read(created, "$.id")).longValue();
+
+        mockMvc.perform(post("/api/v1/contacts")
+                        .header("Authorization", "Bearer " + senderToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"toEntityId\":" + recipientEntity + ",\"requestId\":" + requestId
+                                + ",\"message\":\"Unauthorized link\"}"))
+                .andExpect(status().isForbidden());
+
+        String statusAfter = jdbc.sql("SELECT status FROM requests WHERE id = :id")
+                .param("id", requestId)
+                .query(String.class)
+                .single();
+        Long linkedContacts = jdbc.sql("SELECT COUNT(*) FROM contact_requests WHERE request_id = :id")
+                .param("id", requestId)
+                .query(Long.class)
+                .single();
+        assertThat(statusAfter).isEqualTo("distributed");
+        assertThat(linkedContacts).isZero();
+
+        mockMvc.perform(post("/api/v1/contacts")
+                        .header("Authorization", "Bearer " + senderToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"toEntityId\":" + recipientEntity
+                                + ",\"requestId\":999999999,\"message\":\"Missing link\"}"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

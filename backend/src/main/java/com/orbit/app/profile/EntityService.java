@@ -127,7 +127,7 @@ public class EntityService {
     // ─── Resync ───
 
     public ResyncResponse resync(Long id) {
-        DiscoveryEntity entity = entities.findById(id).orElse(null);
+        DiscoveryEntity entity = loadOwnedEntity(id);
         if (entity == null) return null;
 
         var results = orchestrator.resyncEntity(id);
@@ -143,7 +143,7 @@ public class EntityService {
 
     @Transactional
     public EntityDto replaceTags(Long id, List<String> labels) {
-        DiscoveryEntity entity = entities.findById(id).orElse(null);
+        DiscoveryEntity entity = loadOwnedEntity(id);
         if (entity == null) return null;
 
         entityTagRepo.deleteAll(entityTagRepo.findByEntityId(id));
@@ -166,7 +166,7 @@ public class EntityService {
 
     @Transactional
     public EntityDto updateSummary(Long id, String summary) {
-        DiscoveryEntity entity = entities.findById(id).orElse(null);
+        DiscoveryEntity entity = loadOwnedEntity(id);
         if (entity == null) return null;
         entity.setSummary(summary);
         entities.save(entity);

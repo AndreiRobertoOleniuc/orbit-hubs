@@ -120,9 +120,7 @@ public class ContactService {
             throw new IllegalArgumentException("Cannot contact your own profile");
         }
 
-        Request request = req.requestId() != null
-                ? requestRepository.findById(req.requestId()).orElse(null)
-                : null;
+        Request request = loadAuthorizedRequest(req.requestId(), sender, recipient);
         String searchedText = req.searchedText() != null && !req.searchedText().isBlank()
                 ? req.searchedText().trim()
                 : (request != null ? request.getQueryText() : null);
@@ -143,6 +141,24 @@ public class ContactService {
         return new ContactRequestDto(contact.getId(), contact.getFromEntityId(),
                 contact.getToEntityId(), contact.getRequestId(), contact.getMessage(),
                 contact.getCreatedAt());
+    }
+
+    private Request loadAuthorizedRequest(Long requestId,
+                                          DiscoveryEntity sender,
+                                          DiscoveryEntity recipient) {
+        if (requestId == null) return null;
+
+        Request request = requestRepository.findById(requestId)
+                .orElseThrow(() -> new IllegalArgumentException("Request not found"));
+        boolean senderOwnsRequest = request.getCreatedBy().equals(sender.getOwnerId());
+        boolean recipientOwnsRequest = request.getCreatedBy().equals(recipient.getOwnerId());
+        if (!senderOwnsRequest && !recipientOwnsRequest) {
+            throw new EntityAccessDeniedException();
+        }
+        if ("closed".equals(request.getStatus())) {
+            throw new IllegalArgumentException("Closed requests cannot be contacted");
+        }
+        return request;
     }
 
     /**

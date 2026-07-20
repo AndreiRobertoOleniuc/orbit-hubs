@@ -119,15 +119,16 @@ public class RequestService {
     // ─── Read ───
 
     /**
-     * Single request, publicly readable — {@code null} when it doesn't exist
-     * (→ 404). {@code mine} is resolved against the (optional) authenticated
-     * caller so the detail view can show owner controls.
+     * Single live request, publicly readable. Closed requests remain visible
+     * only to their creator. Returns {@code null} for missing or inaccessible
+     * requests (→ 404), avoiding disclosure through id enumeration.
      */
     @Transactional(readOnly = true)
     public RequestDto getRequest(Long id) {
         Request r = requestRepository.findById(id).orElse(null);
         if (r == null) return null;
         boolean mine = currentUser.userId().map(uid -> uid.equals(r.getCreatedBy())).orElse(false);
+        if ("closed".equals(r.getStatus()) && !mine) return null;
         return toDto(r, loadTags(id), mine);
     }
 
