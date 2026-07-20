@@ -13,6 +13,7 @@ import java.util.List;
  * entity's headline/org.
  */
 public record UpdateProfileMetaRequest(
+        String displayName,
         String headline,
         String orgName,
         String affiliationKind,

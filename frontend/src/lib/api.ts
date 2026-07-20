@@ -40,6 +40,7 @@ export interface UpdateAvailabilityBody {
 
 /** Body for PUT /entities/{id}/profile-meta. */
 export interface UpdateProfileMetaBody {
+  displayName: string
   headline: string | null
   orgName: string | null
   affiliationKind: AffiliationKind | null
@@ -117,6 +118,19 @@ export const apiSlice = createApi({
     getMyEntities: builder.query<EntityDto[], void>({
       query: () => "/me/entities",
       providesTags: ["MyEntities"],
+    }),
+
+    deleteEntity: builder.mutation<void, number>({
+      query: (entityId) => ({
+        url: `/entities/${entityId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, entityId) => [
+        { type: "Entity", id: entityId },
+        "MyEntities",
+        "Inbox",
+        "ContactedEntities",
+      ],
     }),
 
     // ─── Discovery search ───
@@ -433,6 +447,7 @@ export const {
   useLazyGetMeQuery,
   useGetEntityQuery,
   useGetMyEntitiesQuery,
+  useDeleteEntityMutation,
   useSearchMutation,
   useGetRegionsQuery,
   useLazySearchZefixQuery,

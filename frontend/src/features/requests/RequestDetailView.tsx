@@ -279,7 +279,7 @@ export function RequestDetailView({ requestId }: { requestId: string }) {
       <NotFoundState
         title="Anfrage nicht gefunden"
         description="Diese Anfrage existiert nicht oder wurde entfernt."
-        actionLabel="Zum Anfrage-Board"
+        actionLabel="Zu den offenen Anfragen"
         actionTo="/board"
       />
     )
@@ -307,7 +307,7 @@ export function RequestDetailView({ requestId }: { requestId: string }) {
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="size-4" />
-        {request.mine ? "Meine Anfragen" : "Anfrage-Board"}
+        {request.mine ? "Meine Anfragen" : "Offene Anfragen"}
       </Link>
 
       <div className="mt-4 rounded-xl bg-card p-7 ring-1 ring-foreground/10">

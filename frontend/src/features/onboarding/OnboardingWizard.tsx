@@ -132,7 +132,15 @@ export function OnboardingWizard() {
           onAddSource={addSource}
           onRemoveSource={removeSource}
           onDescriptionChange={setDescription}
-          onFinish={() => void run({ isOrg, firm, sources, description })}
+          onFinish={() =>
+            void run({
+              isOrg,
+              firm,
+              sources,
+              description,
+              displayName: isOrg ? firm?.name : user?.displayName || undefined,
+            })
+          }
         />
       )}
     </div>

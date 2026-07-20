@@ -48,8 +48,17 @@ export function buildZefixRequest(firm: {
   }
 }
 
-export function buildManualTextRequest(text: string): IngestionRequestDto {
-  return { sourceType: "manual_text", context: { text: text.trim() } }
+export function buildManualTextRequest(
+  text: string,
+  displayName?: string
+): IngestionRequestDto {
+  return {
+    sourceType: "manual_text",
+    context: {
+      text: text.trim(),
+      ...(displayName?.trim() ? { name: displayName.trim() } : {}),
+    },
+  }
 }
 
 /** Collapse the per-call ingestion response into one UI-facing outcome. */

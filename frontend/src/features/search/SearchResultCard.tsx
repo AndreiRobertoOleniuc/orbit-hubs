@@ -73,7 +73,6 @@ export function SearchResultCard({
   })
   const { entity, rationale, citations, distance } = result
   const collab = entity.availability?.preferredCollaboration ?? []
-  const description = rationale ?? entity.summary
   const isTopMatch = rank === 0
   const contactable = isAuthenticated && entity.claimed
   const alreadyContacted = contactedIds?.includes(entity.id) ?? false
@@ -82,7 +81,7 @@ export function SearchResultCard({
     <div
       onClick={onSelect}
       className={cn(
-        "cursor-pointer rounded-xl bg-card p-6 text-card-foreground ring-1 transition-shadow",
+        "cursor-pointer rounded-xl bg-card p-4 text-card-foreground ring-1 transition-shadow sm:p-6",
         selected
           ? "ring-2 ring-primary/60"
           : isTopMatch
@@ -90,7 +89,7 @@ export function SearchResultCard({
             : "ring-foreground/10 hover:ring-foreground/20"
       )}
     >
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col items-start gap-3 sm:flex-row sm:justify-between sm:gap-4">
         <div className="flex min-w-0 items-start gap-3">
           {/* Fixed-width rank gutter so names line up across cards */}
           <span
@@ -127,7 +126,7 @@ export function SearchResultCard({
             )}
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5 sm:shrink-0 sm:justify-end">
           {isTopMatch && (
             <Badge
               variant="outline"
@@ -141,15 +140,32 @@ export function SearchResultCard({
         </div>
       </div>
 
-      {description && (
-        <p className="mt-4 text-[15px] leading-relaxed">{description}</p>
-      )}
+      {/* Evidence-forward (spec §13.2): the plain-language "why" is the primary
+          signal — emphasized and labelled — never a percentage score. Falls
+          back to the entity summary only when no rationale was generated. */}
+      {rationale ? (
+        <div className="mt-4 rounded-lg border-l-2 border-primary/40 bg-primary/5 py-2.5 pr-3 pl-3.5">
+          <p className="text-[11px] font-semibold tracking-wide text-primary/80 uppercase">
+            Warum dieser Treffer
+          </p>
+          <p className="mt-1 text-[15px] leading-relaxed">{rationale}</p>
+        </div>
+      ) : entity.summary ? (
+        <p className="mt-4 text-[15px] leading-relaxed text-muted-foreground">
+          {entity.summary}
+        </p>
+      ) : null}
 
       {citations.length > 0 && (
-        <div className="mt-4 flex flex-wrap gap-2">
-          {citations.map((c) => (
-            <CitationChip key={c.sourceId} citation={c} />
-          ))}
+        <div className="mt-3.5">
+          <p className="mb-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+            Belege
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {citations.map((c) => (
+              <CitationChip key={c.sourceId} citation={c} />
+            ))}
+          </div>
         </div>
       )}
 
@@ -163,7 +179,7 @@ export function SearchResultCard({
         </div>
       )}
 
-      <div className="mt-5 flex items-center justify-between gap-3 border-t pt-4">
+      <div className="mt-5 flex flex-col items-stretch gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
         <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
           {distance && (
             <>
@@ -172,11 +188,16 @@ export function SearchResultCard({
             </>
           )}
         </span>
-        <span className="flex items-center gap-2">
-          <Button variant="outline" onClick={onSelect}>
+        <span className="grid grid-cols-1 gap-2 sm:flex sm:items-center">
+          <Button
+            className="w-full sm:w-auto"
+            variant="outline"
+            onClick={onSelect}
+          >
             Profil ansehen
           </Button>
           <Button
+            className="w-full sm:w-auto"
             variant={alreadyContacted ? "outline" : "default"}
             disabled={!contactable}
             title={
@@ -202,7 +223,11 @@ export function SearchResultCard({
           <ContactModal
             toEntityId={entity.id}
             toName={entity.displayName}
-            quote={`«${query}»`}
+            quote={
+              rationale
+                ? `Gesucht: «${query}»\nWarum passend: ${rationale}`
+                : `Gesucht: «${query}»`
+            }
             searchedText={query}
             open={contactOpen}
             onOpenChange={setContactOpen}

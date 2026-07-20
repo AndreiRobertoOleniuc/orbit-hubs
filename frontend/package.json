@@ -12,6 +12,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@clerk/localizations": "3.30.0",
     "@clerk/react": "6.10.0",
     "@fontsource-variable/geist": "5.2.8",
     "@reduxjs/toolkit": "2.12.0",

@@ -24,6 +24,7 @@ export interface WizardIngestInput {
   firm: FirmDraft | null
   sources: SourceDraft[]
   description: string
+  displayName?: string
 }
 
 interface JobSpec {
@@ -48,7 +49,13 @@ export function useIngestionRun() {
   const specsRef = useRef<JobSpec[]>([])
 
   const run = useCallback(
-    async ({ isOrg, firm, sources, description }: WizardIngestInput) => {
+    async ({
+      isOrg,
+      firm,
+      sources,
+      description,
+      displayName,
+    }: WizardIngestInput) => {
       // Commit exactly once — ignore double clicks on the final button.
       if (startedRef.current) return
       startedRef.current = true
@@ -80,7 +87,8 @@ export function useIngestionRun() {
           id: "manual",
           label: "Eigene Beschreibung",
           glyph: "✎",
-          exec: () => ingestRequest(buildManualTextRequest(description)),
+          exec: () =>
+            ingestRequest(buildManualTextRequest(description, displayName)),
         })
       }
 

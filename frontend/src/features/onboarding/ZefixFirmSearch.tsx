@@ -104,8 +104,9 @@ export function ZefixFirmSearch({
             onChange={(e) => setManualLoc(e.target.value)}
           />
         </div>
-        <div className="flex gap-2">
+        <div className="grid gap-2 sm:flex">
           <Button
+            className="w-full sm:w-auto"
             type="button"
             disabled={!manualName.trim()}
             onClick={() => {
@@ -119,6 +120,7 @@ export function ZefixFirmSearch({
             Übernehmen
           </Button>
           <Button
+            className="w-full sm:w-auto"
             type="button"
             variant="ghost"
             onClick={() => setManual(false)}
@@ -147,7 +149,7 @@ export function ZefixFirmSearch({
               <button
                 key={hit.uid || hit.name}
                 type="button"
-                className="flex w-full items-baseline justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-accent"
+                className="flex w-full flex-col items-start gap-0.5 px-3 py-2.5 text-left text-sm hover:bg-accent sm:flex-row sm:items-baseline sm:justify-between sm:gap-3"
                 onClick={() => {
                   onSelect({
                     name: hit.name,
@@ -160,7 +162,7 @@ export function ZefixFirmSearch({
                 }}
               >
                 <span className="truncate font-medium">{hit.name}</span>
-                <span className="shrink-0 text-xs text-muted-foreground">
+                <span className="text-xs text-muted-foreground sm:shrink-0">
                   {hit.legalSeat}
                 </span>
               </button>

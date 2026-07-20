@@ -68,7 +68,7 @@ export function SubscribedTopics({ entityId }: { entityId: number }) {
             placeholder="Thema abonnieren"
           />
         </div>
-        <div className="flex justify-end gap-2">
+        <div className="grid gap-2 sm:flex sm:justify-end">
           <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
             Abbrechen
           </Button>

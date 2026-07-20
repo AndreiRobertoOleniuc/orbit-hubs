@@ -152,7 +152,10 @@ export function IngestionRunView({
                   es oben erneut oder verlinke sie später in deinem Profil.
                 </p>
               )}
-              <Button className="min-w-60" onClick={() => navigate("/profile")}>
+              <Button
+                className="w-full sm:w-auto sm:min-w-60"
+                onClick={() => navigate("/profile")}
+              >
                 Profil ansehen
               </Button>
               <Button variant="ghost" onClick={() => navigate("/")}>

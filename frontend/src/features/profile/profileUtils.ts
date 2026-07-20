@@ -47,11 +47,6 @@ export function initials(name: string): string {
     .toUpperCase()
 }
 
-export function sourceYear(source: EntitySourceDto): string {
-  if (!source.fetchedAt) return ""
-  return new Date(source.fetchedAt).getFullYear().toString()
-}
-
 /** Only http(s) source URLs are externally linkable (not zefix:…/manual:… keys). */
 export function externalUrl(source: EntitySourceDto): string | null {
   return source.sourceUrl && /^https?:\/\//i.test(source.sourceUrl)

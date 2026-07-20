@@ -17,6 +17,7 @@ import com.orbit.app.ingestion.dto.SourceRef;
 import com.orbit.app.ingestion.website.WebsiteContentExtractor;
 import com.orbit.app.util.HashUtils;
 import com.orbit.app.controllers.dto.IngestionRequest;
+import com.orbit.domain.repository.UserRepository;
 
 /**
  * Application service for ingestion request handling. Owns URL construction,
@@ -30,10 +31,12 @@ public class IngestionService {
 
     private final IngestionOrchestrator orchestrator;
     private final CurrentUser currentUser;
+    private final UserRepository users;
 
-    public IngestionService(IngestionOrchestrator orchestrator, CurrentUser currentUser) {
+    public IngestionService(IngestionOrchestrator orchestrator, CurrentUser currentUser, UserRepository users) {
         this.orchestrator = orchestrator;
         this.currentUser = currentUser;
+        this.users = users;
     }
 
     /**
@@ -45,14 +48,23 @@ public class IngestionService {
         log.info("Ingestion request from user {}: sourceType={}, context={}",
                 ownerId, request.sourceType(), request.context());
 
-        String url = buildUrl(request);
+        Map<String, String> context = new HashMap<>(request.context());
+        if ("manual_text".equals(request.sourceType()) && ownerId != null) {
+            users.findById(ownerId)
+                    .map(user -> user.getDisplayName())
+                    .filter(name -> !name.isBlank())
+                    .ifPresent(name -> context.putIfAbsent("name", name));
+        }
+
+        IngestionRequest enrichedRequest = new IngestionRequest(request.sourceType(), context);
+        String url = buildUrl(enrichedRequest);
         String[] provenance = provenanceFor(request.sourceType());
         SourceRef ref = new SourceRef(
                 url,
                 request.sourceType(),
                 provenance[0],
                 provenance[1],
-                request.context(),
+                context,
                 ownerId
         );
 

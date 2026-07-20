@@ -49,7 +49,7 @@ export function ProfileHeader({
   const alreadyContacted = contactedIds?.includes(entity.id) ?? false
 
   return (
-    <header className="flex flex-wrap items-start gap-5">
+    <header className="flex min-w-0 flex-col items-start gap-4 sm:flex-row sm:flex-wrap sm:gap-5">
       {isOrgEntity && (
         <div
           aria-hidden="true"
@@ -58,8 +58,8 @@ export function ProfileHeader({
           {initials(entity.displayName)}
         </div>
       )}
-      <div className="min-w-56 flex-1">
-        <h2 className="text-2xl font-bold tracking-tight">
+      <div className="w-full min-w-0 flex-1 sm:w-auto">
+        <h2 className="text-2xl font-bold tracking-tight break-words">
           {entity.displayName}
         </h2>
         {entity.headline && (
@@ -110,11 +110,11 @@ export function ProfileHeader({
             <button
               type="button"
               onClick={onEditMeta}
-              aria-label="Titel, Arbeitgeber, Sprachen und Standort bearbeiten"
-              title="Kopf bearbeiten"
-              className="inline-flex size-6 items-center justify-center rounded-md border text-muted-foreground hover:bg-muted"
+              aria-label="Profilinformationen bearbeiten"
+              className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
             >
               <Pencil className="size-3" />
+              Bearbeiten
             </button>
           )}
         </div>
@@ -138,6 +138,7 @@ export function ProfileHeader({
       {showContact && (
         <>
           <Button
+            className="w-full sm:w-auto"
             variant={alreadyContacted ? "outline" : "default"}
             disabled={!contactable}
             title={

@@ -21,11 +21,11 @@ const SUPPLY_PAGES = ["/board"]
 
 const MODE_LABEL: Record<ProfileMode, string> = {
   demand: "Ich suche",
-  supply: "Ich biete",
+  supply: "Gefunden werden",
 }
 
 /**
- * The «Ich suche» / «Ich biete» mode switch — a deliberate dropdown (not a
+ * The profile mode switch is a deliberate dropdown (not a
  * one-click header toggle, which testers flipped by accident). Persists the
  * choice on the user's entity and, if the current page doesn't exist in the new
  * mode, routes to that mode's landing page. Hidden until the user has a profile.
@@ -59,19 +59,32 @@ export function ModeSwitch({ className }: { className?: string }) {
           <ChevronDown className="size-3.5 opacity-60" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" className="max-w-72">
         <DropdownMenuLabel>Modus</DropdownMenuLabel>
+        <p className="px-2 pb-1.5 text-xs leading-relaxed text-muted-foreground">
+          Bestimmt, welche Aufgaben und Seiten du siehst.
+        </p>
         <DropdownMenuCheckboxItem
           checked={mode === "demand"}
           onSelect={() => switchMode("demand")}
         >
-          Ich suche
+          <span>
+            <span className="block">Ich suche</span>
+            <span className="block text-xs text-muted-foreground">
+              Suchen &amp; Anfragen stellen
+            </span>
+          </span>
         </DropdownMenuCheckboxItem>
         <DropdownMenuCheckboxItem
           checked={mode === "supply"}
           onSelect={() => switchMode("supply")}
         >
-          Ich biete
+          <span>
+            <span className="block">Gefunden werden</span>
+            <span className="block text-xs text-muted-foreground">
+              Gefunden werden &amp; auf Anfragen antworten
+            </span>
+          </span>
         </DropdownMenuCheckboxItem>
       </DropdownMenuContent>
     </DropdownMenu>

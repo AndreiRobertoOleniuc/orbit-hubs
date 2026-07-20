@@ -1,11 +1,7 @@
 import { ExternalLink } from "lucide-react"
 
 import { SourceGlyph } from "@/components/SourceGlyph"
-import {
-  externalUrl,
-  sourceTypeInfo,
-  sourceYear,
-} from "@/features/profile/profileUtils"
+import { externalUrl, sourceTypeInfo } from "@/features/profile/profileUtils"
 import { useSetSourceActiveMutation } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import type { EntitySourceDto } from "@/types/api"
@@ -44,7 +40,6 @@ export function NachweisList({
       {visible.map((source) => {
         const info = sourceTypeInfo(source.sourceType)
         const url = externalUrl(source)
-        const year = sourceYear(source)
         const curatable = isOwner && CURATABLE_TYPES.includes(source.sourceType)
         const dimmed = isOwner && !source.active
         return (
@@ -68,11 +63,6 @@ export function NachweisList({
                 {dimmed ? " · nicht in Suche" : ""}
               </span>
             </span>
-            {year && (
-              <span className="text-xs text-muted-foreground tabular-nums">
-                {year}
-              </span>
-            )}
             {url && (
               <a
                 href={url}

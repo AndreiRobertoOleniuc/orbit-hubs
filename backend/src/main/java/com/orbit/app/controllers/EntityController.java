@@ -44,6 +44,13 @@ class EntityController {
         return entityService.getMyEntities();
     }
 
+    @DeleteMapping("/api/v1/entities/{id}")
+    ResponseEntity<Void> deleteEntity(@PathVariable Long id) {
+        return entityService.deleteEntity(id)
+                ? ResponseEntity.noContent().build()
+                : ResponseEntity.notFound().build();
+    }
+
     @PostMapping("/api/v1/entities/{id}/resync")
     ResponseEntity<ResyncResponse> resync(@PathVariable Long id) {
         ResyncResponse response = entityService.resync(id);
@@ -78,7 +85,7 @@ class EntityController {
     ResponseEntity<EntityDto> updateProfileMeta(@PathVariable Long id,
                                                  @RequestBody UpdateProfileMetaRequest request) {
         EntityDto dto = entityService.updateProfileMeta(
-                id, request.headline(), request.orgName(),
+                id, request.displayName(), request.headline(), request.orgName(),
                 request.affiliationKind(), request.languages(), request.locationLabel());
         return resolveEntityResponse(dto);
     }

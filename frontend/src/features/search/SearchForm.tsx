@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from "@/features/auth/useAuth"
 import { HubRegionSelect } from "@/features/search/HubRegionSelect"
 import { scopeHint } from "@/features/search/scopeUtils"
+import { InfoHint } from "@/components/InfoHint"
 import { useGetHubsQuery, useGetRegionsQuery } from "@/lib/api"
 import { todayIso } from "@/lib/utils"
 
@@ -45,8 +46,8 @@ export function SearchForm({
   const hint = scopeHint(scope, regions, hubs)
 
   return (
-    <div className="mx-auto max-w-2xl py-10">
-      <h1 className="mb-3 text-center text-3xl font-bold tracking-tight">
+    <div className="mx-auto max-w-2xl py-6 sm:py-10">
+      <h1 className="mb-3 text-center text-2xl font-bold tracking-tight sm:text-3xl">
         Wen suchst du?
       </h1>
       <p className="mx-auto mb-6 max-w-md text-center text-[15px] leading-relaxed text-muted-foreground">
@@ -68,20 +69,23 @@ export function SearchForm({
       />
 
       <div className="mt-4 flex flex-wrap items-end gap-4">
-        <div className="flex min-w-52 flex-1 flex-col gap-1.5">
-          <span className={CAP}>Hub / Region</span>
+        <div className="flex w-full min-w-0 flex-1 flex-col gap-1.5 sm:min-w-52">
+          <span className={`${CAP} inline-flex items-center gap-1`}>
+            Hub / Region
+            <InfoHint term="hub" />
+          </span>
           <HubRegionSelect
             value={scope}
             onChange={(v) => onChange({ scope: v })}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex w-full flex-col gap-1.5 sm:w-auto">
           <span className={CAP}>Zeitraum (optional)</span>
-          <div className="flex items-center gap-2">
+          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
             <input
               type="date"
               aria-label="Verfügbar von"
-              className={FIELD}
+              className={`${FIELD} w-full min-w-0`}
               min={todayIso()}
               max={wantTo || undefined}
               value={wantFrom}
@@ -93,24 +97,27 @@ export function SearchForm({
             <input
               type="date"
               aria-label="Verfügbar bis"
-              className={FIELD}
+              className={`${FIELD} w-full min-w-0`}
               min={wantFrom || todayIso()}
               value={wantTo}
               onChange={(e) => onChange({ wantTo: e.target.value })}
             />
           </div>
         </div>
-        <div className="flex flex-col gap-1.5">
-          <span className={CAP}>Umfang ca. %</span>
+        <div className="flex w-full flex-col gap-1.5 sm:w-auto">
+          <span className={`${CAP} inline-flex items-center gap-1`}>
+            Pensum ca. %
+            <InfoHint term="pensum" />
+          </span>
           <input
             type="number"
             min={0}
             max={100}
             step={10}
             inputMode="numeric"
-            aria-label="Umfang in Prozent"
+            aria-label="Pensum in Prozent"
             placeholder="z. B. 50"
-            className={`${FIELD} w-24`}
+            className={`${FIELD} w-full sm:w-24`}
             value={wantPensum}
             onChange={(e) => onChange({ wantPensum: e.target.value })}
           />

@@ -88,7 +88,7 @@ export function ProfilePreview({ entity, onConfirm }: ProfilePreviewProps) {
 
   return (
     <div className="space-y-4 rounded-lg border bg-card p-5">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
           Profil-Vorschau
         </span>

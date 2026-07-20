@@ -2,6 +2,7 @@ import { useState } from "react"
 import { Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { InfoHint } from "@/components/InfoHint"
 import { useGetHubsQuery, useUpdateEntityHubsMutation } from "@/lib/api"
 import { cn, sameSet } from "@/lib/utils"
 import type { EntityDto } from "@/types/api"
@@ -45,17 +46,24 @@ export function HubSelector({ entity }: { entity: EntityDto }) {
 
   if (!hubs || hubs.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
-        Noch keine Hubs verfügbar.
-      </p>
+      <div className="flex items-start gap-3 rounded-lg border border-dashed px-4 py-3 text-sm text-muted-foreground">
+        <InfoHint term="hub" label="Was ist ein Hub?" className="mt-0.5" />
+        <span>
+          Für deine Region sind noch keine Hubs hinterlegt. Sobald welche
+          verfügbar sind, kannst du deine Zugehörigkeit hier wählen.
+        </span>
+      </div>
     )
   }
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        Wähle die Hubs, denen du angehörst — sie bestimmen, in welchem Umkreis
-        dein Profil gefunden wird.
+      <p className="inline-flex items-start gap-1.5 text-sm text-muted-foreground">
+        <span>
+          Wähle die Hubs, denen du angehörst — sie bestimmen, in welchem Kreis
+          dein Profil zuerst gefunden wird.
+        </span>
+        <InfoHint term="hub" className="mt-0.5" />
       </p>
       <div className="flex flex-wrap gap-2">
         {hubs.map((hub) => {

@@ -19,7 +19,7 @@ export function AppLayout() {
   return (
     <div className="flex min-h-svh flex-col bg-background text-foreground">
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75">
-        <div className="mx-auto flex h-14 max-w-6xl items-center gap-6 px-4">
+        <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-3 sm:gap-6 sm:px-4">
           <Link to="/" aria-label="Orbit — Startseite">
             <OrbitLogo />
           </Link>
@@ -55,9 +55,20 @@ export function AppLayout() {
                 className="justify-start"
                 onNavigate={() => setMobileOpen(false)}
               />
-              <div className="mt-2 flex items-center gap-2 border-t pt-3">
-                <ModeSwitch />
-                <AuthControls />
+              <Button
+                variant="ghost"
+                size="sm"
+                asChild
+                className="justify-start"
+                onClick={() => setMobileOpen(false)}
+              >
+                <Link to="/info">So funktioniert Orbit</Link>
+              </Button>
+              <div className="mt-2 flex flex-col items-stretch gap-2 border-t pt-3 sm:flex-row sm:items-center">
+                <ModeSwitch className="w-full justify-between sm:w-auto" />
+                <div className="flex flex-wrap items-center gap-2">
+                  <AuthControls />
+                </div>
               </div>
             </nav>
           </div>
@@ -68,7 +79,7 @@ export function AppLayout() {
           the viewport edge and use the whole width on large screens */}
       <main
         className={cn(
-          "w-full flex-1 px-4 py-6",
+          "w-full min-w-0 flex-1 px-3 py-4 sm:px-4 sm:py-6",
           pathname !== "/search" && "mx-auto max-w-6xl"
         )}
       >
@@ -76,8 +87,14 @@ export function AppLayout() {
       </main>
 
       <footer className="border-t py-4">
-        <div className="mx-auto max-w-6xl px-4 text-xs text-muted-foreground">
-          Orbit — regionales Innovations-Matchmaking · FHNW P5
+        <div className="mx-auto flex max-w-6xl flex-col items-start gap-1 px-3 text-xs text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:px-4">
+          <span>Orbit — regionales Innovations-Matchmaking · FHNW P5</span>
+          <Link
+            to="/info"
+            className="font-medium text-foreground/80 underline-offset-2 hover:underline"
+          >
+            So funktioniert Orbit
+          </Link>
         </div>
       </footer>
     </div>

@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client"
 import { Provider } from "react-redux"
 
 import { ClerkProvider } from "@clerk/react"
+import { deDE } from "@clerk/localizations"
 
 import "./index.css"
 import App from "./App.tsx"
@@ -16,6 +17,7 @@ createRoot(document.getElementById("root")!).render(
       <ClerkProvider
         publishableKey={import.meta.env.VITE_CLERK_PUBLISHABLE_KEY}
         afterSignOutUrl="/"
+        localization={deDE}
       >
         <ThemeProvider defaultTheme="light" storageKey="orbit-theme">
           <AuthProvider>

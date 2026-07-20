@@ -5,6 +5,7 @@ import { ArrowLeft, Loader2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { InfoHint } from "@/components/InfoHint"
 import { TagAutocompleteInput } from "@/components/TagAutocompleteInput"
 import { HubRegionSelect } from "@/features/search/HubRegionSelect"
 import { SCOPE_ALL, decodeScope } from "@/features/search/scopeUtils"
@@ -87,7 +88,7 @@ export function CreateRequestView() {
         Anfrage ausschreiben
       </h1>
       <p className="mt-1.5 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
-        Deine Anfrage erscheint öffentlich auf dem Anfrage-Board. Passende
+        Deine Anfrage erscheint öffentlich unter «Offene Anfragen». Passende
         Profile werden benachrichtigt und können sich direkt bei dir melden.
       </p>
 
@@ -137,17 +138,17 @@ export function CreateRequestView() {
         </div>
 
         <div className="flex flex-wrap items-end gap-4">
-          <div className="flex min-w-52 flex-1 flex-col gap-1.5">
+          <div className="flex w-full min-w-0 flex-1 flex-col gap-1.5 sm:min-w-52">
             <span className={CAP}>Hub / Region</span>
             <HubRegionSelect value={scope} onChange={setScope} />
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex w-full flex-col gap-1.5 sm:w-auto">
             <span className={CAP}>Zeitraum (optional)</span>
-            <div className="flex items-center gap-2">
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
               <input
                 type="date"
                 aria-label="Von"
-                className={FIELD}
+                className={cn(FIELD, "w-full min-w-0")}
                 min={todayIso()}
                 max={wantTo || undefined}
                 value={wantFrom}
@@ -159,24 +160,27 @@ export function CreateRequestView() {
               <input
                 type="date"
                 aria-label="Bis"
-                className={FIELD}
+                className={cn(FIELD, "w-full min-w-0")}
                 min={wantFrom || todayIso()}
                 value={wantTo}
                 onChange={(e) => setWantTo(e.target.value)}
               />
             </div>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <span className={CAP}>Umfang ca. %</span>
+          <div className="flex w-full flex-col gap-1.5 sm:w-auto">
+            <span className={`${CAP} inline-flex items-center gap-1`}>
+              Pensum ca. %
+              <InfoHint term="pensum" />
+            </span>
             <input
               type="number"
               min={0}
               max={100}
               step={10}
               inputMode="numeric"
-              aria-label="Umfang in Prozent"
+              aria-label="Pensum in Prozent"
               placeholder="z. B. 50"
-              className={cn(FIELD, "w-24")}
+              className={cn(FIELD, "w-full sm:w-24")}
               value={wantPensum}
               onChange={(e) => setWantPensum(e.target.value)}
             />
@@ -226,7 +230,7 @@ export function CreateRequestView() {
           <input
             id="req-deadline"
             type="date"
-            className={cn(FIELD, "w-fit")}
+            className={cn(FIELD, "w-full sm:w-fit")}
             min={todayIso()}
             value={deadline}
             onChange={(e) => setDeadline(e.target.value)}

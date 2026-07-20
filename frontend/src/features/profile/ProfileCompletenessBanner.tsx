@@ -19,7 +19,7 @@ export function ProfileCompletenessBanner({ entity }: { entity: EntityDto }) {
 
   return (
     <div className="rounded-xl border bg-muted/40 p-4">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <p className="text-sm font-medium">
           Profil zu {pct} % · {done} von {total}
         </p>

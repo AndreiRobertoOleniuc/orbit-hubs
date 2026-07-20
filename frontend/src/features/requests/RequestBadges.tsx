@@ -1,7 +1,16 @@
 import { Building2, User } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
-import { STATUS_LABEL, URGENCY_LABEL } from "@/features/requests/requestUtils"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import {
+  STATUS_HINT,
+  STATUS_LABEL,
+  URGENCY_LABEL,
+} from "@/features/requests/requestUtils"
 import { cn } from "@/lib/utils"
 import type { EntityType, RequestStatus, RequestUrgency } from "@/types/api"
 
@@ -12,18 +21,33 @@ const STATUS_STYLE: Record<RequestStatus, string> = {
   closed: "bg-muted text-muted-foreground",
 }
 
-/** Lifecycle pill — "Offen" gets the live dot, "Geschlossen" goes quiet. */
+/**
+ * Lifecycle pill — "Offen" gets the live dot, "Geschlossen" goes quiet. Carries
+ * its own STATUS_HINT tooltip so a standalone pill (list rows, filter chips) is
+ * self-explaining, not just on the detail page.
+ */
 export function RequestStatusBadge({ status }: { status: RequestStatus }) {
   return (
-    <Badge className={cn("hover:bg-current/15", STATUS_STYLE[status])}>
-      {status === "open" && (
-        <span
-          aria-hidden="true"
-          className="size-1.5 rounded-full bg-green-600 dark:bg-green-400"
-        />
-      )}
-      {STATUS_LABEL[status]}
-    </Badge>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Badge
+          tabIndex={0}
+          className={cn(
+            "cursor-help hover:bg-current/15 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none",
+            STATUS_STYLE[status]
+          )}
+        >
+          {status === "open" && (
+            <span
+              aria-hidden="true"
+              className="size-1.5 rounded-full bg-green-600 dark:bg-green-400"
+            />
+          )}
+          {STATUS_LABEL[status]}
+        </Badge>
+      </TooltipTrigger>
+      <TooltipContent>{STATUS_HINT[status]}</TooltipContent>
+    </Tooltip>
   )
 }
 

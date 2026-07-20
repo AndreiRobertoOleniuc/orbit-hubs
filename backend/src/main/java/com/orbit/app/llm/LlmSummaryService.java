@@ -450,7 +450,7 @@ public class LlmSummaryService {
      * its sources. Called after each ingestion so the summary gets richer
      * as more sources are added.
      * <p>
-     * Produces 3-5 sentences in English that describe what the person or organization does, their expertise,
+     * Produces 3-5 sentences in German that describe what the person or organization does, their expertise,
      * and notable evidence from their sources.
      *
      * @param entityName  display name of the entity
@@ -489,7 +489,7 @@ public class LlmSummaryService {
                     - Notable projects, references, or achievements mentioned in the sources
 
                     Rules:
-                    - Write in English
+                    - Write in clear German for a Swiss audience
                     - Write in plain text (no markdown, no headers, no bullet points)
                     - Be factual — only use information from the sources below
                     - Do NOT invent specific details not present in the sources
@@ -513,7 +513,7 @@ public class LlmSummaryService {
                     - Technologies and methods they work with
 
                     Rules:
-                    - Write in English
+                    - Write in clear German for a Swiss audience
                     - Write in plain text (no markdown, no headers, no bullet points)
                     - Be factual — only use information from the sources below
                     - Do NOT invent specific details not present in the sources
@@ -663,7 +663,7 @@ public class LlmSummaryService {
                 - Tags should reflect what is actually evidenced in the sources — do NOT invent skills not mentioned
                 - For organizations, include industry/domain tags and technology tags
                 - For persons, include skill, technology, and methodology tags
-                - Tags should be in English
+                - Use German labels where a common German term exists; keep established technical terms such as React, CI/CD or IoT unchanged
                 - Do not include generic tags like "Software" or "IT" unless specifically evidenced
                 - Return ONLY the tags, one per line, no numbering, no explanations
 

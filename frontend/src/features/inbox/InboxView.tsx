@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { Link, useSearchParams } from "react-router-dom"
-import { Inbox, Loader2, Mail, Send } from "lucide-react"
+import { Check, ClipboardCopy, Inbox, Loader2, Send } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -29,17 +29,47 @@ function distributionReason(d: InboxDistributionDto): string {
     : "Verteilt, weil dein Profil zu den gesuchten Themen passt."
 }
 
-/** A revealed email as a mailto reply button (both handshake sides). */
-function EmailReply({ email, subject }: { email: string; subject?: string }) {
-  const href = `mailto:${email}${
-    subject ? `?subject=${encodeURIComponent(subject)}` : ""
-  }`
+/** Copies a revealed email address so users can continue in their own mail app. */
+function EmailCopyButton({ email }: { email: string }) {
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "error">(
+    "idle"
+  )
+
+  const copyEmail = async () => {
+    try {
+      await navigator.clipboard.writeText(email)
+      setCopyState("copied")
+      window.setTimeout(() => setCopyState("idle"), 2000)
+    } catch {
+      setCopyState("error")
+    }
+  }
+
   return (
-    <Button asChild>
-      <a href={href}>
-        <Mail className="size-4" /> {email}
-      </a>
-    </Button>
+    <div className="flex min-w-0 flex-col gap-2 sm:items-end">
+      <div className="min-w-0 text-sm">
+        <span className="text-muted-foreground">E-Mail: </span>
+        <span className="font-medium break-all select-all">{email}</span>
+      </div>
+      <Button
+        className="w-full sm:w-auto"
+        size="sm"
+        variant={copyState === "copied" ? "outline" : "default"}
+        onClick={() => void copyEmail()}
+        aria-live="polite"
+      >
+        {copyState === "copied" ? (
+          <>
+            <Check className="size-4" /> Kopiert
+          </>
+        ) : (
+          <>
+            <ClipboardCopy className="size-4" />
+            {copyState === "error" ? "Kopieren fehlgeschlagen" : "Kopieren"}
+          </>
+        )}
+      </Button>
+    </div>
   )
 }
 
@@ -54,8 +84,8 @@ function ReceivedCard({ contact }: { contact: InboxContactDto }) {
   const [respond, { isLoading }] = useRespondContactMutation()
 
   return (
-    <div className="rounded-xl bg-card p-5 ring-1 ring-foreground/10">
-      <div className="flex items-start justify-between gap-3">
+    <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10 sm:p-5">
+      <div className="flex flex-col items-start gap-3 sm:flex-row sm:justify-between">
         <div className="flex items-start gap-3">
           <span
             aria-hidden="true"
@@ -81,11 +111,6 @@ function ReceivedCard({ contact }: { contact: InboxContactDto }) {
             {ctx?.role && (
               <p className="mt-0.5 text-sm text-muted-foreground">{ctx.role}</p>
             )}
-            {ctx?.description && (
-              <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                {ctx.description}
-              </p>
-            )}
           </div>
         </div>
         <ContactStatusBadge status={contact.status} />
@@ -108,7 +133,7 @@ function ReceivedCard({ contact }: { contact: InboxContactDto }) {
         </div>
       )}
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+      <div className="mt-4 flex flex-col items-stretch gap-3 border-t pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <span className="text-xs text-muted-foreground">
           {contact.requestId != null && contact.requestTitle && (
             <>
@@ -127,7 +152,7 @@ function ReceivedCard({ contact }: { contact: InboxContactDto }) {
 
         {contact.status === "pending" ? (
           confirmDecline ? (
-            <span className="flex items-center gap-2 text-sm">
+            <span className="flex flex-col items-stretch gap-2 text-sm sm:flex-row sm:items-center">
               <span className="text-muted-foreground">Wirklich ablehnen?</span>
               <Button
                 variant="outline"
@@ -148,18 +173,29 @@ function ReceivedCard({ contact }: { contact: InboxContactDto }) {
               </Button>
             </span>
           ) : (
-            <span className="flex items-center gap-2">
-              <Button variant="ghost" onClick={() => setConfirmDecline(true)}>
-                Nicht verfügbar
+            <span className="grid grid-cols-1 gap-2 sm:flex sm:items-center">
+              <Button className="w-full sm:w-auto" variant="outline" asChild>
+                <Link to={`/profile/${contact.fromEntityId}`}>
+                  Profil ansehen
+                </Link>
               </Button>
-              <Button onClick={() => setReplyOpen(true)}>Antworten</Button>
+              <Button
+                className="w-full sm:w-auto"
+                variant="ghost"
+                onClick={() => setConfirmDecline(true)}
+              >
+                Ablehnen
+              </Button>
+              <Button
+                className="w-full sm:w-auto"
+                onClick={() => setReplyOpen(true)}
+              >
+                Antworten
+              </Button>
             </span>
           )
         ) : contact.status === "accepted" && contact.fromEmail ? (
-          <EmailReply
-            email={contact.fromEmail}
-            subject={searched ? `Re: ${searched}` : undefined}
-          />
+          <EmailCopyButton email={contact.fromEmail} />
         ) : null}
       </div>
 
@@ -178,8 +214,8 @@ function ReceivedCard({ contact }: { contact: InboxContactDto }) {
 function SentCard({ contact }: { contact: InboxSentContactDto }) {
   const name = contact.toName ?? "Unbekannt"
   return (
-    <div className="rounded-xl bg-card p-5 ring-1 ring-foreground/10">
-      <div className="flex items-start justify-between gap-3">
+    <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10 sm:p-5">
+      <div className="flex flex-col items-start gap-3 sm:flex-row sm:justify-between">
         <div className="min-w-0">
           <div className="font-medium">
             <Link
@@ -210,7 +246,7 @@ function SentCard({ contact }: { contact: InboxSentContactDto }) {
         </div>
       )}
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+      <div className="mt-4 flex flex-col items-stretch gap-3 border-t pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <span className="text-xs text-muted-foreground">
           {contact.requestId != null && contact.requestTitle && (
             <>
@@ -230,7 +266,7 @@ function SentCard({ contact }: { contact: InboxSentContactDto }) {
               `beantwortet ${relativeTime(contact.respondedAt)}`}
         </span>
         {contact.status === "accepted" && contact.toEmail && (
-          <EmailReply email={contact.toEmail} />
+          <EmailCopyButton email={contact.toEmail} />
         )}
       </div>
     </div>
@@ -247,7 +283,7 @@ function DistributionCard({
 }) {
   const title = distribution.title?.trim() || distribution.queryText
   return (
-    <div className="rounded-xl bg-card p-5 ring-1 ring-foreground/10">
+    <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10 sm:p-5">
       <div className="font-medium">
         <Link
           to={`/board/${distribution.requestId}`}
@@ -266,15 +302,16 @@ function DistributionCard({
       <p className="mt-2.5 rounded-lg bg-primary/5 px-3 py-2 text-sm text-primary/90">
         {distributionReason(distribution)}
       </p>
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+      <div className="mt-4 flex flex-col items-stretch gap-3 border-t pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <span className="text-xs text-muted-foreground">
           {distribution.notifiedAt && relativeTime(distribution.notifiedAt)}
         </span>
-        <span className="flex items-center gap-2">
-          <Button variant="outline" asChild>
+        <span className="grid grid-cols-1 gap-2 sm:flex sm:items-center">
+          <Button className="w-full sm:w-auto" variant="outline" asChild>
             <Link to={`/board/${distribution.requestId}`}>Anfrage ansehen</Link>
           </Button>
           <Button
+            className="w-full sm:w-auto"
             disabled={distribution.authorEntityId == null}
             title={
               distribution.authorEntityId == null
@@ -341,7 +378,7 @@ export function InboxView() {
   )
 
   return (
-    <div className="mx-auto max-w-3xl py-6">
+    <div className="mx-auto max-w-3xl py-4 sm:py-6">
       <h1 className="text-2xl font-bold tracking-tight">Postfach</h1>
       <p className="mt-1.5 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
         Kontaktanfragen an dich und von dir, sowie Anfragen, die zu deinem
@@ -362,7 +399,12 @@ export function InboxView() {
           </TabsTrigger>
           <TabsTrigger value="sent">Gesendet ({data.sent.length})</TabsTrigger>
           <TabsTrigger value="matched">
-            Passende Anfragen ({openDistributions.length})
+            <span className="sm:hidden">
+              Passend ({openDistributions.length})
+            </span>
+            <span className="hidden sm:inline">
+              Passende Anfragen ({openDistributions.length})
+            </span>
           </TabsTrigger>
         </TabsList>
 

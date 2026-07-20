@@ -61,15 +61,14 @@ export function SourceCard({
           </span>
           {def.guide && !added && !open && (
             <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary">
-              <ExternalLink className="size-3" />
-              So kommst du an diese Quelle — hier klicken
+              {def.upload ? "PDF-Export erklären" : `${def.title} verknüpfen`}
             </span>
           )}
         </span>
         {busy ? (
           <Loader2 className="size-4 animate-spin text-muted-foreground" />
         ) : added ? (
-          <Badge variant="secondary" className="max-w-48 gap-1">
+          <Badge variant="secondary" className="max-w-32 gap-1 sm:max-w-48">
             <Check className="size-3" />
             <span className="truncate">{added.value}</span>
             {onRemove && (
@@ -128,7 +127,7 @@ export function SourceCard({
               )}
             </div>
           )}
-          <div className="flex gap-2 px-4 py-3">
+          <div className="flex flex-col gap-2 px-4 py-3 sm:flex-row">
             {def.upload ? (
               <>
                 <input
@@ -144,7 +143,7 @@ export function SourceCard({
                 <Button
                   type="button"
                   variant="outline"
-                  className="flex-1"
+                  className="w-full sm:flex-1"
                   onClick={() => fileRef.current?.click()}
                 >
                   PDF auswählen…

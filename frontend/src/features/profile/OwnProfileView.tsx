@@ -1,9 +1,19 @@
 import { useState } from "react"
-import { Check, Plus, RefreshCw, X } from "lucide-react"
+import { Check, Plus, RefreshCw, Trash2, X } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SourceGlyph } from "@/components/SourceGlyph"
 import { PlannedSourceCard } from "@/features/ingestion/PlannedSourceCard"
@@ -27,6 +37,7 @@ import { ProfileSectionCard } from "@/features/profile/ProfileSectionCard"
 import { SubscribedTopics } from "@/features/profile/SubscribedTopics"
 import { builtFromLabels } from "@/features/profile/profileUtils"
 import {
+  useDeleteEntityMutation,
   useResyncEntityMutation,
   useUpdateEntityModeMutation,
   useUpdateEntitySummaryMutation,
@@ -74,6 +85,18 @@ export function OwnProfileView({ entity }: { entity: EntityDto }) {
   const [resyncing, setResyncing] = useState(false)
   const [resyncMessage, setResyncMessage] = useState<string | null>(null)
   const [resyncEntity] = useResyncEntityMutation()
+  const [deleteEntity, { isLoading: isDeleting }] = useDeleteEntityMutation()
+  const [deleteConfirmation, setDeleteConfirmation] = useState("")
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  const handleDelete = async () => {
+    setDeleteError(null)
+    try {
+      await deleteEntity(entity.id).unwrap()
+    } catch {
+      setDeleteError("Das Profil konnte nicht gelöscht werden.")
+    }
+  }
 
   const linkedSource = (kind: SourceKind) =>
     entity.sources.some((s) =>
@@ -161,13 +184,14 @@ export function OwnProfileView({ entity }: { entity: EntityDto }) {
 
       {!supply && (
         <p className="rounded-lg border border-dashed bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
-          Du bist im <strong className="text-foreground">Such-Modus</strong>. Um
-          gefunden zu werden, wechsle zu{" "}
+          Du bist im Modus{" "}
+          <strong className="text-foreground">«Ich suche»</strong>. Um gefunden
+          zu werden, wechsle zu{" "}
           <button
             className="font-medium text-primary hover:underline"
             onClick={switchToSupply}
           >
-            Ich biete
+            Gefunden werden
           </button>{" "}
           und setze deine Verfügbarkeit.
         </p>
@@ -181,8 +205,14 @@ export function OwnProfileView({ entity }: { entity: EntityDto }) {
           {supply && (
             <TabsTrigger value="verfuegbarkeit">Verfügbarkeit</TabsTrigger>
           )}
-          <TabsTrigger value="kompetenzen">Kompetenzen &amp; Hubs</TabsTrigger>
-          <TabsTrigger value="quellen">Quellen &amp; Nachweise</TabsTrigger>
+          <TabsTrigger value="kompetenzen">
+            <span className="sm:hidden">Kompetenzen</span>
+            <span className="hidden sm:inline">Kompetenzen &amp; Hubs</span>
+          </TabsTrigger>
+          <TabsTrigger value="quellen">
+            <span className="sm:hidden">Quellen</span>
+            <span className="hidden sm:inline">Quellen &amp; Nachweise</span>
+          </TabsTrigger>
         </TabsList>
 
         {supply && (
@@ -209,7 +239,7 @@ export function OwnProfileView({ entity }: { entity: EntityDto }) {
                     autoFocus
                     onChange={(e) => setSummaryDraft(e.target.value)}
                   />
-                  <div className="flex justify-end gap-2">
+                  <div className="grid gap-2 sm:flex sm:justify-end">
                     <Button
                       size="sm"
                       variant="ghost"
@@ -246,7 +276,7 @@ export function OwnProfileView({ entity }: { entity: EntityDto }) {
                     </p>
                   )}
                   <button
-                    className="text-xs text-primary hover:underline"
+                    className="rounded-sm text-xs text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
                     onClick={startEditSummary}
                   >
                     Text anpassen
@@ -299,7 +329,7 @@ export function OwnProfileView({ entity }: { entity: EntityDto }) {
                       </Button>
                     </span>
                   </div>
-                  <div className="flex justify-end gap-2">
+                  <div className="grid gap-2 sm:flex sm:justify-end">
                     <Button
                       size="sm"
                       variant="ghost"
@@ -360,7 +390,7 @@ export function OwnProfileView({ entity }: { entity: EntityDto }) {
                       : "manueller Eingabe"}
                   </span>
                   <button
-                    className="flex items-center gap-1 text-xs text-primary hover:underline disabled:opacity-50"
+                    className="flex min-h-10 items-center gap-1 rounded-sm text-xs text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-50"
                     onClick={() => void handleResync()}
                     disabled={resyncing || isLoading}
                     title="Quellen neu auswerten — aktualisiert Kompetenzen und Nachweise aus allen verknüpften Quellen"
@@ -390,6 +420,12 @@ export function OwnProfileView({ entity }: { entity: EntityDto }) {
         </TabsContent>
 
         <TabsContent value="quellen" className="space-y-5">
+          <p className="rounded-lg border border-dashed bg-muted/30 px-4 py-3 text-sm leading-relaxed text-muted-foreground">
+            <strong className="text-foreground">Quellen</strong> sind, was du
+            verlinkst (LinkedIn, GitHub, Website …).{" "}
+            <strong className="text-foreground">Nachweise</strong> sind die
+            zitierten Belege, die Orbit daraus für dein Profil ableitet.
+          </p>
           <ProfileSectionCard title="Deine Quellen">
             <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
               Je mehr du verlinkst, desto besser belegt ist dein Profil —
@@ -442,6 +478,71 @@ export function OwnProfileView({ entity }: { entity: EntityDto }) {
           </ProfileSectionCard>
         </TabsContent>
       </Tabs>
+
+      <div className="flex justify-end border-t pt-5">
+        <Dialog
+          onOpenChange={(open) => {
+            if (!open) {
+              setDeleteConfirmation("")
+              setDeleteError(null)
+            }
+          }}
+        >
+          <DialogTrigger asChild>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+            >
+              <Trash2 className="size-3.5" />
+              Profil löschen und neu beginnen
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Profil endgültig löschen?</DialogTitle>
+              <DialogDescription>
+                Quellen, Nachweise, Kompetenzen, Verfügbarkeit, Hubs und
+                Kontaktverläufe dieses Profils werden gelöscht. Dein Konto und
+                deine eigenen Anfragen bleiben bestehen.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-2">
+              <label
+                htmlFor="delete-confirmation"
+                className="text-sm font-medium"
+              >
+                Gib <strong>LÖSCHEN</strong> zur Bestätigung ein.
+              </label>
+              <Input
+                id="delete-confirmation"
+                value={deleteConfirmation}
+                autoComplete="off"
+                onChange={(event) => setDeleteConfirmation(event.target.value)}
+              />
+              {deleteError && (
+                <p className="text-sm text-destructive">{deleteError}</p>
+              )}
+            </div>
+
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button variant="outline" disabled={isDeleting}>
+                  Abbrechen
+                </Button>
+              </DialogClose>
+              <Button
+                variant="destructive"
+                disabled={deleteConfirmation !== "LÖSCHEN" || isDeleting}
+                onClick={() => void handleDelete()}
+              >
+                {isDeleting ? "Wird gelöscht…" : "Profil endgültig löschen"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   )
 }

@@ -1,6 +1,12 @@
+import { Fragment } from "react"
 import { Link } from "react-router-dom"
 
 import { Button } from "@/components/ui/button"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { useProfileMode } from "@/features/profile/useProfileMode"
 import { useGetInboxQuery, useGetMeQuery } from "@/lib/api"
 import { cn } from "@/lib/utils"
@@ -17,6 +23,8 @@ interface NavItem {
   match?: string[]
   /** Unread/actionable count shown as a notification badge (e.g. Postfach). */
   badge?: number
+  /** Optional hover/focus tooltip explaining an opaque nav label. */
+  hint?: string
 }
 
 /** Active when the pathname equals a prefix or is nested beneath it (`/x` or `/x/…`). */
@@ -71,15 +79,20 @@ export function NavLinks({
         { to: "/requests", label: "Meine Anfragen", match: ["/board"] }
       )
     } else {
-      items.push({ to: "/board", label: "Anfrage-Board" })
+      items.push({ to: "/board", label: "Offene Anfragen" })
     }
     // Postfach serves both modes: sent contacts + incoming requests/replies.
-    items.push({ to: "/inbox", label: "Postfach", badge: pendingReceived })
+    items.push({
+      to: "/inbox",
+      label: "Postfach",
+      badge: pendingReceived,
+      hint: "Kontaktanfragen an dich und von dir · passende Anfragen",
+    })
   } else {
     // Default nav — the token-free public surfaces
     items.push(
       { to: "/search", label: "Suche" },
-      { to: "/board", label: "Anfrage-Board" }
+      { to: "/board", label: "Offene Anfragen" }
     )
   }
   if (isAuthenticated)
@@ -88,33 +101,42 @@ export function NavLinks({
 
   return (
     <>
-      {items.map((item) => (
-        <Button
-          key={item.to}
-          variant={isActive(item, pathname) ? "secondary" : "ghost"}
-          size="sm"
-          asChild
-          className={className}
-          onClick={onNavigate}
-        >
-          <Link to={item.to}>
-            {item.label}
-            {item.badge != null && item.badge > 0 && (
-              <span
-                aria-label={`${item.badge} neue Kontaktanfragen`}
-                className={cn(
-                  "ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-xs font-semibold",
-                  isActive(item, pathname)
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-primary/15 text-primary"
-                )}
-              >
-                {item.badge}
-              </span>
-            )}
-          </Link>
-        </Button>
-      ))}
+      {items.map((item) => {
+        const button = (
+          <Button
+            variant={isActive(item, pathname) ? "secondary" : "ghost"}
+            size="sm"
+            asChild
+            className={className}
+            onClick={onNavigate}
+          >
+            <Link to={item.to}>
+              {item.label}
+              {item.badge != null && item.badge > 0 && (
+                <span
+                  aria-label={`${item.badge} neue Kontaktanfragen`}
+                  className={cn(
+                    "ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-xs font-semibold",
+                    isActive(item, pathname)
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-primary/15 text-primary"
+                  )}
+                >
+                  {item.badge}
+                </span>
+              )}
+            </Link>
+          </Button>
+        )
+
+        if (!item.hint) return <Fragment key={item.to}>{button}</Fragment>
+        return (
+          <Tooltip key={item.to}>
+            <TooltipTrigger asChild>{button}</TooltipTrigger>
+            <TooltipContent>{item.hint}</TooltipContent>
+          </Tooltip>
+        )
+      })}
     </>
   )
 }

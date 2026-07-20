@@ -4,6 +4,7 @@ import { X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { LocationInput } from "@/features/profile/LocationInput"
 import { ZefixOrgInput } from "@/features/profile/ZefixOrgInput"
 import { useUpdateProfileMetaMutation } from "@/lib/api"
 import { cn, sameSet } from "@/lib/utils"
@@ -23,6 +24,7 @@ export function ProfileMetaEditor({
   entity: EntityDto
   onClose: () => void
 }) {
+  const [displayName, setDisplayName] = useState(entity.displayName)
   const [headline, setHeadline] = useState(entity.headline ?? "")
   const [orgName, setOrgName] = useState(entity.orgName ?? "")
   const [languages, setLanguages] = useState<string[]>(entity.languages ?? [])
@@ -41,6 +43,7 @@ export function ProfileMetaEditor({
   }
 
   const dirty =
+    displayName !== entity.displayName ||
     headline !== (entity.headline ?? "") ||
     orgName !== (entity.orgName ?? "") ||
     location !== (entity.locationLabel ?? "") ||
@@ -50,6 +53,7 @@ export function ProfileMetaEditor({
     await updateProfileMeta({
       entityId: entity.id,
       body: {
+        displayName: displayName.trim(),
         headline: headline.trim() || null,
         orgName: orgName.trim() || null,
         // Zugehörigkeit was dropped from the UI; preserve any existing value.
@@ -62,7 +66,24 @@ export function ProfileMetaEditor({
   }
 
   return (
-    <div className="space-y-5 rounded-lg border bg-muted/30 p-4">
+    <div className="space-y-5 rounded-lg border bg-muted/30 p-3 sm:p-4">
+      <div className="space-y-1.5">
+        <Label htmlFor="meta-display-name" required>
+          {entity.entityType === "organization" ? "Organisationsname" : "Name"}
+        </Label>
+        <Input
+          id="meta-display-name"
+          value={displayName}
+          autoComplete="name"
+          placeholder={
+            entity.entityType === "organization"
+              ? "Name der Organisation"
+              : "Vor- und Nachname"
+          }
+          onChange={(event) => setDisplayName(event.target.value)}
+        />
+      </div>
+
       {/* Titel / Rolle */}
       <div className="space-y-1.5">
         <Label htmlFor="meta-headline">Titel / Rolle</Label>
@@ -133,23 +154,31 @@ export function ProfileMetaEditor({
 
       {/* Standort */}
       <div className="space-y-1.5">
-        <Label htmlFor="meta-location">Standort</Label>
-        <Input
+        <Label htmlFor="meta-location">Standort suchen</Label>
+        <LocationInput
           id="meta-location"
-          placeholder="z.B. Baden, AG"
           value={location}
-          onChange={(e) => setLocation(e.target.value)}
+          onChange={setLocation}
         />
+        <p className="text-xs text-muted-foreground">
+          Suche nach echten Schweizer Orten, Postleitzahlen und Adressen.
+        </p>
       </div>
 
-      <div className="flex justify-end gap-2">
-        <Button size="sm" variant="ghost" onClick={onClose}>
+      <div className="grid gap-2 sm:flex sm:justify-end">
+        <Button
+          className="w-full sm:w-auto"
+          size="sm"
+          variant="ghost"
+          onClick={onClose}
+        >
           Abbrechen
         </Button>
         <Button
+          className="w-full sm:w-auto"
           size="sm"
           onClick={() => void save()}
-          disabled={!dirty || isLoading}
+          disabled={!dirty || !displayName.trim() || isLoading}
         >
           Speichern
         </Button>

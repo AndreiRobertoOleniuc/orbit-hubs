@@ -112,8 +112,8 @@ export function ContactModal({
             </span>
             <p className="mt-3 font-semibold">Kontaktanfrage gesendet.</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              {toName} meldet sich direkt bei dir. Du findest sie unter{" "}
-              „Gesendet" in deinem Postfach.
+              {toName} meldet sich direkt bei dir. Du findest sie unter
+              «Gesendet» in deinem Postfach.
             </p>
             <div className="mt-5 flex items-center justify-center gap-2">
               <Button variant="outline" onClick={() => handleOpenChange(false)}>
@@ -161,7 +161,7 @@ export function ContactModal({
             )}
 
             {quote && (
-              <blockquote className="border-l-2 border-primary/30 pl-3 text-sm text-muted-foreground italic">
+              <blockquote className="border-l-2 border-primary/30 pl-3 text-sm leading-relaxed whitespace-pre-line text-muted-foreground">
                 {quote}
               </blockquote>
             )}

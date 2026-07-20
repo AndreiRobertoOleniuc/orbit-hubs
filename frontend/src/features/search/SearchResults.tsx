@@ -154,9 +154,9 @@ export function SearchResults({
             <div className="mx-auto mt-10 max-w-xl rounded-xl bg-card p-8 text-center ring-1 ring-foreground/10">
               <h2 className="text-xl font-bold">Kein direkter Treffer</h2>
               <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                Erstelle eine Anfrage: Sie erscheint öffentlich auf dem
-                Anfrage-Board, passende Profile werden benachrichtigt, und du
-                wirst informiert, sobald jemand reagiert.
+                Erstelle eine Anfrage: Sie erscheint öffentlich unter «Offene
+                Anfragen», passende Profile werden benachrichtigt, und du wirst
+                informiert, sobald jemand reagiert.
               </p>
               <div className="mt-6 flex flex-col items-center gap-2">
                 <WidenButton

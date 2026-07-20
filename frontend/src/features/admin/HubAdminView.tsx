@@ -128,13 +128,19 @@ export function HubAdminView() {
               </select>
             </div>
           </div>
-          <div className="flex justify-end gap-2">
+          <div className="grid gap-2 sm:flex sm:justify-end">
             {editingId != null && (
-              <Button variant="ghost" size="sm" onClick={resetForm}>
+              <Button
+                className="w-full sm:w-auto"
+                variant="ghost"
+                size="sm"
+                onClick={resetForm}
+              >
                 <X className="size-3.5" /> Abbrechen
               </Button>
             )}
             <Button
+              className="w-full sm:w-auto"
               size="sm"
               onClick={() => void submit()}
               disabled={creating || !name.trim() || regionId === ""}
@@ -159,7 +165,7 @@ export function HubAdminView() {
                 {regionHubs.map((hub) => (
                   <div
                     key={hub.id}
-                    className="flex items-center gap-3 rounded-lg border bg-card px-4 py-2.5"
+                    className="flex flex-wrap items-center gap-2 rounded-lg border bg-card px-3 py-2.5 sm:gap-3 sm:px-4"
                   >
                     <span className="min-w-0 flex-1">
                       <span className="block text-sm font-medium">

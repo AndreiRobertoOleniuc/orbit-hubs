@@ -4,6 +4,7 @@ import { AppLayout } from "@/components/layout/AppLayout"
 import { AuthGuard } from "@/features/auth/AuthGuard"
 import { AdminHubsPage } from "@/pages/AdminHubsPage"
 import { BoardPage } from "@/pages/BoardPage"
+import { HowItWorksPage } from "@/pages/HowItWorksPage"
 import { InboxPage } from "@/pages/InboxPage"
 import { MyRequestsPage } from "@/pages/MyRequestsPage"
 import { NewRequestPage } from "@/pages/NewRequestPage"
@@ -26,6 +27,7 @@ export const router = createBrowserRouter([
       // (public) — search & board are browsable without an account
       { index: true, element: <StartPage /> },
       { path: "search", element: <SearchPage /> },
+      { path: "info", element: <HowItWorksPage /> },
       { path: "board", element: <BoardPage /> },
       { path: "board/:requestId", element: <RequestDetailPage /> },
       { path: "profile/:entityId", element: <ProfilePage /> },

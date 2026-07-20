@@ -44,11 +44,11 @@ export function RequestCard({ request }: { request: RequestSummaryDto }) {
           navigate(`/board/${request.id}`)
         }
       }}
-      className="cursor-pointer rounded-xl bg-card p-6 text-card-foreground ring-1 ring-foreground/10 transition-shadow outline-none hover:ring-foreground/20 focus-visible:ring-2 focus-visible:ring-ring"
+      className="cursor-pointer rounded-xl bg-card p-4 text-card-foreground ring-1 ring-foreground/10 transition-shadow outline-none hover:ring-foreground/20 focus-visible:ring-2 focus-visible:ring-ring sm:p-6"
     >
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col items-start gap-2 sm:flex-row sm:justify-between sm:gap-4">
         <h3 className="min-w-0 font-semibold">{title}</h3>
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5 sm:shrink-0">
           <UrgencyBadge urgency={request.urgency} />
           <AuthorKindBadge type={request.authorType} />
         </div>
@@ -86,7 +86,7 @@ export function RequestCard({ request }: { request: RequestSummaryDto }) {
           orgName={request.authorOrgName}
           type={request.authorType}
         />
-        <span className="ml-auto inline-flex items-center gap-1">
+        <span className="inline-flex items-center gap-1 sm:ml-auto">
           <MapPin className="size-3.5" />
           {scopeLabel(request)}
         </span>

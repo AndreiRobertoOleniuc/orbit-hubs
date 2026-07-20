@@ -38,7 +38,7 @@ export function OwnProfilePage() {
           Verlinke deine Quellen — GitHub, ORCID, LinkedIn oder deine Website —
           und wir bauen dein Profil automatisch für dich.
         </p>
-        <Button asChild className="mt-6 min-w-52">
+        <Button asChild className="mt-6 w-full sm:w-auto sm:min-w-52">
           <Link to="/onboarding?mode=supply">Profil erstellen</Link>
         </Button>
       </div>
@@ -54,15 +54,15 @@ export function OwnProfilePage() {
 
   return (
     <div className="mx-auto max-w-2xl py-4">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-6 flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         {entities.length > 1 ? (
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex max-w-full gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
             {entities.map((e) => (
               <button
                 key={e.id}
                 type="button"
                 className={cn(
-                  "rounded-full border px-3 py-1 text-sm transition-colors",
+                  "shrink-0 rounded-full border px-3 py-1 text-sm transition-colors",
                   e.id === entity.id
                     ? "border-primary bg-primary/10 font-medium"
                     : "text-muted-foreground hover:bg-accent"
@@ -78,11 +78,18 @@ export function OwnProfilePage() {
         )}
         {supply ? (
           effectiveView === "privat" ? (
-            <Button variant="outline" onClick={() => setView("oeffentlich")}>
+            <Button
+              className="w-full sm:w-auto"
+              variant="outline"
+              onClick={() => setView("oeffentlich")}
+            >
               <Eye className="size-4" /> So sehen dich andere
             </Button>
           ) : (
-            <Button onClick={() => setView("privat")}>
+            <Button
+              className="w-full sm:w-auto"
+              onClick={() => setView("privat")}
+            >
               <Pencil className="size-4" /> Profil bearbeiten
             </Button>
           )

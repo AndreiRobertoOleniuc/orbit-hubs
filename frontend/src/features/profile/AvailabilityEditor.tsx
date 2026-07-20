@@ -3,6 +3,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { InfoHint } from "@/components/InfoHint"
 import { COLLABORATION_TYPES } from "@/features/profile/availabilityUtils"
 import { useUpdateAvailabilityMutation } from "@/lib/api"
 import { cn, sameSet, todayIso } from "@/lib/utils"
@@ -91,7 +92,7 @@ export function AvailabilityEditor({ entity }: { entity: EntityDto }) {
       {open && (
         <div className="space-y-4 border-t pt-4">
           {/* Window */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="avail-from">Verfügbar ab</Label>
               <Input
@@ -119,6 +120,7 @@ export function AvailabilityEditor({ entity }: { entity: EntityDto }) {
           <div className="space-y-1.5">
             <Label htmlFor="avail-pensum">
               Pensum: <span className="font-semibold">{pensum} %</span>
+              <InfoHint term="pensum" />
             </Label>
             <input
               id="avail-pensum"
@@ -134,7 +136,7 @@ export function AvailabilityEditor({ entity }: { entity: EntityDto }) {
 
           {/* Collaboration types */}
           <div className="space-y-1.5">
-            <Label>Offen für</Label>
+            <Label>Art der Zusammenarbeit</Label>
             <div className="flex flex-wrap gap-2">
               {COLLABORATION_TYPES.map((type) => {
                 const active = collaboration.includes(type)
@@ -155,6 +157,10 @@ export function AvailabilityEditor({ entity }: { entity: EntityDto }) {
                 )
               })}
             </div>
+            <p className="text-xs text-muted-foreground">
+              Innosuisse = staatlich geförderte Innovationsprojekte · Mandat =
+              bezahlter Auftrag.
+            </p>
           </div>
 
           {/* Note */}

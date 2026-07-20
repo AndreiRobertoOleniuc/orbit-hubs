@@ -114,7 +114,7 @@ export function BoardView() {
     text.trim() !== "" || urgency !== "all" || scope !== "all" || activeTag
 
   return (
-    <div className="mx-auto max-w-3xl py-6">
+    <div className="mx-auto max-w-3xl py-4 sm:py-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">
           Offene Anfragen aus der Region
@@ -127,7 +127,7 @@ export function BoardView() {
 
       {/* Search + filters */}
       <div className="mt-6 flex flex-wrap items-center gap-2.5">
-        <div className="relative min-w-56 flex-1">
+        <div className="relative w-full min-w-0 flex-1 sm:min-w-56">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
@@ -140,7 +140,7 @@ export function BoardView() {
         </div>
         <select
           aria-label="Nach Hub / Region filtern"
-          className={FIELD}
+          className={cn(FIELD, "w-full sm:w-auto")}
           value={scope}
           onChange={(e) => setScope(e.target.value)}
         >
@@ -153,7 +153,7 @@ export function BoardView() {
         </select>
         <select
           aria-label="Nach Dringlichkeit filtern"
-          className={FIELD}
+          className={cn(FIELD, "w-full sm:w-auto")}
           value={urgency}
           onChange={(e) => setUrgency(e.target.value as "all" | RequestUrgency)}
         >
@@ -164,7 +164,7 @@ export function BoardView() {
         </select>
         <select
           aria-label="Sortierung"
-          className={FIELD}
+          className={cn(FIELD, "w-full sm:w-auto")}
           value={sort}
           onChange={(e) => setSort(e.target.value as SortKey)}
         >

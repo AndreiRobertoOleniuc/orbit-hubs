@@ -8,7 +8,7 @@ const STATUS_STYLE: Record<
   { label: string; className: string; icon: typeof Clock }
 > = {
   pending: {
-    label: "Offen",
+    label: "Wartet auf Antwort",
     icon: Clock,
     className:
       "border-amber-300/60 bg-amber-50 text-amber-700 dark:border-amber-400/30 dark:bg-amber-950/40 dark:text-amber-300",

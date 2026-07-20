@@ -122,7 +122,7 @@ public class ManualTextAdapter implements SourceAdapter {
 
         // Name: from context, or fallback
         if (name == null || name.isBlank()) {
-            name = "Manual Entry";
+            name = "Eigenes Profil";
         }
 
         // Headline: from context, or first sentence of text
@@ -134,7 +134,7 @@ public class ManualTextAdapter implements SourceAdapter {
                         ? text.substring(0, dot)
                         : text.substring(0, Math.min(text.length(), 100));
             } else {
-                headline = "Self-described";
+                headline = "Eigene Beschreibung";
             }
         }
 

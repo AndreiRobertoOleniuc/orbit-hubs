@@ -110,6 +110,20 @@ public class EntityService {
                 .toList();
     }
 
+    // ─── Owner deletion ───
+
+    /**
+     * Permanently delete one owned entity. Database cascades remove all data
+     * belonging to the entity; the Clerk user and user-owned requests remain.
+     */
+    @Transactional
+    public boolean deleteEntity(Long id) {
+        DiscoveryEntity entity = loadOwnedEntity(id);
+        if (entity == null) return false;
+        entities.delete(entity);
+        return true;
+    }
+
     // ─── Resync ───
 
     public ResyncResponse resync(Long id) {
@@ -185,12 +199,16 @@ public class EntityService {
     // ─── Profile meta ───
 
     @Transactional
-    public EntityDto updateProfileMeta(Long id, String headline, String orgName,
+    public EntityDto updateProfileMeta(Long id, String displayName, String headline, String orgName,
                                       String affiliationKind, List<String> languages,
                                       String locationLabel) {
         DiscoveryEntity entity = loadOwnedEntity(id);
         if (entity == null) return null;
+        if (displayName == null || displayName.isBlank()) {
+            throw new IllegalArgumentException("Display name is required");
+        }
 
+        entity.setDisplayName(displayName.trim());
         entity.setHeadline(blankToNull(headline));
         entity.setOrgName(blankToNull(orgName));
         entity.setAffiliationKind(affiliationKind);
