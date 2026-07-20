@@ -1,10 +1,12 @@
 package com.orbit.app.embedding;
 
 import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
 @Service
+@ConditionalOnProperty(name = "orbit.embedding.provider", havingValue = "ollama", matchIfMissing = true)
 class OllamaEmbeddingService implements EmbeddingService {
 
     private final EmbeddingModel embeddingModel;

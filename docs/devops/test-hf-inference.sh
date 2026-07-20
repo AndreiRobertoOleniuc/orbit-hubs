@@ -8,9 +8,9 @@
 #   2. export HF_TOKEN=hf_xxxxxxxxxxxxxxxxxxxx
 #   3. bash docs/devops/test-hf-inference.sh
 #
-# Confirmed working formats (tested July 2025):
+# Confirmed working formats (tested July 20, 2026):
 #   Embedding:  {"inputs": "query: text"}              → [1024 floats]
-#   Reranker:   {"inputs": [{"text": q, "text_pair": d}]}  → [[{"label":"LABEL_0","score": 0.57}]]
+#   Reranker:   N input pairs → [[N {"label":"LABEL_0","score": 0.57} objects]]
 
 set -euo pipefail
 
@@ -24,7 +24,7 @@ if [ -z "${HF_TOKEN:-}" ]; then
   exit 1
 fi
 
-echo "🔑 Using HF token: ${HF_TOKEN:0:8}..."
+echo "🔑 HF token is set"
 echo ""
 
 # ─── 1. Embedding — query ────────────────────────────────────────────────────
@@ -145,10 +145,14 @@ try:
     print(json.dumps(result, indent=2))
     print()
 
+    # hf-inference currently wraps the complete batch in one outer array.
+    # Also accept the older per-pair nesting shape for diagnostic portability.
+    items = result[0] if len(result) == 1 and isinstance(result[0], list) else result
+
     print("Scores:")
     labels = ["GOOD", "BAD", "MID"]
     scores = []
-    for i, item in enumerate(result):
+    for i, item in enumerate(items):
         score = item[0]["score"] if isinstance(item, list) else item["score"]
         scores.append(score)
         print(f"  Doc {i} ({labels[i]}): {score:.4f}")
@@ -220,7 +224,8 @@ echo "  Response: [0.02, -0.01, ... 1024 floats]"
 echo ""
 echo "Reranker API:   POST .../models/BAAI/bge-reranker-v2-m3"
 echo "  Request:  {\"inputs\": [{\"text\": query, \"text_pair\": doc}, ...]}"
-echo "  Response: [[{\"label\": \"LABEL_0\", \"score\": 0.57}], ...]"
-echo "  Note:     Score is already sigmoid-normalized [0,1]"
-echo "            No need to apply sigmoid in Java (unlike your Python server)"
+echo "  Response: [[{\"label\": \"LABEL_0\", \"score\": 0.57}, ...]]"
+echo "  Note:     HF scores are normalized [0,1]. Orbit applies one explicit"
+echo "            compatibility sigmoid because the existing Python service"
+echo "            historically applies sigmoid twice; this preserves threshold 0.55."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

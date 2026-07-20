@@ -7,14 +7,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestClient;
 
 import com.orbit.domain.entity.DiscoveryEntity;
 
 /**
  * Cross-encoder reranker — the deterministic relevance gatekeeper.
  * <p>
- * Calls a Python microservice (BAAI/bge-reranker-v2-m3) that scores each
+ * Calls the configured BAAI/bge-reranker-v2-m3 provider, which scores each
  * (query, document) pair and returns sigmoid-normalised scores in [0, 1].
  * Candidates below {@link #relevanceThreshold} are dropped — this replaces the
  * previous LLM-based relevance filter with a deterministic, fast, industry-standard
@@ -33,23 +32,23 @@ public class CrossEncoderReranker {
 
     private static final Logger log = LoggerFactory.getLogger(CrossEncoderReranker.class);
 
-    private final RestClient rerankerClient;
+    private final CrossEncoderClient rerankerClient;
     private final double relevanceThreshold;
 
     public CrossEncoderReranker(
-            @Value("${orbit.search.reranker-url:http://localhost:8001}") String rerankerUrl,
+            CrossEncoderClient rerankerClient,
             @Value("${orbit.search.reranker-threshold:0.55}") double relevanceThreshold) {
-        this.rerankerClient = RestClient.builder().baseUrl(rerankerUrl).build();
+        this.rerankerClient = rerankerClient;
         this.relevanceThreshold = relevanceThreshold;
-        log.info("Cross-encoder reranker: url={}, threshold={}", rerankerUrl, relevanceThreshold);
+        log.info("Cross-encoder reranker: provider={}, threshold={}",
+                rerankerClient.getClass().getSimpleName(), relevanceThreshold);
     }
 
     /**
      * Re-score and filter candidates using the cross-encoder. Returns only
      * candidates whose reranker score is ≥ the threshold, sorted by score
-     * descending. Falls back to returning all candidates (unchanged order) if
-     * the reranker service is unavailable — search must never fail because the
-     * reranker is down.
+     * descending. Provider failures propagate so the API can return 503 rather
+     * than display results that did not pass the cross-encoder.
      *
      * @param query      the (translated) English query
      * @param candidates the candidates to rerank (entity + evidence)
@@ -65,41 +64,27 @@ public class CrossEncoderReranker {
                 .map(this::buildDocumentText)
                 .toList();
 
-        RerankResponse resp;
-        try {
-            resp = rerankerClient.post()
-                    .uri("/rerank")
-                    .body(new RerankRequest(query, documents))
-                    .retrieve()
-                    .body(RerankResponse.class);
-        } catch (Exception e) {
-            log.warn("Reranker service unavailable ({}), falling back to unfiltered results", e.getMessage());
-            return candidates.stream()
-                    .map(c -> new RerankResult(c, c.baseScore))
-                    .toList();
-        }
-
-        if (resp == null || resp.results() == null || resp.results().isEmpty()) {
-            log.warn("Reranker returned empty results, falling back");
-            return candidates.stream()
-                    .map(c -> new RerankResult(c, c.baseScore))
-                    .toList();
+        List<Double> scores = rerankerClient.score(query, documents);
+        if (scores.size() != candidates.size()) {
+            throw new IllegalStateException("Cross-encoder returned the wrong number of scores");
         }
 
         List<RerankResult> filtered = new ArrayList<>();
-        for (RerankScore rs : resp.results()) {
-            if (rs.score() >= relevanceThreshold) {
-                filtered.add(new RerankResult(candidates.get(rs.index()), rs.score()));
+        for (int i = 0; i < scores.size(); i++) {
+            double score = scores.get(i);
+            if (score >= relevanceThreshold) {
+                filtered.add(new RerankResult(candidates.get(i), score));
             } else {
                 log.info("Reranker dropped \"{}\" (score={} < {})",
-                        candidates.get(rs.index()).entity().getDisplayName(),
-                        String.format("%.4f", rs.score()), relevanceThreshold);
+                        candidates.get(i).entity().getDisplayName(),
+                        String.format("%.4f", score), relevanceThreshold);
             }
         }
+        filtered.sort(java.util.Comparator.comparingDouble(RerankResult::rerankerScore).reversed());
 
         log.info("Reranker: {} candidates → {} passed threshold (scores: {})",
                 candidates.size(), filtered.size(),
-                resp.results().stream().map(s -> String.format("%.3f", s.score())).toList());
+                scores.stream().map(s -> String.format("%.3f", s)).toList());
 
         return filtered;
     }
@@ -140,17 +125,6 @@ public class CrossEncoderReranker {
         String result = sb.toString();
         // Hard cap at 300 chars to avoid edge cases with very long sentences.
         return result.length() > 300 ? result.substring(0, 300) : result;
-    }
-
-    // ─── DTOs for the Python service ───
-
-    record RerankRequest(String query, List<String> documents) {
-    }
-
-    record RerankScore(int index, double score) {
-    }
-
-    record RerankResponse(List<RerankScore> results) {
     }
 
     // ─── Public records ───

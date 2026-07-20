@@ -1,6 +1,14 @@
 # Managed Embedding & Reranker Deployment Plan
 
-> **Goal:** Replace local Ollama + local Python reranker microservice with managed API providers — no GPU infrastructure, no Docker containers, no cold starts to manage.
+> **Goal:** Replace local Ollama + local Python reranker microservice in deployment
+> with managed API providers — no GPU infrastructure or model containers on the Pi.
+
+> **Phase 1 implemented and validated July 20, 2026.** The detailed proposal
+> snippets below are retained as design history. The implementation uses separate
+> provider clients, accepts the live HF response shapes, retries transient failures
+> for up to two minutes (using `estimated_time`/`Retry-After` when supplied), and
+> returns HTTP 503 rather than showing un-reranked results. HF Pro/pay-as-you-go does
+> not guarantee warm models. See `hf-migration-validation.md` for measured results.
 
 ## Current State
 
@@ -86,7 +94,7 @@ No local Ollama. No local Python server. No GPU.
 | **Embedding model** | `intfloat/multilingual-e5-large` (same) | `jina-embeddings-v3` | `embed-multilingual-v3.0` |
 | **Reranker model** | `BAAI/bge-reranker-v2-m3` (same) | `jina-reranker-v2-base-multilingual` | `rerank-multilingual-v3.0` |
 | **Dimensions** | 1024 (same model) | 1024 (configurable) | 1024 |
-| **Re-embed needed?** | ❌ No | ✅ Yes (one-time) | ✅ Yes (one-time) |
+| **Re-embed needed?** | No — validated against 30 stored passages | ✅ Yes (one-time) | ✅ Yes (one-time) |
 | **Cold starts** | 10–30s possible (model unload) | None (always warm) | None (always warm) |
 | **Latency** | ~200–500ms (CPU inference) | ~50–100ms (managed GPU) | ~50–100ms (managed GPU) |
 | **Free tier** | $0.10/mo credits (free) / $2/mo (PRO $9) | 10M tokens | 1,000 calls/mo |
@@ -99,8 +107,8 @@ No local Ollama. No local Python server. No GPU.
 ## Phase 1: Hugging Face Serverless (Testing)
 
 **When:** After initial app deployment, before first external testers.
-**Why:** Same exact models — no re-embedding, no quality regression, zero infrastructure cost.
-**Cost:** $0 (within free tier).
+**Why:** Same model family and a measured compatible vector space; no re-embedding.
+**Cost:** Usage is billed against HF credits/pay-as-you-go; it is not guaranteed to be $0.
 
 ### 1.1 — Get API token
 

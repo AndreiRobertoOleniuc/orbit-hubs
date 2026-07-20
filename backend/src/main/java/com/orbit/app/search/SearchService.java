@@ -197,6 +197,7 @@ public class SearchService {
         // ── Stage 2: Cross-encoder reranking (deterministic relevance filter) ──
 
         // 5. Cross-encoder scores each (query, candidate) pair and drops irrelevant matches.
+        //    A provider outage propagates as HTTP 503; never display un-reranked results.
         //    This replaces the previous LLM-based relevance filter — deterministic,
         //    fast (~50 ms), and specifically trained for relevance scoring.
         List<RerankCandidate> rerankInputs = strong.stream()

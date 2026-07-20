@@ -50,7 +50,7 @@ User query (German)
 │     • NO single-candidate bypass (always scores, even 1 candidate)   │
 │     • Drop candidates below relevance threshold (0.55)               │
 │     • Reorder by cross-encoder score                                 │
-│     • Graceful fallback if service is down                           │
+│     • Provider outage fails search with HTTP 503 after bounded retry │
 └──────────────────────────────────────────────────────────────────────┘
     │
     ▼
@@ -124,7 +124,7 @@ This preserves retrieval granularity ("SaaS" still helps find candidates with Sa
 
 The LLM now only **explains** matches — it never decides who gets in. This makes:
 - Ranking deterministic (same query + data = same result set)
-- Search resilient to LLM outages (results get evidence-only chips)
+- Search resilient to grounding-LLM outages (results get evidence-only chips)
 - Cost bounded (Gemini called only for top 8, in parallel)
 
 **Document text for the cross-encoder** is built from `display_name + headline + TRUNCATED summary` only — **not** the top evidence chunk, and **not** the full summary. Two refinements were added after comprehensive testing (28 queries, 13 categories):
@@ -148,12 +148,13 @@ The Gemini grounding calls for the top `rationaleTopN` (default 8) results are d
 | Failure | Behavior |
 |---------|----------|
 | Translation fails | Falls back to raw query text (search still works, quality may degrade) |
-| Reranker service down | Returns all candidates in pre-rerank order (search still works) |
+| Reranker service down | Retries transient failures, then returns HTTP 503; un-reranked results are never shown |
 | Gemini grounding fails | Returns evidence-only chips, `rationale=null` (search still works) |
 | All candidates fail similarity threshold | `sufficient=false`, frontend prompts to widen/create Anfrage |
 | All candidates fail cross-encoder | `sufficient=false`, same prompt |
 
-Search never throws — it degrades.
+Grounding degrades gracefully, while required embedding/reranking model outages
+return HTTP 503 after the configured retry deadline.
 
 ## Components
 
@@ -176,6 +177,10 @@ A separate FastAPI service (not in the Spring Boot codebase) running on port 800
 - Endpoint: `POST /rerank` with `{"query": "...", "documents": ["...", "..."]}`
 - Returns: `{"results": [{"index": 0, "score": 0.87}, ...]}`
 - Scores are sigmoid-normalized to [0, 1]
+- The local service historically applies sigmoid twice because the current
+  `sentence-transformers` prediction is already normalized. The HF provider
+  intentionally reproduces that compatibility transform so the tuned `0.55`
+  threshold and final scores do not change during the infrastructure migration.
 
 ## Config
 
@@ -183,7 +188,8 @@ A separate FastAPI service (not in the Spring Boot codebase) running on port 800
 |----------|---------|---------|
 | `orbit.search.similarity-threshold` | `0.80` | Min best-evidence similarity to keep a candidate |
 | `orbit.search.rationale-top-n` | `8` | How many top results get a Gemini rationale |
-| `orbit.search.reranker-url` | `http://localhost:8001` | Python cross-encoder service URL |
+| `orbit.search.reranker-provider` | `local` | `local` Python service or `huggingface` managed inference |
+| `orbit.search.reranker-url` | `http://localhost:8001` | Local Python cross-encoder service URL |
 | `orbit.search.reranker-threshold` | `0.55` | Min cross-encoder score to keep a candidate |
 | `orbit.search.rerank.availability-weight` | `0.3` | Soft re-rank weight for availability overlap |
 | `orbit.search.rerank.open-to-requests-weight` | `0.1` | Soft re-rank weight for open-to-requests flag |

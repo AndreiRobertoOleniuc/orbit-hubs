@@ -2,6 +2,7 @@ package com.orbit.app.controllers;
 
 import com.orbit.app.profile.EntityAccessDeniedException;
 import com.orbit.app.hub.HubAccessDeniedException;
+import com.orbit.app.inference.InferenceUnavailableException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  *   <li>{@link EntityAccessDeniedException} → 403 (entity exists, wrong owner)</li>
  *   <li>{@link HubAccessDeniedException} → 403 (hub admin action, not admin)</li>
  *   <li>{@link IllegalArgumentException} → 400 (bad request — invalid input)</li>
+ *   <li>{@link InferenceUnavailableException} → 503 (required managed model unavailable)</li>
  *   <li>Any other {@link RuntimeException} → 500 (logged, not leaked to client)</li>
  * </ul>
  */
@@ -40,6 +42,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Void> handleBadRequest(IllegalArgumentException ex) {
         return ResponseEntity.badRequest().build();
+    }
+
+    @ExceptionHandler(InferenceUnavailableException.class)
+    public ResponseEntity<Void> handleInferenceUnavailable(InferenceUnavailableException ex) {
+        log.warn("Required inference provider unavailable: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
     }
 
     @ExceptionHandler(RuntimeException.class)
