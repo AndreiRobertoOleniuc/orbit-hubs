@@ -18,6 +18,26 @@ createRoot(document.getElementById("root")!).render(
         publishableKey={import.meta.env.VITE_CLERK_PUBLISHABLE_KEY}
         afterSignOutUrl="/"
         localization={deDE}
+        appearance={{
+          cssLayerName: "clerk",
+          variables: {
+            colorPrimary: "var(--primary)",
+            colorBackground: "var(--card)",
+            colorForeground: "var(--card-foreground)",
+            colorMutedForeground: "var(--muted-foreground)",
+            colorInput: "var(--background)",
+            colorInputForeground: "var(--foreground)",
+            colorBorder: "var(--border)",
+            colorDanger: "var(--destructive)",
+            borderRadius: "var(--radius)",
+            fontFamily: "var(--font-sans)",
+          },
+          elements: {
+            cardBox: "shadow-xl shadow-black/10 dark:shadow-black/30",
+            card: "border border-border",
+            modalBackdrop: "bg-foreground/20 backdrop-blur-sm",
+          },
+        }}
       >
         <ThemeProvider defaultTheme="light" storageKey="orbit-theme">
           <AuthProvider>

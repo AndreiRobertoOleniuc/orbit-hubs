@@ -50,6 +50,7 @@
 
 /* Orbit design language: warm paper surfaces, ink text, teal accent (#0E6B5C). */
 :root {
+    color-scheme: light;
     --background: oklch(0.975 0.005 106);
     --foreground: oklch(0.22 0.01 285);
     --card: oklch(1 0 0);
@@ -85,6 +86,7 @@
 }
 
 .dark {
+    color-scheme: dark;
     --background: oklch(0.16 0.005 285);
     --foreground: oklch(0.97 0.003 106);
     --card: oklch(0.21 0.005 285);
