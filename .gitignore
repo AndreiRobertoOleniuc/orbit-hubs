@@ -2,3 +2,4 @@
 .llm-wiki/
 data/
 claude-design/
+k8s/orbit.yml
