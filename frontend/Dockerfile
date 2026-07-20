@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.7
+
 FROM node:22-alpine AS build
 
 WORKDIR /workspace
@@ -7,14 +9,15 @@ RUN npm ci
 
 COPY . .
 
-# Vite values are compiled into the static bundle. The Clerk key is public.
+# Vite values are compiled into the static bundle. The Clerk key is public,
+# but a BuildKit secret avoids persisting it in Docker build metadata.
 # An empty API base URL makes the browser call the same host at /api/v1.
 ARG VITE_API_BASE_URL=
-ARG VITE_CLERK_PUBLISHABLE_KEY
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
-ENV VITE_CLERK_PUBLISHABLE_KEY=$VITE_CLERK_PUBLISHABLE_KEY
 
-RUN test -n "$VITE_CLERK_PUBLISHABLE_KEY" && npm run build
+RUN --mount=type=secret,id=vite_clerk_publishable_key,required=true \
+    VITE_CLERK_PUBLISHABLE_KEY="$(cat /run/secrets/vite_clerk_publishable_key)" \
+    npm run build
 
 FROM nginx:1.27-alpine
 
