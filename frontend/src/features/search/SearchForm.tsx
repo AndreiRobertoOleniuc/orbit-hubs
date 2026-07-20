@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom"
-import { Lock, MapPin } from "lucide-react"
+import { Clock3, Lock, MapPin, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -9,6 +9,7 @@ import { scopeHint } from "@/features/search/scopeUtils"
 import { InfoHint } from "@/components/InfoHint"
 import { useGetHubsQuery, useGetRegionsQuery } from "@/lib/api"
 import { todayIso } from "@/lib/utils"
+import type { SearchHistoryEntry } from "@/features/search/searchSlice"
 
 const FIELD =
   "h-9 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
@@ -25,8 +26,11 @@ export interface SearchFormState {
 }
 
 interface SearchFormProps extends SearchFormState {
+  history: SearchHistoryEntry[]
   onChange: (patch: Partial<SearchFormState>) => void
   onSearch: () => void
+  onRestoreHistory: (id: string) => void
+  onRemoveHistory: (id: string) => void
 }
 
 /** The centered search entry (design: "Wen suchst du?") — query + the three filters. */
@@ -36,8 +40,11 @@ export function SearchForm({
   wantFrom,
   wantTo,
   wantPensum,
+  history,
   onChange,
   onSearch,
+  onRestoreHistory,
+  onRemoveHistory,
 }: SearchFormProps) {
   const navigate = useNavigate()
   const { isAuthenticated } = useAuth()
@@ -145,6 +152,62 @@ export function SearchForm({
       <p className="mt-4 text-center text-sm text-muted-foreground">
         Kein Konto nötig zum Suchen.
       </p>
+
+      {history.length > 0 && (
+        <section
+          className="mt-6 border-t pt-5"
+          aria-labelledby="search-history-title"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <h2
+              id="search-history-title"
+              className="inline-flex items-center gap-2 text-sm font-semibold"
+            >
+              <Clock3 className="size-4 text-muted-foreground" />
+              Letzte Suchen
+            </h2>
+            <span className="text-xs text-muted-foreground">
+              Auf diesem Gerät gespeichert
+            </span>
+          </div>
+          <div className="mt-3 space-y-2">
+            {history.map((entry) => (
+              <div
+                key={entry.id}
+                className="flex min-w-0 items-center gap-2 rounded-lg border bg-card p-2"
+              >
+                <button
+                  type="button"
+                  className="min-w-0 flex-1 rounded-md px-2 py-1.5 text-left hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+                  onClick={() => onRestoreHistory(entry.id)}
+                >
+                  <span className="block truncate text-sm font-medium">
+                    {entry.form.query}
+                  </span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    {entry.results.results.length} Treffer ·{" "}
+                    {new Intl.DateTimeFormat("de-CH", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }).format(new Date(entry.searchedAt))}
+                  </span>
+                </button>
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label={`Suche «${entry.form.query}» entfernen`}
+                  onClick={() => onRemoveHistory(entry.id)}
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="mx-auto my-8 flex max-w-sm items-center gap-4">
         <span className="h-px flex-1 bg-border" />

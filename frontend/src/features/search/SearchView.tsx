@@ -5,6 +5,9 @@ import { SearchForm, type SearchFormState } from "@/features/search/SearchForm"
 import { SearchResults } from "@/features/search/SearchResults"
 import {
   patchSearchForm,
+  removeSearchHistory,
+  restoreSearch,
+  saveCompletedSearch,
   setSearchResults,
   setSearchSubmitted,
 } from "@/features/search/searchSlice"
@@ -30,13 +33,15 @@ export function SearchView() {
   const form = useAppSelector((s) => s.search.form)
   const submitted = useAppSelector((s) => s.search.submitted)
   const persistedResults = useAppSelector((s) => s.search.results)
+  const history = useAppSelector((s) => s.search.history)
   const [runSearch, { data, isLoading, isError }] = useSearchMutation()
   const { data: regions = [] } = useGetRegionsQuery()
   const { data: hubs = [] } = useGetHubsQuery()
 
-  // Prefer this session's live mutation result; fall back to the persisted one
-  // when we've navigated back to an earlier search.
-  const results = data ?? persistedResults ?? undefined
+  // Redux is authoritative because it may contain an older history entry the
+  // user deliberately reopened. The mutation's latest response is only a
+  // fallback until it has been committed to the slice.
+  const results = persistedResults ?? data ?? undefined
 
   const patch = (p: Partial<SearchFormState>) => dispatch(patchSearchForm(p))
 
@@ -53,6 +58,13 @@ export function SearchView() {
     try {
       const res = await runSearch(body).unwrap()
       dispatch(setSearchResults(res))
+      dispatch(
+        saveCompletedSearch({
+          form: { ...form, scope: scopeValue },
+          results: res,
+          searchedAt: new Date().toISOString(),
+        })
+      )
     } catch {
       // isError surfaces the failure in SearchResults.
     }
@@ -96,8 +108,11 @@ export function SearchView() {
   return (
     <SearchForm
       {...form}
+      history={history}
       onChange={patch}
       onSearch={() => void runWith(form.scope)}
+      onRestoreHistory={(id) => dispatch(restoreSearch(id))}
+      onRemoveHistory={(id) => dispatch(removeSearchHistory(id))}
     />
   )
 }
