@@ -1,8 +1,7 @@
 import { useEffect, useState, type CSSProperties } from "react"
-import { Loader2 } from "lucide-react"
-
 import { Button } from "@/components/ui/button"
 import { ProfileSidePanel } from "@/features/search/ProfileSidePanel"
+import { SearchLoadingState } from "@/features/search/SearchLoadingState"
 import { SearchResultCard } from "@/features/search/SearchResultCard"
 import { nextWiderScope } from "@/features/search/scopeUtils"
 import { cn } from "@/lib/utils"
@@ -102,14 +101,7 @@ export function SearchResults({
             </button>
           </div>
 
-          {isLoading && (
-            <div className="flex flex-col items-center gap-4 py-24 text-center">
-              <Loader2 className="size-6 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">
-                Wir durchsuchen Profile in deinem Hub und deiner Region…
-              </p>
-            </div>
-          )}
+          {isLoading && <SearchLoadingState />}
 
           {!isLoading && isError && (
             <p className="py-16 text-center text-sm text-muted-foreground">

@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react"
-import { MapPin, X } from "lucide-react"
+import { Loader2, MapPin, X } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Skeleton } from "@/components/ui/skeleton"
 import type { FirmDraft } from "@/features/onboarding/types"
 import { useLazySearchZefixQuery } from "@/lib/api"
 
@@ -143,7 +144,28 @@ export function ZefixFirmSearch({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
-        {term.length >= 3 && (hits?.length ?? 0) > 0 && (
+        {isFetching && (
+          <Loader2 className="absolute top-1/2 right-3 size-4 -translate-y-1/2 animate-spin text-primary" />
+        )}
+        {term.length >= 3 && isFetching && (
+          <div
+            className="absolute inset-x-0 top-full z-10 mt-1 space-y-3 rounded-md border bg-popover p-3 shadow-md"
+            aria-label="Handelsregister wird durchsucht"
+          >
+            {["first", "second", "third"].map((row, index) => (
+              <div
+                key={row}
+                className="flex items-center justify-between gap-4"
+              >
+                <Skeleton
+                  className={`h-4 ${index === 1 ? "w-1/2" : "w-3/5"}`}
+                />
+                <Skeleton className="h-3 w-16" />
+              </div>
+            ))}
+          </div>
+        )}
+        {term.length >= 3 && !isFetching && (hits?.length ?? 0) > 0 && (
           <div className="absolute inset-x-0 top-full z-10 mt-1 overflow-hidden rounded-md border bg-popover shadow-md">
             {hits!.map((hit) => (
               <button
@@ -172,7 +194,7 @@ export function ZefixFirmSearch({
       </div>
       <p className="text-xs text-muted-foreground">
         {isFetching
-          ? "Suche im Handelsregister…"
+          ? "Wir gleichen den Namen mit dem Schweizer Handelsregister ab…"
           : "Abgleich mit dem Handelsregister (Zefix). Mindestens 3 Zeichen eingeben."}
       </p>
       <Button

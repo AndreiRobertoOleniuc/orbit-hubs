@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react"
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom"
-import { Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import { WizardDots } from "@/components/WizardDots"
 import type { SourceDraft, SourceKind } from "@/features/ingestion/types"
 import { IngestionRunView } from "@/features/onboarding/IngestionRunView"
@@ -67,8 +67,26 @@ export function OnboardingWizard() {
   // freshly created entity would otherwise redirect away from the progress view.
   if (entitiesLoading) {
     return (
-      <div className="flex justify-center py-24">
-        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      <div
+        className="mx-auto max-w-xl py-6"
+        aria-label="Onboarding wird vorbereitet"
+      >
+        <div className="mb-8 grid grid-cols-[1fr_auto_1fr] items-center">
+          <Skeleton className="h-8 w-16" />
+          <div className="flex gap-2">
+            <Skeleton className="size-2 rounded-full" />
+            <Skeleton className="size-2 rounded-full" />
+          </div>
+        </div>
+        <div className="space-y-3 text-center">
+          <Skeleton className="mx-auto h-7 w-56" />
+          <Skeleton className="mx-auto h-4 w-4/5" />
+          <Skeleton className="mx-auto h-4 w-3/5" />
+        </div>
+        <div className="mt-8 grid gap-3 sm:grid-cols-2">
+          <Skeleton className="h-32 rounded-xl" />
+          <Skeleton className="h-32 rounded-xl" />
+        </div>
       </div>
     )
   }
