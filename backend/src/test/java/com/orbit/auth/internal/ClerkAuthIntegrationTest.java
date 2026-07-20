@@ -23,6 +23,8 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -41,7 +43,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import(TestJwtConfiguration.class)
 @TestPropertySource(properties = {
         "spring.security.oauth2.resourceserver.jwt.issuer-uri=http://localhost",
-        "clerk.azp-origin=http://localhost:5173"
+        "clerk.azp-origin=http://localhost:5173",
+        "orbit.admin.user-ids=user_test_admin"
 })
 class ClerkAuthIntegrationTest {
 
@@ -186,6 +189,118 @@ class ClerkAuthIntegrationTest {
                 .andExpect(jsonPath("$.status").value("distributed"))
                 .andExpect(jsonPath("$.distributionCount").value(0))
                 .andExpect(jsonPath("$.mine").value(true));
+    }
+
+    @Test
+    void ownerCanManageCompleteProfileLifecycle() throws Exception {
+        String token = token("user_test_profile", "profile@orbit.test", "Profile Owner",
+                "http://localhost:5173");
+        provision(token);
+        long entityId = insertEntity("user_test_profile", "IT-Test Profile", "self_employed");
+        long sourceId = insertSourceReturningId(entityId, "manual_text");
+        long hubId = jdbc.sql("SELECT id FROM hubs ORDER BY id LIMIT 1").query(Long.class).single();
+
+        mockMvc.perform(get("/api/v1/entities/" + entityId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.displayName").value("IT-Test Profile"));
+
+        mockMvc.perform(put("/api/v1/entities/" + entityId + "/profile-meta")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"displayName":"Updated Profile","headline":"Search Engineer",
+                                 "orgName":"Orbit","affiliationKind":"self_employed",
+                                 "languages":["DE","EN"],"locationLabel":"Baden"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.displayName").value("Updated Profile"))
+                .andExpect(jsonPath("$.languages[1]").value("EN"));
+
+        mockMvc.perform(put("/api/v1/entities/" + entityId + "/availability")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"openToRequests":true,"availableFrom":"2026-08-01",
+                                 "availableTo":"2026-10-31","pensumPct":60,
+                                 "note":"Available","preferredCollaboration":["Mandat"]}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.availability.openToRequests").value(true))
+                .andExpect(jsonPath("$.availability.pensumPct").value(60));
+
+        mockMvc.perform(put("/api/v1/entities/" + entityId + "/tags")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tags\":[\"Java\",\"Semantic Search\"]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tags.length()").value(2));
+
+        mockMvc.perform(put("/api/v1/entities/" + entityId + "/subscriptions")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tags\":[\"AI\"]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].label").value("AI"));
+
+        mockMvc.perform(put("/api/v1/entities/" + entityId + "/hubs")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"hubIds\":[" + hubId + "]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.hubs[0].id").value((int) hubId));
+
+        mockMvc.perform(put("/api/v1/entities/" + entityId + "/mode")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"mode\":\"demand\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.profileMode").value("demand"));
+
+        mockMvc.perform(patch("/api/v1/entities/" + entityId + "/sources/" + sourceId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"active\":false}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sources[0].active").value(false));
+
+        mockMvc.perform(delete("/api/v1/entities/" + entityId)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(get("/api/v1/entities/" + entityId))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void adminHubCrudIsProtectedAndFunctional() throws Exception {
+        String adminToken = token("user_test_admin", "admin@orbit.test", "Admin",
+                "http://localhost:5173");
+        String userToken = token("user_test_not_admin", "user@orbit.test", "User",
+                "http://localhost:5173");
+        long regionId = jdbc.sql("SELECT id FROM regions ORDER BY id LIMIT 1").query(Long.class).single();
+
+        mockMvc.perform(get("/api/v1/admin/hubs")
+                        .header("Authorization", "Bearer " + userToken))
+                .andExpect(status().isForbidden());
+
+        String created = mockMvc.perform(post("/api/v1/admin/hubs")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"IT Test Hub\",\"slug\":\"it-test-hub\",\"hubType\":\"test\",\"regionId\":" + regionId + "}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("IT Test Hub"))
+                .andReturn().getResponse().getContentAsString();
+        long hubId = ((Number) com.jayway.jsonpath.JsonPath.read(created, "$.id")).longValue();
+
+        mockMvc.perform(put("/api/v1/admin/hubs/" + hubId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"IT Updated Hub\",\"slug\":\"it-updated-hub\",\"hubType\":\"test\",\"regionId\":" + regionId + "}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.slug").value("it-updated-hub"));
+
+        mockMvc.perform(delete("/api/v1/admin/hubs/" + hubId)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isNoContent());
     }
 
     @Test
@@ -556,14 +671,19 @@ class ClerkAuthIntegrationTest {
     }
 
     private void insertSource(long entityId, String sourceType) {
-        jdbc.sql("""
+        insertSourceReturningId(entityId, sourceType);
+    }
+
+    private long insertSourceReturningId(long entityId, String sourceType) {
+        return jdbc.sql("""
                         INSERT INTO sources (entity_id, source_type, source_url, label, provenance)
                         VALUES (:entity, :type, :url, 'Eigene Beschreibung', 'self')
-                        ON CONFLICT (source_url) DO NOTHING
+                        ON CONFLICT (source_url) DO UPDATE SET label = EXCLUDED.label
+                        RETURNING id
                         """)
                 .param("entity", entityId).param("type", sourceType)
                 .param("url", "test://" + sourceType + "/" + entityId)
-                .update();
+                .query(Long.class).single();
     }
 
     private String token(String subject, String email, String name, String azp) {
