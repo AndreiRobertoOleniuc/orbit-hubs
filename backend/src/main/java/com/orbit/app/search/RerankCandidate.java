@@ -6,6 +6,7 @@ import com.orbit.domain.entity.DiscoveryEntity;
 public record RerankCandidate(
         DiscoveryEntity entity,
         double baseScore,
+        String competenceTags,
         String topEvidence
 ) {
 }

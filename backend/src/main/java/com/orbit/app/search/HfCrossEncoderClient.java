@@ -89,12 +89,9 @@ class HfCrossEncoderClient implements CrossEncoderClient {
         if (score == null || !score.isNumber() || !Double.isFinite(score.doubleValue())) {
             throw new IllegalStateException("HF reranker returned a missing or non-numeric score");
         }
-        // sentence-transformers CrossEncoder.predict() already applies sigmoid for
-        // this one-label model, while Orbit's local Python service historically
-        // applies sigmoid once more. Preserve that established 0.55 calibration
-        // during the provider-only migration; removing the compatibility transform
-        // requires a separate threshold/quality recalibration.
-        double providerScore = score.doubleValue();
-        return 1.0 / (1.0 + Math.exp(-providerScore));
+        // The Hugging Face sentence-similarity endpoint already returns the model's
+        // normalized score. Applying sigmoid again compresses unrelated and relevant
+        // pairs toward 0.5 and makes a meaningful threshold impossible to calibrate.
+        return score.doubleValue();
     }
 }

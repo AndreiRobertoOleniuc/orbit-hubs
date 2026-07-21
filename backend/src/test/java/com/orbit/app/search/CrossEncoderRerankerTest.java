@@ -36,9 +36,20 @@ class CrossEncoderRerankerTest {
                 .isInstanceOf(InferenceUnavailableException.class);
     }
 
+    @Test
+    void includesMatchingEvidenceInRerankerDocument() {
+        CrossEncoderReranker reranker = new CrossEncoderReranker((query, documents) -> {
+            assertThat(documents).singleElement().asString()
+                    .contains("First sentence", "Matching evidence: evidence");
+            return List.of(0.9);
+        }, 0.55);
+
+        reranker.rerank("security", List.of(candidate("A")));
+    }
+
     private static RerankCandidate candidate(String name) {
         DiscoveryEntity entity = new DiscoveryEntity("person", name, "Researcher", null);
         entity.setSummary("First sentence. Second sentence. Third sentence. Fourth sentence.");
-        return new RerankCandidate(entity, 0.5, "evidence");
+        return new RerankCandidate(entity, 0.5, "Tag A, Tag B", "evidence");
     }
 }

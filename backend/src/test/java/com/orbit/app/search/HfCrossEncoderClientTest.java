@@ -25,17 +25,17 @@ class HfCrossEncoderClientTest {
     void parsesObservedSingleBatchShape() throws Exception {
         assertThat(client.parseScores(mapper.readTree("""
                 [[{"label":"LABEL_0","score":0.8},{"label":"LABEL_0","score":0.1}]]
-                """), 2)).containsExactly(sigmoid(0.8), sigmoid(0.1));
+                """), 2)).containsExactly(0.8, 0.1);
     }
 
     @Test
     void parsesPerPairNestedAndFlatShapes() throws Exception {
         assertThat(client.parseScores(mapper.readTree("""
                 [[{"score":0.8}],[{"score":0.1}]]
-                """), 2)).containsExactly(sigmoid(0.8), sigmoid(0.1));
+                """), 2)).containsExactly(0.8, 0.1);
         assertThat(client.parseScores(mapper.readTree("""
                 [{"score":0.8},{"score":0.1}]
-                """), 2)).containsExactly(sigmoid(0.8), sigmoid(0.1));
+                """), 2)).containsExactly(0.8, 0.1);
     }
 
     @Test
@@ -46,7 +46,4 @@ class HfCrossEncoderClientTest {
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("score");
     }
 
-    private static double sigmoid(double value) {
-        return 1.0 / (1.0 + Math.exp(-value));
-    }
 }

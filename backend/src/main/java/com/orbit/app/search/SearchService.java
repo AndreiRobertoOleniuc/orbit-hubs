@@ -199,7 +199,8 @@ public class SearchService {
         //    This replaces the previous LLM-based relevance filter — deterministic,
         //    fast (~50 ms), and specifically trained for relevance scoring.
         List<RerankCandidate> rerankInputs = strong.stream()
-                .map(c -> new RerankCandidate(c.entity, c.base, topEvidenceText(c)))
+                .map(c -> new RerankCandidate(
+                        c.entity, c.base, fetchCompetenceTags(c.entity.getId()), topEvidenceText(c)))
                 .toList();
         List<RerankResult> reranked = crossEncoderReranker.rerank(condensedQuery, rerankInputs);
 
@@ -335,6 +336,20 @@ public class SearchService {
                 .map(Evidence::content)
                 .findFirst()
                 .orElse(null);
+    }
+
+    private String fetchCompetenceTags(Long entityId) {
+        @SuppressWarnings("unchecked")
+        List<String> labels = em.createNativeQuery("""
+                SELECT t.label
+                FROM entity_tags et
+                JOIN tags t ON t.id = et.tag_id
+                WHERE et.entity_id = ?
+                ORDER BY t.label
+                """, String.class)
+                .setParameter(1, entityId)
+                .getResultList();
+        return String.join(", ", labels);
     }
 
     // ─── Evidence ───

@@ -35,7 +35,7 @@ public class CrossEncoderReranker {
 
     public CrossEncoderReranker(
             CrossEncoderClient rerankerClient,
-            @Value("${orbit.search.reranker-threshold:0.55}") double relevanceThreshold) {
+            @Value("${orbit.search.reranker-threshold:0.04}") double relevanceThreshold) {
         this.rerankerClient = rerankerClient;
         this.relevanceThreshold = relevanceThreshold;
         log.info("Cross-encoder reranker: provider={}, threshold={}",
@@ -94,13 +94,20 @@ public class CrossEncoderReranker {
         if (c.entity().getHeadline() != null && !c.entity().getHeadline().isBlank()) {
             sb.append(": ").append(c.entity().getHeadline());
         }
+        if (c.competenceTags() != null && !c.competenceTags().isBlank()) {
+            sb.append(". Expertise: ").append(c.competenceTags());
+        }
         if (c.entity().getSummary() != null && !c.entity().getSummary().isBlank()) {
             sb.append(". ").append(truncateSummary(c.entity().getSummary()));
         }
-        // Evidence chunks are NOT appended — testing showed they dilute the
-        // cross-encoder signal (methodology/acronym noise pushes scores toward
-        // neutral). The chunk is still used downstream for grounding/citations.
+        if (c.topEvidence() != null && !c.topEvidence().isBlank()) {
+            sb.append(" Matching evidence: ").append(truncate(c.topEvidence(), 500));
+        }
         return sb.toString();
+    }
+
+    private String truncate(String value, int maxLength) {
+        return value.length() > maxLength ? value.substring(0, maxLength) : value;
     }
 
     /**

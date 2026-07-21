@@ -93,16 +93,22 @@ class SearchServiceTest {
 
         Query retrieval = mock(Query.class);
         Query evidence = mock(Query.class);
+        Query tags = mock(Query.class);
         when(entityManager.createNativeQuery(org.mockito.ArgumentMatchers.anyString()))
                 .thenReturn(retrieval, evidence);
+        when(entityManager.createNativeQuery(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.eq(String.class))).thenReturn(tags);
         when(retrieval.setParameter(org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any()))
                 .thenReturn(retrieval);
         when(evidence.setParameter(org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any()))
                 .thenReturn(evidence);
+        when(tags.setParameter(org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(tags);
         when(retrieval.getResultList()).thenReturn(List.<Object[]>of(new Object[]{7L, 0.8d}));
         when(evidence.getResultList()).thenReturn(List.<Object[]>of(
                 new Object[]{9L, "github", "github.com/ada/orbit", "https://github.com/ada/orbit",
                         "Java Spring semantic search", -0.92d}));
+        when(tags.getResultList()).thenReturn(List.of("Java", "Spring Boot"));
 
         DiscoveryEntity entity = new DiscoveryEntity("person", "Ada", "Engineer", null);
         var id = DiscoveryEntity.class.getDeclaredField("id");

@@ -57,7 +57,7 @@ orbit:
     # deployment can use Hugging Face without running a local GPU model.
     reranker-provider: ${RERANKER_PROVIDER:huggingface}
     reranker-url: ${ORBIT_SEARCH_RERANKER_URL:http://localhost:8001}
-    reranker-threshold: ${ORBIT_SEARCH_RERANKER_THRESHOLD:0.55}
+    reranker-threshold: ${ORBIT_SEARCH_RERANKER_THRESHOLD:0.04}
   requests:
     # Urgency-driven escalation of distributed requests (§8.3). ISO-8601
     # durations; shrink via env for demos (e.g. ORBIT_REQUESTS_URGENT_ESCALATE_AFTER=PT2M).
