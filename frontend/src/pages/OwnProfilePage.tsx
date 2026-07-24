@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Link } from "react-router-dom"
+import { Link, Navigate } from "react-router-dom"
 import { Eye, Pencil } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -46,6 +46,10 @@ export function OwnProfilePage() {
   }
 
   const entity = entities.find((e) => e.id === selectedId) ?? entities[0]
+
+  if (entity.status === "draft") {
+    return <Navigate to={`/onboarding?mode=${entity.profileMode}`} replace />
+  }
 
   // Demand profiles have no public preview (spec §5.1) — force the private view
   // and hide the Ansicht toggle.

@@ -15,6 +15,8 @@ export interface MeDto {
 export interface IngestionRequestDto {
   sourceType: string
   context: Record<string, string>
+  onboardingDraft?: boolean
+  profileMode?: ProfileMode
 }
 
 export type IngestionResultStatus = "INGESTED" | "SKIPPED" | "ERROR"
@@ -122,6 +124,7 @@ export interface OrgLinkDto {
 
 /** Which mode the profile is presented in — set by the onboarding fork. */
 export type ProfileMode = "supply" | "demand"
+export type EntityStatus = "draft" | "active" | "inactive"
 
 export interface EntityDto {
   id: number
@@ -130,7 +133,7 @@ export interface EntityDto {
   headline: string | null
   orgName: string | null
   summary: string | null
-  status: string
+  status: EntityStatus
   profileMode: ProfileMode
   metadata: Record<string, unknown> | null
   createdAt: string | null

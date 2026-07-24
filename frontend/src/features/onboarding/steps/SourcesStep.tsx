@@ -160,7 +160,7 @@ export function SourcesStep({
       </div>
 
       <Button className="mt-6 w-full" disabled={!canFinish} onClick={onFinish}>
-        {supply ? "Profil erstellen" : "Weiter"}
+        Quellen einlesen
       </Button>
       {!canFinish && (
         <p className="mt-3 text-center text-sm text-muted-foreground">

@@ -10,6 +10,7 @@ import {
   useUploadLinkedInPdfMutation,
 } from "@/lib/api"
 import type { IngestionRequestDto } from "@/types/api"
+import type { ProfileMode } from "@/types/api"
 
 const FAILED: IngestOutcome = {
   status: "error",
@@ -43,17 +44,31 @@ export function useSourceIngestion() {
       kind: SourceKind,
       value: string,
       file: File | undefined,
-      options: { org: boolean }
+      options: {
+        org: boolean
+        onboardingDraft?: boolean
+        profileMode?: ProfileMode
+      }
     ): Promise<IngestOutcome> => {
       if (kind === "linkedin") {
         if (!file) return FAILED
         try {
-          return summarizeIngestion(await uploadLinkedInPdf(file).unwrap())
+          return summarizeIngestion(
+            await uploadLinkedInPdf({
+              file,
+              onboardingDraft: options.onboardingDraft,
+              profileMode: options.profileMode,
+            }).unwrap()
+          )
         } catch {
           return FAILED
         }
       }
-      return ingestRequest(buildSourceRequest(kind, value, options))
+      return ingestRequest({
+        ...buildSourceRequest(kind, value, options),
+        onboardingDraft: options.onboardingDraft,
+        profileMode: options.profileMode,
+      })
     },
     [ingestRequest, uploadLinkedInPdf]
   )

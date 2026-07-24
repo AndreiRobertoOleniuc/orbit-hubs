@@ -124,7 +124,9 @@ public class OpenAlexAdapter implements SourceAdapter {
                     "harvested",
                     "public_data",
                     context,
-                    ref.ownerId()
+                    ref.ownerId(),
+                    ref.onboardingDraft(),
+                    ref.profileMode()
             ));
         }
 

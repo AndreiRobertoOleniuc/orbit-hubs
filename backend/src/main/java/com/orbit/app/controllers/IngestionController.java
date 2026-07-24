@@ -33,7 +33,10 @@ public class IngestionController {
     }
 
     @PostMapping("/linkedin-pdf")
-    public Map<String, Object> uploadLinkedInPdf(@RequestParam("file") MultipartFile file) {
-        return ingestionService.ingestLinkedInPdf(file);
+    public Map<String, Object> uploadLinkedInPdf(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "onboardingDraft", defaultValue = "false") boolean onboardingDraft,
+            @RequestParam(value = "profileMode", required = false) String profileMode) {
+        return ingestionService.ingestLinkedInPdf(file, onboardingDraft, profileMode);
     }
 }

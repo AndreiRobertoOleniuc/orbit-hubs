@@ -271,6 +271,62 @@ class ClerkAuthIntegrationTest {
     }
 
     @Test
+    void draftProfileStaysPrivateUntilEvidenceIsSelectedAndPublished() throws Exception {
+        String ownerToken = token("user_test_draft", "draft@orbit.test", "Draft Owner",
+                "http://localhost:5173");
+        String otherToken = token("user_test_draft_other", "other-draft@orbit.test", "Other",
+                "http://localhost:5173");
+        provision(ownerToken);
+        provision(otherToken);
+
+        long entityId = insertEntity("user_test_draft", "IT-Test Draft", "self_employed");
+        jdbc.sql("UPDATE entities SET status='draft', summary='Reviewed expertise' WHERE id=:id")
+                .param("id", entityId).update();
+        long sourceId = insertSourceReturningId(entityId, "github");
+        jdbc.sql("UPDATE sources SET active=false WHERE id=:id").param("id", sourceId).update();
+        long tagId = insertTag("draft-skill", "Draft Skill");
+        jdbc.sql("INSERT INTO entity_tags (entity_id, tag_id, origin) VALUES (:e, :t, 'manual')")
+                .param("e", entityId).param("t", tagId).update();
+
+        mockMvc.perform(get("/api/v1/entities/" + entityId))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/v1/entities/" + entityId)
+                        .header("Authorization", "Bearer " + otherToken))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/v1/entities/" + entityId)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("draft"));
+
+        mockMvc.perform(post("/api/v1/entities/" + entityId + "/publish")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(put("/api/v1/entities/" + entityId + "/sources/selection")
+                        .header("Authorization", "Bearer " + otherToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"activeSourceIds\":[" + sourceId + "]}"))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(put("/api/v1/entities/" + entityId + "/sources/selection")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"activeSourceIds\":[" + sourceId + "]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sources[0].active").value(true))
+                .andExpect(jsonPath("$.status").value("draft"));
+
+        mockMvc.perform(post("/api/v1/entities/" + entityId + "/publish")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("active"));
+
+        mockMvc.perform(get("/api/v1/entities/" + entityId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.displayName").value("IT-Test Draft"));
+    }
+
+    @Test
     void adminHubCrudIsProtectedAndFunctional() throws Exception {
         String adminToken = token("user_test_admin", "admin@orbit.test", "Admin",
                 "http://localhost:5173");

@@ -13,6 +13,7 @@ import com.orbit.app.controllers.dto.UpdateProfileMetaRequest;
 import com.orbit.app.controllers.dto.UpdateSubscriptionsRequest;
 import com.orbit.app.controllers.dto.UpdateSummaryRequest;
 import com.orbit.app.controllers.dto.UpdateTagsRequest;
+import com.orbit.app.controllers.dto.UpdateSourceSelectionRequest;
 import com.orbit.app.profile.EntityService;
 
 import org.springframework.http.ResponseEntity;
@@ -110,6 +111,20 @@ class EntityController {
                                               @PathVariable Long sourceId,
                                               @RequestBody SetSourceActiveRequest request) {
         EntityDto dto = entityService.setSourceActive(entityId, sourceId, request.active());
+        return resolveEntityResponse(dto);
+    }
+
+    @PutMapping("/api/v1/entities/{entityId}/sources/selection")
+    ResponseEntity<EntityDto> replaceSourceSelection(
+            @PathVariable Long entityId,
+            @RequestBody UpdateSourceSelectionRequest request) {
+        EntityDto dto = entityService.replaceSourceSelection(entityId, request.activeSourceIds());
+        return resolveEntityResponse(dto);
+    }
+
+    @PostMapping("/api/v1/entities/{entityId}/publish")
+    ResponseEntity<EntityDto> publish(@PathVariable Long entityId) {
+        EntityDto dto = entityService.publish(entityId);
         return resolveEntityResponse(dto);
     }
 

@@ -9,7 +9,6 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.orbit.app.ingestion.dto.SourceContent;
@@ -28,7 +27,7 @@ import com.orbit.domain.repository.TagRepository;
 
 /**
  * Post-ingestion enrichment: re-generates the entity's competence summary and
- * derives tags from ALL its sources after each ingestion.
+ * derives tags from its active sources after each ingestion.
  * <p>
  * This implements step 7 of the reference doc §4.2 ingestion algorithm:
  * <ul>
@@ -41,7 +40,7 @@ import com.orbit.domain.repository.TagRepository;
  * Manual tags ({@code origin='manual'}) are sticky — they are never removed by
  * re-derivation. User edits that promote a derived tag to manual are preserved.
  * <p>
- * The summary is re-generated from scratch each time, aggregating all sources,
+ * The summary is re-generated from scratch each time, aggregating active sources,
  * so it gets richer as more sources are ingested.
  */
 @Service
@@ -86,7 +85,7 @@ public class EntityEnrichmentService {
      *
      * @param entityId the entity to enrich
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional
     public void enrich(Long entityId) {
         DiscoveryEntity entity = entities.findById(entityId).orElse(null);
         if (entity == null) {
@@ -174,14 +173,15 @@ public class EntityEnrichmentService {
      * {@code raw_content} field.
      */
     private List<SourceContent> gatherSourceContents(Long entityId) {
-        List<Source> entitySources = sources.findByEntityIdOrderByCreatedAtAsc(entityId);
+        List<Source> entitySources = sources.findByEntityIdAndActiveTrueOrderByCreatedAtAsc(entityId);
         if (entitySources.isEmpty()) {
-            log.warn("Enrichment: entity #{} has no sources", entityId);
+            log.warn("Enrichment: entity #{} has no active sources", entityId);
             return List.of();
         }
 
         // Load chunk content WITHOUT embeddings (lightweight query)
-        List<Object[]> chunkRows = chunks.findContentByEntityId(entityId);
+        List<Long> activeSourceIds = entitySources.stream().map(Source::getId).toList();
+        List<Object[]> chunkRows = chunks.findContentBySourceIds(activeSourceIds);
         Map<Long, List<String>> contentBySource = new HashMap<>();
         for (Object[] row : chunkRows) {
             String content = (String) row[0];

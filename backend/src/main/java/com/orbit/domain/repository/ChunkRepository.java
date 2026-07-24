@@ -28,4 +28,8 @@ public interface ChunkRepository extends JpaRepository<Chunk, Long> {
      */
     @Query("select c.content, c.sourceId from Chunk c where c.entityId = :entityId order by c.sourceId asc, c.chunkIndex asc")
     List<Object[]> findContentByEntityId(@Param("entityId") Long entityId);
+
+    /** Chunk text for the explicitly active source ids used during profile enrichment. */
+    @Query("select c.content, c.sourceId from Chunk c where c.sourceId in :sourceIds order by c.sourceId asc, c.chunkIndex asc")
+    List<Object[]> findContentBySourceIds(@Param("sourceIds") List<Long> sourceIds);
 }

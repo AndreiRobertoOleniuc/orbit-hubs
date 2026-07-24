@@ -45,6 +45,7 @@ public class IngestionService {
      * to the orchestrator, and returns a summary map.
      */
     public Map<String, Object> ingest(IngestionRequest request) {
+        validateProfileMode(request.createsDraft(), request.profileMode());
         String ownerId = currentUser.userId().orElse(null);
         log.info("Ingestion request from user {}: sourceType={}, context={}",
                 ownerId, request.sourceType(), request.context());
@@ -57,7 +58,8 @@ public class IngestionService {
                     .ifPresent(name -> context.putIfAbsent("name", name));
         }
 
-        IngestionRequest enrichedRequest = new IngestionRequest(request.sourceType(), context);
+        IngestionRequest enrichedRequest = new IngestionRequest(
+                request.sourceType(), context, request.onboardingDraft(), request.profileMode());
         String url = buildUrl(enrichedRequest);
         String[] provenance = provenanceFor(request.sourceType());
         SourceRef ref = new SourceRef(
@@ -66,7 +68,9 @@ public class IngestionService {
                 provenance[0],
                 provenance[1],
                 context,
-                ownerId
+                ownerId,
+                request.createsDraft(),
+                request.profileMode()
         );
 
         List<IngestionResult> results = orchestrator.ingestMulti(ref);
@@ -78,9 +82,14 @@ public class IngestionService {
      * content-hash-based SourceRef for idempotency, ingests, and cleans up.
      */
     public Map<String, Object> ingestLinkedInPdf(MultipartFile file) {
+        return ingestLinkedInPdf(file, false, null);
+    }
+
+    public Map<String, Object> ingestLinkedInPdf(MultipartFile file, boolean onboardingDraft, String profileMode) {
         if (file.isEmpty()) {
             throw new IllegalArgumentException("File is empty");
         }
+        validateProfileMode(onboardingDraft, profileMode);
 
         log.info("LinkedIn PDF upload: filename={}, size={} bytes",
                 file.getOriginalFilename(), file.getSize());
@@ -102,7 +111,9 @@ public class IngestionService {
                     "user_supplied",
                     "user_consent",
                     context,
-                    ownerId
+                    ownerId,
+                    onboardingDraft,
+                    profileMode
             );
 
             List<IngestionResult> results = orchestrator.ingestMulti(ref);
@@ -132,6 +143,13 @@ public class IngestionService {
     }
 
     // ─── Helpers ───
+
+    private static void validateProfileMode(boolean onboardingDraft, String profileMode) {
+        if (!onboardingDraft) return;
+        if (!"supply".equals(profileMode) && !"demand".equals(profileMode)) {
+            throw new IllegalArgumentException("Onboarding profile mode must be supply or demand");
+        }
+    }
 
     public Map<String, Object> summarizeResults(String sourceType, List<IngestionResult> results) {
         int totalChunks = results.stream().mapToInt(IngestionResult::chunkCount).sum();

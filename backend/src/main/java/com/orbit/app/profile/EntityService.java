@@ -3,11 +3,14 @@ package com.orbit.app.profile;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import com.orbit.app.auth.CurrentUser;
 import com.orbit.app.ingestion.EntityLinkResolver;
+import com.orbit.app.ingestion.EntityEnrichmentService;
 import com.orbit.app.ingestion.IngestionOrchestrator;
 import com.orbit.app.ingestion.dto.IngestionStatus;
 import com.orbit.app.util.HubDtos;
@@ -67,6 +70,7 @@ public class EntityService {
     private final TagSubscriptionRepository subscriptionRepo;
     private final EntityLinkRepository entityLinkRepo;
     private final EntityLinkResolver linkResolver;
+    private final EntityEnrichmentService enrichmentService;
     private final IngestionOrchestrator orchestrator;
     private final CurrentUser currentUser;
 
@@ -77,6 +81,7 @@ public class EntityService {
                          TagSubscriptionRepository subscriptionRepo,
                          EntityLinkRepository entityLinkRepo,
                          EntityLinkResolver linkResolver,
+                         EntityEnrichmentService enrichmentService,
                          IngestionOrchestrator orchestrator,
                          CurrentUser currentUser) {
         this.entities = entities;
@@ -89,6 +94,7 @@ public class EntityService {
         this.subscriptionRepo = subscriptionRepo;
         this.entityLinkRepo = entityLinkRepo;
         this.linkResolver = linkResolver;
+        this.enrichmentService = enrichmentService;
         this.orchestrator = orchestrator;
         this.currentUser = currentUser;
     }
@@ -97,6 +103,7 @@ public class EntityService {
 
     public EntityDto getEntity(Long id) {
         return entities.findById(id)
+                .filter(entity -> "active".equals(entity.getStatus()) || isOwner(entity))
                 .map(this::toDto)
                 .orElse(null);
     }
@@ -247,6 +254,56 @@ public class EntityService {
         return toDto(entity);
     }
 
+    /**
+     * Replace the selected GitHub repositories and ORCID works in one action,
+     * then regenerate the derived profile from the resulting active evidence.
+     */
+    @Transactional
+    public EntityDto replaceSourceSelection(Long entityId, List<Long> activeSourceIds) {
+        DiscoveryEntity entity = loadOwnedEntity(entityId);
+        if (entity == null) return null;
+
+        List<Source> entitySources = sources.findByEntityIdOrderByCreatedAtAsc(entityId);
+        Set<Long> requested = new HashSet<>(activeSourceIds == null ? List.of() : activeSourceIds);
+        Set<Long> curatableIds = entitySources.stream()
+                .filter(source -> isCuratable(source.getSourceType()))
+                .map(Source::getId)
+                .collect(java.util.stream.Collectors.toSet());
+        if (!curatableIds.containsAll(requested)) {
+            throw new IllegalArgumentException("Source selection contains an unknown or non-curatable source");
+        }
+
+        for (Source source : entitySources) {
+            if (isCuratable(source.getSourceType())) {
+                source.setActive(requested.contains(source.getId()));
+            }
+        }
+        if (entitySources.stream().noneMatch(Source::isActive)) {
+            throw new IllegalArgumentException("At least one active evidence source is required");
+        }
+
+        sources.saveAll(entitySources);
+        sources.flush();
+        enrichmentService.enrich(entityId);
+        return toDto(entities.findById(entityId).orElse(entity));
+    }
+
+    /** Validate the onboarding essentials and make a draft profile public. */
+    @Transactional
+    public EntityDto publish(Long entityId) {
+        DiscoveryEntity entity = loadOwnedEntity(entityId);
+        if (entity == null) return null;
+        if ("active".equals(entity.getStatus())) return toDto(entity);
+        if (!"draft".equals(entity.getStatus())) {
+            throw new IllegalArgumentException("Only draft profiles can be published");
+        }
+
+        validatePublishable(entity);
+        entity.setStatus("active");
+        entities.save(entity);
+        return toDto(entity);
+    }
+
     // ─── Hubs ───
 
     @Transactional
@@ -321,6 +378,37 @@ public class EntityService {
     private boolean isOwner(DiscoveryEntity entity) {
         String userId = currentUser.userId().orElse(null);
         return userId != null && userId.equals(entity.getOwnerId());
+    }
+
+    private void validatePublishable(DiscoveryEntity entity) {
+        if (entity.getDisplayName() == null || entity.getDisplayName().isBlank()) {
+            throw new IllegalArgumentException("Display name is required");
+        }
+        if (entity.getHeadline() == null || entity.getHeadline().isBlank()) {
+            throw new IllegalArgumentException("A role or short description is required");
+        }
+        if ("person".equals(entity.getEntityType())) {
+            if (!Set.of("company", "self_employed", "private").contains(entity.getAffiliationKind())) {
+                throw new IllegalArgumentException("An affiliation type is required");
+            }
+            if ("company".equals(entity.getAffiliationKind())
+                    && (entity.getOrgName() == null || entity.getOrgName().isBlank())) {
+                throw new IllegalArgumentException("A company is required for employed profiles");
+            }
+        }
+        if (sources.findByEntityIdAndActiveTrueOrderByCreatedAtAsc(entity.getId()).isEmpty()) {
+            throw new IllegalArgumentException("At least one active evidence source is required");
+        }
+        if (entity.getSummary() == null || entity.getSummary().isBlank()) {
+            throw new IllegalArgumentException("A profile summary is required");
+        }
+        if (entityTagRepo.findByEntityId(entity.getId()).isEmpty()) {
+            throw new IllegalArgumentException("At least one competence tag is required");
+        }
+    }
+
+    private static boolean isCuratable(String sourceType) {
+        return "github".equals(sourceType) || "orcid_pub".equals(sourceType);
     }
 
     // ─── DTO assembly ───

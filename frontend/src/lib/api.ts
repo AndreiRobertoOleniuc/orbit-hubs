@@ -156,10 +156,15 @@ export const apiSlice = createApi({
       invalidatesTags: ["MyEntities"],
     }),
 
-    uploadLinkedInPdf: builder.mutation<IngestionResponseDto, File>({
-      query: (file) => {
+    uploadLinkedInPdf: builder.mutation<
+      IngestionResponseDto,
+      { file: File; onboardingDraft?: boolean; profileMode?: ProfileMode }
+    >({
+      query: ({ file, onboardingDraft, profileMode }) => {
         const formData = new FormData()
         formData.append("file", file)
+        if (onboardingDraft) formData.append("onboardingDraft", "true")
+        if (profileMode) formData.append("profileMode", profileMode)
         return {
           url: "/ingestion/linkedin-pdf",
           method: "POST",
@@ -272,6 +277,32 @@ export const apiSlice = createApi({
         body: { active },
       }),
       invalidatesTags: (_result, _error, { entityId }) => [
+        { type: "Entity", id: entityId },
+        "MyEntities",
+      ],
+    }),
+
+    replaceSourceSelection: builder.mutation<
+      EntityDto,
+      { entityId: number; activeSourceIds: number[] }
+    >({
+      query: ({ entityId, activeSourceIds }) => ({
+        url: `/entities/${entityId}/sources/selection`,
+        method: "PUT",
+        body: { activeSourceIds },
+      }),
+      invalidatesTags: (_result, _error, { entityId }) => [
+        { type: "Entity", id: entityId },
+        "MyEntities",
+      ],
+    }),
+
+    publishEntity: builder.mutation<EntityDto, number>({
+      query: (entityId) => ({
+        url: `/entities/${entityId}/publish`,
+        method: "POST",
+      }),
+      invalidatesTags: (_result, _error, entityId) => [
         { type: "Entity", id: entityId },
         "MyEntities",
       ],
@@ -460,6 +491,8 @@ export const {
   useUpdateProfileMetaMutation,
   useUpdateEntityModeMutation,
   useSetSourceActiveMutation,
+  useReplaceSourceSelectionMutation,
+  usePublishEntityMutation,
   useUpdateEntityHubsMutation,
   useGetSubscriptionsQuery,
   useUpdateSubscriptionsMutation,

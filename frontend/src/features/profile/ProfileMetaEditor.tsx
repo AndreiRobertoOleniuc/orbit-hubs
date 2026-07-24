@@ -8,7 +8,7 @@ import { LocationInput } from "@/features/profile/LocationInput"
 import { ZefixOrgInput } from "@/features/profile/ZefixOrgInput"
 import { useUpdateProfileMetaMutation } from "@/lib/api"
 import { cn, sameSet } from "@/lib/utils"
-import type { EntityDto } from "@/types/api"
+import type { AffiliationKind, EntityDto } from "@/types/api"
 
 const COMMON_LANGUAGES = ["DE", "EN", "FR", "IT"]
 
@@ -27,6 +27,8 @@ export function ProfileMetaEditor({
   const [displayName, setDisplayName] = useState(entity.displayName)
   const [headline, setHeadline] = useState(entity.headline ?? "")
   const [orgName, setOrgName] = useState(entity.orgName ?? "")
+  const [affiliationKind, setAffiliationKind] =
+    useState<AffiliationKind | null>(entity.affiliationKind)
   const [languages, setLanguages] = useState<string[]>(entity.languages ?? [])
   const [location, setLocation] = useState(entity.locationLabel ?? "")
   const [newLang, setNewLang] = useState("")
@@ -46,8 +48,15 @@ export function ProfileMetaEditor({
     displayName !== entity.displayName ||
     headline !== (entity.headline ?? "") ||
     orgName !== (entity.orgName ?? "") ||
+    affiliationKind !== entity.affiliationKind ||
     location !== (entity.locationLabel ?? "") ||
     !sameSet(languages, entity.languages ?? [])
+  const valid =
+    displayName.trim().length > 0 &&
+    headline.trim().length > 0 &&
+    (entity.entityType === "organization" ||
+      (affiliationKind != null &&
+        (affiliationKind !== "company" || orgName.trim().length > 0)))
 
   const save = async () => {
     await updateProfileMeta({
@@ -55,9 +64,11 @@ export function ProfileMetaEditor({
       body: {
         displayName: displayName.trim(),
         headline: headline.trim() || null,
-        orgName: orgName.trim() || null,
-        // Zugehörigkeit was dropped from the UI; preserve any existing value.
-        affiliationKind: entity.affiliationKind,
+        orgName:
+          entity.entityType === "person" && affiliationKind !== "company"
+            ? null
+            : orgName.trim() || null,
+        affiliationKind,
         languages,
         locationLabel: location.trim() || null,
       },
@@ -86,7 +97,9 @@ export function ProfileMetaEditor({
 
       {/* Titel / Rolle */}
       <div className="space-y-1.5">
-        <Label htmlFor="meta-headline">Titel / Rolle</Label>
+        <Label htmlFor="meta-headline" required>
+          Titel / Rolle
+        </Label>
         <Input
           id="meta-headline"
           placeholder="z.B. Professor für Embedded Systems"
@@ -95,11 +108,43 @@ export function ProfileMetaEditor({
         />
       </div>
 
-      {/* Arbeitgeber / Organisation — with Handelsregister (Zefix) search */}
-      <div className="space-y-1.5">
-        <Label htmlFor="meta-org">Arbeitgeber / Organisation</Label>
-        <ZefixOrgInput id="meta-org" value={orgName} onChange={setOrgName} />
-      </div>
+      {entity.entityType === "person" && (
+        <div className="space-y-2">
+          <Label>Berufliche Zugehörigkeit</Label>
+          <div className="flex flex-wrap gap-2">
+            {(
+              [
+                ["company", "Angestellt"],
+                ["self_employed", "Selbständig"],
+                ["private", "Privatperson"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={affiliationKind === value}
+                className={cn(
+                  "rounded-full border px-3 py-1 text-sm transition-colors",
+                  affiliationKind === value
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-muted"
+                )}
+                onClick={() => setAffiliationKind(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {(entity.entityType === "organization" ||
+        affiliationKind === "company") && (
+        <div className="space-y-1.5">
+          <Label htmlFor="meta-org">Arbeitgeber / Organisation</Label>
+          <ZefixOrgInput id="meta-org" value={orgName} onChange={setOrgName} />
+        </div>
+      )}
 
       {/* Sprachen */}
       <div className="space-y-1.5">
@@ -178,7 +223,7 @@ export function ProfileMetaEditor({
           className="w-full sm:w-auto"
           size="sm"
           onClick={() => void save()}
-          disabled={!dirty || !displayName.trim() || isLoading}
+          disabled={!dirty || !valid || isLoading}
         >
           Speichern
         </Button>

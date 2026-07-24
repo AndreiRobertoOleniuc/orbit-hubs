@@ -89,6 +89,28 @@ class IngestionServiceTest {
     }
 
     @Test
+    void onboardingOptionsArePropagatedToTheSourceReference() {
+        when(currentUser.userId()).thenReturn(Optional.of("user-1"));
+        when(orchestrator.ingestMulti(any())).thenReturn(List.of());
+
+        service.ingest(new IngestionRequest(
+                "manual_text", Map.of("text", "Text"), true, "demand"));
+
+        verify(orchestrator).ingestMulti(org.mockito.ArgumentMatchers.argThat(ref ->
+                ref.onboardingDraft()
+                        && "demand".equals(ref.profileMode())
+                        && "user-1".equals(ref.ownerId())));
+    }
+
+    @Test
+    void onboardingRejectsAnUnknownProfileMode() {
+        assertThatThrownBy(() -> service.ingest(new IngestionRequest(
+                "manual_text", Map.of("text", "Text"), true, "unknown")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("mode");
+    }
+
+    @Test
     void emptyPdfIsRejected() {
         MockMultipartFile file = new MockMultipartFile("file", new byte[0]);
 

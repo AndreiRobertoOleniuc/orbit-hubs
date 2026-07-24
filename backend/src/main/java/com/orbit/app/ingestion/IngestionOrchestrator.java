@@ -113,6 +113,7 @@ public class IngestionOrchestrator {
         // 2. DEDUP — idempotent short-circuit
         Optional<Source> existing = sources.findBySourceUrl(ref.url());
         if (existing.isPresent() && hash.equals(existing.get().getContentHash())) {
+            prepareExistingSourceForOnboarding(existing.get(), ref);
             log.debug("Skipping unchanged source: {}", ref.url());
             return IngestionResult.skipped(existing.get().getEntityId());
         }
@@ -134,6 +135,10 @@ public class IngestionOrchestrator {
                     profile.headline(),
                     profile.orgName());
             entity.setOwnerId(ref.ownerId());
+            if (ref.onboardingDraft()) {
+                entity.setStatus("draft");
+                entity.setProfileMode(ref.profileMode());
+            }
             if (profile.latitude() != null) entity.setLatitude(profile.latitude());
             if (profile.longitude() != null) entity.setLongitude(profile.longitude());
             entity = entities.save(entity);
@@ -147,6 +152,7 @@ public class IngestionOrchestrator {
             entityId = existingEntityId.get();
             log.debug("Reusing existing entity #{}", entityId);
             claimIfUnowned(entityId, ref.ownerId());
+            applyOnboardingState(entityId, ref);
             for (ExternalId id : extIds) {
                 if (!identifiers.existsByIdTypeAndIdValue(id.idType(), id.idValue())) {
                     identifiers.save(new EntityIdentifier(entityId, id.idType(), id.idValue()));
@@ -520,6 +526,8 @@ public class IngestionOrchestrator {
 
     private Source upsertSource(Long entityId, SourceRef ref, String label,
                                  RawContent raw, String hash, Optional<Source> existing) {
+        boolean active = existing.map(Source::isActive)
+                .orElse(!(ref.onboardingDraft() && isCuratable(ref.sourceType())));
         if (existing.isPresent()) {
             sources.delete(existing.get());
             sources.flush();
@@ -528,7 +536,38 @@ public class IngestionOrchestrator {
                 entityId, ref.sourceType(), ref.url(), label,
                 ref.provenance(), ref.consentBasis(),
                 raw.text(), hash, "ok", Instant.now());
+        source.setActive(active);
         return sources.save(source);
+    }
+
+    private void prepareExistingSourceForOnboarding(Source source, SourceRef ref) {
+        if (!ref.onboardingDraft()) return;
+        claimIfUnowned(source.getEntityId(), ref.ownerId());
+        applyOnboardingState(source.getEntityId(), ref);
+        if (isCuratable(source.getSourceType()) && isOwnedBy(source.getEntityId(), ref.ownerId())) {
+            source.setActive(false);
+            sources.save(source);
+        }
+    }
+
+    private void applyOnboardingState(Long entityId, SourceRef ref) {
+        if (!ref.onboardingDraft() || !isOwnedBy(entityId, ref.ownerId())) return;
+        entities.findById(entityId).ifPresent(entity -> {
+            entity.setStatus("draft");
+            entity.setProfileMode(ref.profileMode());
+            entities.save(entity);
+        });
+    }
+
+    private boolean isOwnedBy(Long entityId, String ownerId) {
+        if (ownerId == null) return false;
+        return entities.findById(entityId)
+                .map(entity -> ownerId.equals(entity.getOwnerId()))
+                .orElse(false);
+    }
+
+    private static boolean isCuratable(String sourceType) {
+        return "github".equals(sourceType) || "orcid_pub".equals(sourceType);
     }
 
 

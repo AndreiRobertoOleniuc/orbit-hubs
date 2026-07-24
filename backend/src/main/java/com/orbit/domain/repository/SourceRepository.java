@@ -17,4 +17,7 @@ public interface SourceRepository extends JpaRepository<Source, Long> {
 
     /** All evidence feeds of one entity, oldest first (stable citation order). */
     List<Source> findByEntityIdOrderByCreatedAtAsc(Long entityId);
+
+    /** Publicly selected evidence feeds of one entity, oldest first. */
+    List<Source> findByEntityIdAndActiveTrueOrderByCreatedAtAsc(Long entityId);
 }

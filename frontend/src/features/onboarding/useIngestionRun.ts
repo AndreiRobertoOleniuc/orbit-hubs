@@ -8,6 +8,7 @@ import { defForKind } from "@/features/ingestion/sourceDefs"
 import type { SourceDraft } from "@/features/ingestion/types"
 import { useSourceIngestion } from "@/features/ingestion/useSourceIngestion"
 import type { FirmDraft } from "@/features/onboarding/types"
+import type { ProfileMode } from "@/types/api"
 
 export type RunPhase = "idle" | "running" | "done"
 
@@ -25,6 +26,7 @@ export interface WizardIngestInput {
   sources: SourceDraft[]
   description: string
   displayName?: string
+  profileMode: ProfileMode
 }
 
 interface JobSpec {
@@ -55,6 +57,7 @@ export function useIngestionRun() {
       sources,
       description,
       displayName,
+      profileMode,
     }: WizardIngestInput) => {
       // Commit exactly once — ignore double clicks on the final button.
       if (startedRef.current) return
@@ -67,7 +70,12 @@ export function useIngestionRun() {
           id: "zefix",
           label: `Handelsregister · ${firm.name}`,
           glyph: "HR",
-          exec: () => ingestRequest(buildZefixRequest(firm)),
+          exec: () =>
+            ingestRequest({
+              ...buildZefixRequest(firm),
+              onboardingDraft: true,
+              profileMode,
+            }),
         })
       }
       for (const source of sources) {
@@ -79,6 +87,8 @@ export function useIngestionRun() {
           exec: () =>
             ingestSourceKind(source.kind, source.value, source.file, {
               org: isOrg,
+              onboardingDraft: true,
+              profileMode,
             }),
         })
       }
@@ -88,7 +98,11 @@ export function useIngestionRun() {
           label: "Eigene Beschreibung",
           glyph: "✎",
           exec: () =>
-            ingestRequest(buildManualTextRequest(description, displayName)),
+            ingestRequest({
+              ...buildManualTextRequest(description, displayName),
+              onboardingDraft: true,
+              profileMode,
+            }),
         })
       }
 
