@@ -3,6 +3,7 @@ import { Link } from "react-router-dom"
 import {
   BadgeCheck,
   Check,
+  ExternalLink,
   Languages,
   Lock,
   MapPin,
@@ -17,6 +18,7 @@ import { AvailabilityBadge } from "@/features/profile/AvailabilityBadge"
 import {
   initials,
   isHrVerified,
+  externalUrl,
   zefixUid,
 } from "@/features/profile/profileUtils"
 import { useGetContactedEntityIdsQuery } from "@/lib/api"
@@ -42,6 +44,13 @@ export function ProfileHeader({
   const isOrgEntity = entity.entityType === "organization"
   const uid = zefixUid(entity)
   const languages = entity.languages ?? []
+  const websiteSource = entity.sources.find(
+    (source) =>
+      (source.sourceType === "personal_site" ||
+        source.sourceType === "company_site") &&
+      externalUrl(source) != null
+  )
+  const websiteUrl = websiteSource ? externalUrl(websiteSource) : null
   const contactable = isAuthenticated && entity.claimed
   const { data: contactedIds } = useGetContactedEntityIdsQuery(undefined, {
     skip: !isAuthenticated,
@@ -114,11 +123,11 @@ export function ProfileHeader({
               className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
             >
               <Pencil className="size-3" />
-              Bearbeiten
+              Profilinformationen bearbeiten
             </button>
           )}
         </div>
-        {(entity.locationLabel || languages.length > 0) && (
+        {(entity.locationLabel || languages.length > 0 || websiteUrl) && (
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
             {entity.locationLabel && (
               <span className="inline-flex items-center gap-1">
@@ -131,6 +140,17 @@ export function ProfileHeader({
                 <Languages className="size-3.5" />
                 {languages.join(", ")}
               </span>
+            )}
+            {websiteUrl && (
+              <a
+                href={websiteUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 hover:text-foreground hover:underline"
+              >
+                <ExternalLink className="size-3.5" />
+                Website
+              </a>
             )}
           </div>
         )}

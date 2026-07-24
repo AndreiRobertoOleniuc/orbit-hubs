@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { Link, useSearchParams } from "react-router-dom"
-import { Check, ClipboardCopy, Inbox, Loader2, Send } from "lucide-react"
+import { Check, ClipboardCopy, Inbox, Loader2, Mail, Send } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -29,8 +29,8 @@ function distributionReason(d: InboxDistributionDto): string {
     : "Verteilt, weil dein Profil zu den gesuchten Themen passt."
 }
 
-/** Copies a revealed email address so users can continue in their own mail app. */
-function EmailCopyButton({ email }: { email: string }) {
+/** Revealed email actions — the conversation continues outside Orbit. */
+function EmailActions({ email }: { email: string }) {
   const [copyState, setCopyState] = useState<"idle" | "copied" | "error">(
     "idle"
   )
@@ -51,24 +51,35 @@ function EmailCopyButton({ email }: { email: string }) {
         <span className="text-muted-foreground">E-Mail: </span>
         <span className="font-medium break-all select-all">{email}</span>
       </div>
-      <Button
-        className="w-full sm:w-auto"
-        size="sm"
-        variant={copyState === "copied" ? "outline" : "default"}
-        onClick={() => void copyEmail()}
-        aria-live="polite"
-      >
-        {copyState === "copied" ? (
-          <>
-            <Check className="size-4" /> Kopiert
-          </>
-        ) : (
-          <>
-            <ClipboardCopy className="size-4" />
-            {copyState === "error" ? "Kopieren fehlgeschlagen" : "Kopieren"}
-          </>
-        )}
-      </Button>
+      <p className="text-xs text-muted-foreground">
+        Orbit-Übergabe abgeschlossen. Schreibe per E-Mail weiter.
+      </p>
+      <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto">
+        <Button size="sm" asChild>
+          <a href={`mailto:${email}`}>
+            <Mail className="size-4" /> E-Mail schreiben
+          </a>
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => void copyEmail()}
+          aria-live="polite"
+        >
+          {copyState === "copied" ? (
+            <>
+              <Check className="size-4" /> Kopiert
+            </>
+          ) : (
+            <>
+              <ClipboardCopy className="size-4" />
+              {copyState === "error"
+                ? "Kopieren fehlgeschlagen"
+                : "Adresse kopieren"}
+            </>
+          )}
+        </Button>
+      </div>
     </div>
   )
 }
@@ -195,7 +206,7 @@ function ReceivedCard({ contact }: { contact: InboxContactDto }) {
             </span>
           )
         ) : contact.status === "accepted" && contact.fromEmail ? (
-          <EmailCopyButton email={contact.fromEmail} />
+          <EmailActions email={contact.fromEmail} />
         ) : null}
       </div>
 
@@ -266,7 +277,7 @@ function SentCard({ contact }: { contact: InboxSentContactDto }) {
               `beantwortet ${relativeTime(contact.respondedAt)}`}
         </span>
         {contact.status === "accepted" && contact.toEmail && (
-          <EmailCopyButton email={contact.toEmail} />
+          <EmailActions email={contact.toEmail} />
         )}
       </div>
     </div>

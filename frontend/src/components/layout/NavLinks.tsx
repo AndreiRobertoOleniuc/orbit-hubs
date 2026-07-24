@@ -8,7 +8,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { useProfileMode } from "@/features/profile/useProfileMode"
+import { setSearchSubmitted } from "@/features/search/searchSlice"
 import { useGetInboxQuery, useGetMeQuery } from "@/lib/api"
+import { useAppDispatch } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 
 interface NavItem {
@@ -25,6 +27,8 @@ interface NavItem {
   badge?: number
   /** Optional hover/focus tooltip explaining an opaque nav label. */
   hint?: string
+  /** Local view-state action to run before navigating. */
+  onSelect?: () => void
 }
 
 /** Active when the pathname equals a prefix or is nested beneath it (`/x` or `/x/…`). */
@@ -60,6 +64,7 @@ export function NavLinks({
   className,
 }: NavLinksProps) {
   const { data: me } = useGetMeQuery(undefined, { skip: !isAuthenticated })
+  const dispatch = useAppDispatch()
   const isAdmin = me?.isAdmin ?? false
   const { mode, hasEntity } = useProfileMode()
   const { data: inbox } = useGetInboxQuery(undefined, {
@@ -74,7 +79,11 @@ export function NavLinks({
   if (hasEntity) {
     if (mode === "demand") {
       items.push(
-        { to: "/search", label: "Suche" },
+        {
+          to: "/search",
+          label: "Suche",
+          onSelect: () => dispatch(setSearchSubmitted(false)),
+        },
         // Request details live at /board/:id — reached from here in demand mode.
         { to: "/requests", label: "Meine Anfragen", match: ["/board"] }
       )
@@ -91,7 +100,11 @@ export function NavLinks({
   } else {
     // Default nav — the token-free public surfaces
     items.push(
-      { to: "/search", label: "Suche" },
+      {
+        to: "/search",
+        label: "Suche",
+        onSelect: () => dispatch(setSearchSubmitted(false)),
+      },
       { to: "/board", label: "Offene Anfragen" }
     )
   }
@@ -108,9 +121,14 @@ export function NavLinks({
             size="sm"
             asChild
             className={className}
-            onClick={onNavigate}
           >
-            <Link to={item.to}>
+            <Link
+              to={item.to}
+              onClick={() => {
+                item.onSelect?.()
+                onNavigate?.()
+              }}
+            >
               {item.label}
               {item.badge != null && item.badge > 0 && (
                 <span

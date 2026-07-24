@@ -5,14 +5,26 @@ import { useAuth } from "@/features/auth/useAuth"
 
 export function AuthControls() {
   const { isAuthenticated } = useAuth()
-  if (isAuthenticated) return <UserButton />
+  if (isAuthenticated)
+    return (
+      <UserButton
+        appearance={{
+          elements: {
+            userButtonPopoverActionButton__manageAccount: {
+              display: "none",
+            },
+          },
+        }}
+      />
+    )
   return (
     <>
-      {/* Land on the start page after auth: it routes to onboarding or profile. */}
+      {/* Preserve the initiating route; `/` is only the fallback when Clerk has
+          no return location. */}
       <SignInButton
         mode="modal"
-        forceRedirectUrl="/"
-        signUpForceRedirectUrl="/"
+        fallbackRedirectUrl="/"
+        signUpFallbackRedirectUrl="/"
       >
         <Button variant="outline" size="sm">
           Anmelden
@@ -20,8 +32,8 @@ export function AuthControls() {
       </SignInButton>
       <SignUpButton
         mode="modal"
-        forceRedirectUrl="/"
-        signInForceRedirectUrl="/"
+        fallbackRedirectUrl="/"
+        signInFallbackRedirectUrl="/"
       >
         <Button size="sm">Registrieren</Button>
       </SignUpButton>

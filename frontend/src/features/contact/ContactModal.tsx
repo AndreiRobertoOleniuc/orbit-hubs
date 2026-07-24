@@ -112,8 +112,8 @@ export function ContactModal({
             </span>
             <p className="mt-3 font-semibold">Kontaktanfrage gesendet.</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              {toName} meldet sich direkt bei dir. Du findest sie unter
-              «Gesendet» in deinem Postfach.
+              Die Anfrage wartet jetzt auf eine Antwort von {toName}. Nach der
+              Annahme setzt ihr das Gespräch per E-Mail fort.
             </p>
             <div className="mt-5 flex items-center justify-center gap-2">
               <Button variant="outline" onClick={() => handleOpenChange(false)}>
@@ -212,9 +212,9 @@ export function ContactModal({
                 </div>
               ) : (
                 <p className="mt-2.5 text-center text-xs leading-relaxed text-muted-foreground">
-                  Der Empfänger erhält deine Nachricht und deine Kontaktdaten in
-                  seinem Postfach. Alles Weitere läuft direkt zwischen euch —
-                  ausserhalb der Plattform.
+                  Orbit übermittelt deine Nachricht. Deine E-Mail-Adresse wird
+                  erst nach der Annahme freigegeben. Danach setzt ihr das
+                  Gespräch per E-Mail fort.
                 </p>
               )}
             </div>

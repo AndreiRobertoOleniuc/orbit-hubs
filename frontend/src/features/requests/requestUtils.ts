@@ -28,7 +28,8 @@ export const STATUS_LABEL: Record<RequestStatus, string> = {
 /** What each stage means — shown to the owner under the lifecycle stepper. */
 export const STATUS_HINT: Record<RequestStatus, string> = {
   open: "Deine Anfrage ist live und öffentlich auf dem Board sichtbar.",
-  distributed: "Passende Profile und Themen-Abonnenten wurden benachrichtigt.",
+  distributed:
+    "Orbit hat vorhandene Profile und Themen-Abonnenten im gewählten Suchraum geprüft.",
   contacted: "Mindestens eine Kontaktaufnahme ist erfolgt.",
   closed: "Diese Anfrage ist abgeschlossen und nicht mehr auf dem Board.",
 }

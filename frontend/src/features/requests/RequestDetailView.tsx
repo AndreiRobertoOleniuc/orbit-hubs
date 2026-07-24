@@ -180,10 +180,26 @@ function NotifiedProfiles({ request }: { request: RequestDto }) {
   )
 }
 
+function nextLifecycleAction(request: RequestDto): string | null {
+  if (request.status === "open") {
+    return "Nächster Schritt: Warte auf die erste Verteilung."
+  }
+  if (request.status === "distributed") {
+    return (request.distributionCount ?? 0) > 0
+      ? "Nächster Schritt: Prüfe die benachrichtigten Profile und kontaktiere bei Bedarf passende Personen."
+      : "Nächster Schritt: Behalte den Status im Blick oder schliesse die Anfrage, wenn sie nicht mehr aktuell ist."
+  }
+  if (request.status === "contacted") {
+    return "Nächster Schritt: Verfolge die Kontaktaufnahme im Postfach."
+  }
+  return null
+}
+
 /** Owner-only lifecycle card: stepper, stage explanation, close action. */
 function OwnerLifecycle({ request }: { request: RequestDto }) {
   const [updateStatus, { isLoading }] = useUpdateRequestStatusMutation()
   const closed = request.status === "closed"
+  const nextAction = nextLifecycleAction(request)
 
   return (
     <section className="rounded-xl bg-card p-6 ring-1 ring-foreground/10">
@@ -194,6 +210,7 @@ function OwnerLifecycle({ request }: { request: RequestDto }) {
       <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
         {STATUS_HINT[request.status]}
       </p>
+      {nextAction && <p className="mt-1.5 text-sm font-medium">{nextAction}</p>}
       {(request.status === "contacted" || request.status === "closed") && (
         <Link
           to="/inbox"
@@ -223,6 +240,15 @@ function OwnerLifecycle({ request }: { request: RequestDto }) {
           )}
         </p>
       )}
+      {request.distributionCount === 0 &&
+        request.status !== "open" &&
+        !closed && (
+          <p className="mt-4 rounded-lg border border-dashed px-3.5 py-3 text-sm leading-relaxed text-muted-foreground">
+            Zum aktuellen Verteilungszeitpunkt wurde kein vorhandenes Profil
+            benachrichtigt. Deine Anfrage bleibt öffentlich auf dem Board
+            sichtbar.
+          </p>
+        )}
       <NotifiedProfiles request={request} />
       {!closed && (
         <div className="mt-4 flex flex-wrap items-center gap-3 border-t pt-4">

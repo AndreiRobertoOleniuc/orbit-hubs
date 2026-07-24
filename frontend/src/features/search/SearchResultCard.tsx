@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Check, MapPin, Trophy } from "lucide-react"
+import { Check, MapPin } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -53,8 +53,8 @@ interface SearchResultCardProps {
  * rationale (falls back to the entity summary), cited evidence chips, optional
  * collaboration badges, and a footer with the best-effort distance + profile link.
  *
- * The top result gets a "Bester Treffer" badge; every card shows its rank
- * number so the user can see the ordering at a glance.
+ * The top result gets one "Stärkste Übereinstimmung" label; every card shows
+ * its numeric rank so the user can see the ordering at a glance.
  *
  * Selecting a card opens the profile in the slide-out side panel next to the
  * results instead of navigating away — the search stays on screen.
@@ -80,8 +80,21 @@ export function SearchResultCard({
   return (
     <div
       onClick={onSelect}
+      onKeyDown={(event) => {
+        if (
+          event.target === event.currentTarget &&
+          (event.key === "Enter" || event.key === " ")
+        ) {
+          event.preventDefault()
+          onSelect()
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      aria-label={`${entity.displayName}, Rang ${rank + 1}, Profil ansehen`}
+      aria-pressed={selected}
       className={cn(
-        "cursor-pointer rounded-xl bg-card p-4 text-card-foreground ring-1 transition-shadow sm:p-6",
+        "cursor-pointer rounded-xl bg-card p-4 text-card-foreground ring-1 transition-shadow focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:p-6",
         selected
           ? "ring-2 ring-primary/60"
           : isTopMatch
@@ -101,13 +114,16 @@ export function SearchResultCard({
                 : "bg-muted text-muted-foreground"
             )}
           >
-            {isTopMatch ? <Trophy className="size-3" /> : rank + 1}
+            {rank + 1}
           </span>
           <div className="min-w-0">
             <div className="font-semibold">
               <button
                 type="button"
-                onClick={onSelect}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onSelect()
+                }}
                 className="underline-offset-2 hover:underline"
               >
                 {entity.displayName}
@@ -132,8 +148,7 @@ export function SearchResultCard({
               variant="outline"
               className="gap-1 border-primary/30 text-primary"
             >
-              <Trophy className="size-3" />
-              Bester Treffer
+              Stärkste Übereinstimmung
             </Badge>
           )}
           <AvailabilityBadge availability={entity.availability} />
@@ -192,7 +207,10 @@ export function SearchResultCard({
           <Button
             className="w-full sm:w-auto"
             variant="outline"
-            onClick={onSelect}
+            onClick={(event) => {
+              event.stopPropagation()
+              onSelect()
+            }}
           >
             Profil ansehen
           </Button>

@@ -1,59 +1,59 @@
-import { Navigate } from "react-router-dom"
-import {
-  BadgeCheck,
-  Loader2,
-  Mail,
-  PenLine,
-  Search,
-  Sparkles,
-} from "lucide-react"
+import { BadgeCheck, Mail, PenLine, Search, Sparkles } from "lucide-react"
 
 import { StartCard } from "@/components/StartCard"
-import { useAuth } from "@/features/auth/useAuth"
-import { useGetMyEntitiesQuery } from "@/lib/api"
 
-const STEPS = [
+const PATHS = [
   {
-    icon: PenLine,
-    title: "Beschreibe dein Anliegen",
-    body: "Beschreibe in eigenen Worten, welche Kompetenz du brauchst.",
+    title: "Expertise suchen",
+    body: "Finde passende Personen oder Organisationen.",
+    steps: [
+      {
+        icon: PenLine,
+        title: "Anliegen beschreiben",
+        body: "Formuliere frei, welche Kompetenz du brauchst.",
+      },
+      {
+        icon: BadgeCheck,
+        title: "Belegte Treffer prüfen",
+        body: "Vergleiche Begründungen und öffentliche Quellen.",
+      },
+      {
+        icon: Mail,
+        title: "Kontakt anfragen",
+        body: "Nach der Annahme schreibt ihr per E-Mail weiter.",
+      },
+    ],
   },
   {
-    icon: BadgeCheck,
-    title: "Wir finden belegte Profile",
-    body: "Orbit zeigt passende Profile und nennt die Belege dafür.",
-  },
-  {
-    icon: Mail,
-    title: "Kontaktiere direkt",
-    body: "Sende eine Kontaktanfrage. Nach der Zusage tauscht ihr euch direkt aus.",
+    title: "Expertise anbieten",
+    body: "Baue ein belegtes Profil auf und werde gefunden.",
+    steps: [
+      {
+        icon: Sparkles,
+        title: "Quellen verbinden",
+        body: "Verbinde die Quellen, aus denen dein Profil entsteht.",
+      },
+      {
+        icon: BadgeCheck,
+        title: "Profil prüfen",
+        body: "Kontrolliere Inhalte, Quellen und Verfügbarkeit.",
+      },
+      {
+        icon: Search,
+        title: "Gefunden werden",
+        body: "Passende Suchende und Anfragen erreichen dein Profil.",
+      },
+    ],
   },
 ]
 
 /**
  * Public entry: the landing / "Was möchtest du tun?" start screen. Leads with a
  * value proposition + how-it-works so a first-time visitor understands what
- * Orbit is before choosing a side. Signed-in users who already onboarded are
- * routed to their profile — onboarding is a one-time flow.
+ * Orbit is before choosing a side. It remains available after sign-in so the
+ * logo always has a predictable global destination.
  */
 export function StartPage() {
-  const { isAuthenticated, status } = useAuth()
-  const { data: myEntities, isLoading } = useGetMyEntitiesQuery(undefined, {
-    skip: !isAuthenticated,
-  })
-
-  if (status === "loading" || (isAuthenticated && isLoading)) {
-    return (
-      <div className="flex justify-center py-24">
-        <Loader2 className="size-6 animate-spin text-muted-foreground" />
-      </div>
-    )
-  }
-
-  if (isAuthenticated && myEntities && myEntities.length > 0) {
-    return <Navigate to="/profile" replace />
-  }
-
   return (
     <div className="mx-auto max-w-3xl py-12 sm:py-16">
       {/* Hero */}
@@ -105,21 +105,31 @@ export function StartPage() {
         <h2 id="how-heading" className="text-center text-lg font-semibold">
           So funktioniert Orbit
         </h2>
-        <div className="mt-5 grid gap-4 sm:grid-cols-3">
-          {STEPS.map((step, i) => (
-            <div key={step.title} className="rounded-xl border bg-card p-5">
-              <div className="flex items-center gap-2.5">
-                <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <step.icon className="size-4" />
-                </span>
-                <span className="text-xs font-semibold text-muted-foreground tabular-nums">
-                  Schritt {i + 1}
-                </span>
-              </div>
-              <h3 className="mt-3 text-sm font-semibold">{step.title}</h3>
-              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                {step.body}
-              </p>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          {PATHS.map((path) => (
+            <div key={path.title} className="rounded-xl border bg-card p-5">
+              <h3 className="font-semibold">{path.title}</h3>
+              <p className="mt-1 text-sm text-muted-foreground">{path.body}</p>
+              <ol className="mt-5 space-y-4">
+                {path.steps.map((step, i) => (
+                  <li key={step.title} className="flex gap-3">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <step.icon className="size-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold">
+                        <span className="mr-1.5 text-muted-foreground tabular-nums">
+                          {i + 1}.
+                        </span>
+                        {step.title}
+                      </p>
+                      <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">
+                        {step.body}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
             </div>
           ))}
         </div>

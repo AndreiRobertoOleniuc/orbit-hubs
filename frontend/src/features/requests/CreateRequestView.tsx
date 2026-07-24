@@ -54,11 +54,15 @@ export function CreateRequestView() {
   const [wantTo, setWantTo] = useState(prefill.wantTo ?? "")
   const [wantPensum, setWantPensum] = useState(prefill.wantPensum ?? "")
   const [tags, setTags] = useState<string[]>([])
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false)
 
   const [createRequest, { isLoading, isError }] = useCreateRequestMutation()
+  const queryMissing = attemptedSubmit && !queryText.trim()
+  const tagsMissing = attemptedSubmit && tags.length === 0
 
   const submit = async () => {
-    if (!queryText.trim()) return
+    setAttemptedSubmit(true)
+    if (!queryText.trim() || tags.length === 0) return
     const created = await createRequest({
       title: title.trim() || null,
       description: description.trim() || null,
@@ -108,13 +112,20 @@ export function CreateRequestView() {
             className="text-base"
             placeholder="Beschreibe dein Anliegen in eigenen Worten, z. B. «Embedded-Firmware-Entwickler für 2 Monate, STM32 + FreeRTOS»"
             value={queryText}
+            aria-invalid={queryMissing}
+            aria-describedby={queryMissing ? "req-query-error" : undefined}
             onChange={(e) => setQueryText(e.target.value)}
           />
+          {queryMissing && (
+            <p id="req-query-error" className="text-sm text-destructive">
+              Bitte beschreibe kurz, welche Expertise du suchst.
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col gap-1.5">
           <label htmlFor="req-title" className={CAP}>
-            Titel (optional)
+            Titel
           </label>
           <Input
             id="req-title"
@@ -126,7 +137,7 @@ export function CreateRequestView() {
 
         <div className="flex flex-col gap-1.5">
           <label htmlFor="req-desc" className={CAP}>
-            Beschreibung (optional)
+            Beschreibung
           </label>
           <Textarea
             id="req-desc"
@@ -143,7 +154,7 @@ export function CreateRequestView() {
             <HubRegionSelect value={scope} onChange={setScope} />
           </div>
           <div className="flex w-full flex-col gap-1.5 sm:w-auto">
-            <span className={CAP}>Zeitraum (optional)</span>
+            <span className={CAP}>Zeitraum</span>
             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
               <input
                 type="date"
@@ -225,7 +236,7 @@ export function CreateRequestView() {
 
         <div className="flex flex-col gap-1.5">
           <label htmlFor="req-deadline" className={CAP}>
-            Antworten bis (optional)
+            Antworten bis
           </label>
           <input
             id="req-deadline"
@@ -238,8 +249,18 @@ export function CreateRequestView() {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <span className={CAP}>Themen-Tags</span>
-          <div className="flex flex-wrap items-center gap-2">
+          <span id="req-tags-label" className={CAP}>
+            Themen-Tags <span className="text-destructive">*</span>
+          </span>
+          <div
+            role="group"
+            aria-labelledby="req-tags-label"
+            aria-describedby={
+              tagsMissing ? "req-tags-help req-tags-error" : "req-tags-help"
+            }
+            aria-invalid={tagsMissing}
+            className="flex flex-wrap items-center gap-2"
+          >
             {tags.map((t) => (
               <span
                 key={t}
@@ -262,10 +283,16 @@ export function CreateRequestView() {
               placeholder="Tag hinzufügen…"
             />
           </div>
-          <p className="text-[12.5px] text-muted-foreground">
-            Tags steuern, wer benachrichtigt wird: Profile mit diesen
-            Kompetenzen und Personen, die das Thema abonniert haben.
+          <p id="req-tags-help" className="text-[12.5px] text-muted-foreground">
+            Mindestens ein Tag erforderlich – Tags bestimmen, an welche
+            passenden Profile deine Anfrage verteilt wird.
           </p>
+          {tagsMissing && (
+            <p id="req-tags-error" className="text-sm text-destructive">
+              Füge mindestens einen Tag hinzu, bevor du die Anfrage
+              veröffentlichst.
+            </p>
+          )}
         </div>
 
         {isError && (
@@ -274,11 +301,7 @@ export function CreateRequestView() {
           </p>
         )}
 
-        <Button
-          className="w-full"
-          disabled={!queryText.trim() || isLoading}
-          onClick={submit}
-        >
+        <Button className="w-full" disabled={isLoading} onClick={submit}>
           {isLoading && <Loader2 className="size-4 animate-spin" />}
           Anfrage veröffentlichen
         </Button>

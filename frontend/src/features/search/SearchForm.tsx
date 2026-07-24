@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Clock3, Lock, MapPin, Trash2 } from "lucide-react"
 
@@ -51,6 +52,14 @@ export function SearchForm({
   const { data: regions = [] } = useGetRegionsQuery()
   const { data: hubs = [] } = useGetHubsQuery()
   const hint = scopeHint(scope, regions, hubs)
+  const [attemptedSearch, setAttemptedSearch] = useState(false)
+  const queryMissing = attemptedSearch && !query.trim()
+
+  const handleSearch = () => {
+    setAttemptedSearch(true)
+    if (!query.trim()) return
+    onSearch()
+  }
 
   return (
     <div className="mx-auto max-w-2xl py-6 sm:py-10">
@@ -63,17 +72,31 @@ export function SearchForm({
         steuert, wo wir zuerst suchen.
       </p>
 
+      <p className="mb-2 text-xs text-muted-foreground">
+        <span className="text-destructive">*</span> Pflichtfeld
+      </p>
+      <label htmlFor="search-query" className={CAP}>
+        Was suchst du? <span className="text-destructive">*</span>
+      </label>
       <Textarea
+        id="search-query"
         rows={3}
         autoFocus
-        className="text-base"
+        className="mt-1.5 text-base"
         placeholder="Beschreibe, was du brauchst, z. B. «Embedded-Firmware-Entwickler für 2 Monate»"
         value={query}
+        aria-invalid={queryMissing}
+        aria-describedby={queryMissing ? "search-query-error" : undefined}
         onChange={(e) => onChange({ query: e.target.value })}
         onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) onSearch()
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleSearch()
         }}
       />
+      {queryMissing && (
+        <p id="search-query-error" className="mt-1.5 text-sm text-destructive">
+          Bitte beschreibe kurz, welche Expertise du suchst.
+        </p>
+      )}
 
       <div className="mt-4 flex flex-wrap items-end gap-4">
         <div className="flex w-full min-w-0 flex-1 flex-col gap-1.5 sm:min-w-52">
@@ -87,7 +110,7 @@ export function SearchForm({
           />
         </div>
         <div className="flex w-full flex-col gap-1.5 sm:w-auto">
-          <span className={CAP}>Zeitraum (optional)</span>
+          <span className={CAP}>Zeitraum</span>
           <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
             <input
               type="date"
@@ -136,11 +159,7 @@ export function SearchForm({
         filtert nicht hart.
       </p>
 
-      <Button
-        className="mt-4 w-full"
-        disabled={!query.trim()}
-        onClick={onSearch}
-      >
+      <Button className="mt-4 w-full" onClick={handleSearch}>
         Suchen
       </Button>
 

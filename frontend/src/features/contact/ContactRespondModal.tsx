@@ -71,7 +71,7 @@ export function ContactRespondModal({
             <p className="mt-3 font-semibold">Antwort gesendet.</p>
             <p className="mt-1 text-sm text-muted-foreground">
               {fromName} sieht jetzt deine E-Mail-Adresse, und du seine — ihr
-              könnt direkt weiterschreiben.
+              setzt das Gespräch ab jetzt per E-Mail fort.
             </p>
             <Button
               variant="outline"
@@ -122,8 +122,8 @@ export function ContactRespondModal({
 
               <p className="mt-2.5 text-center text-xs leading-relaxed text-muted-foreground">
                 Mit dem Antworten gebt ihr eure E-Mail-Adressen füreinander
-                frei. Alles Weitere läuft direkt zwischen euch — ausserhalb der
-                Plattform.
+                frei. In Orbit gibt es danach keinen Chat; ihr schreibt per
+                E-Mail weiter.
               </p>
             </div>
           </>
