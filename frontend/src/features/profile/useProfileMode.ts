@@ -1,5 +1,5 @@
 import { useAuth } from "@/features/auth/useAuth"
-import { useGetMyEntitiesQuery } from "@/lib/api"
+import { useGetMyEntitiesQuery, useUpdateEntityModeMutation } from "@/lib/api"
 import type { ProfileMode } from "@/types/api"
 
 /**
@@ -22,4 +22,25 @@ export function useProfileMode(): {
     entityId: entity?.id ?? null,
     hasEntity: Boolean(entity),
   }
+}
+
+/**
+ * Persists a mode change on the user's entity. The mutation's cache
+ * invalidation refreshes everything that reads the mode (header switch,
+ * navigation, profile), so callers only need to handle their own navigation.
+ */
+export function useSwitchProfileMode(): {
+  switchMode: (next: ProfileMode) => void
+  mode: ProfileMode
+  hasEntity: boolean
+} {
+  const { mode, entityId, hasEntity } = useProfileMode()
+  const [updateMode] = useUpdateEntityModeMutation()
+
+  const switchMode = (next: ProfileMode) => {
+    if (next === mode || entityId == null) return
+    void updateMode({ entityId, mode: next })
+  }
+
+  return { switchMode, mode, hasEntity }
 }

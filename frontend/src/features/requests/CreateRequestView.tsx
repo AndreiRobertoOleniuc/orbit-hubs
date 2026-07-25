@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { InfoHint } from "@/components/InfoHint"
 import { TagAutocompleteInput } from "@/components/TagAutocompleteInput"
+import { useSwitchProfileMode } from "@/features/profile/useProfileMode"
 import { HubRegionSelect } from "@/features/search/HubRegionSelect"
 import { SCOPE_ALL, decodeScope } from "@/features/search/scopeUtils"
 import {
@@ -60,6 +61,15 @@ export function CreateRequestView() {
   const queryMissing = attemptedSubmit && !queryText.trim()
   const tagsMissing = attemptedSubmit && tags.length === 0
 
+  const { switchMode, hasEntity } = useSwitchProfileMode()
+  // Offering expertise happens on the profile, not here — send the user there
+  // in the right mode (or through onboarding if they have no profile yet).
+  const goToSupply = () => {
+    if (!hasEntity) return navigate("/onboarding?mode=supply")
+    switchMode("supply")
+    navigate("/profile")
+  }
+
   const submit = async () => {
     setAttemptedSubmit(true)
     if (!queryText.trim() || tags.length === 0) return
@@ -94,6 +104,21 @@ export function CreateRequestView() {
       <p className="mt-1.5 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
         Deine Anfrage erscheint öffentlich unter «Offene Anfragen». Passende
         Profile werden benachrichtigt und können sich direkt bei dir melden.
+      </p>
+
+      {/* An Anfrage is always a request for help — testers weren't sure whether
+          the same form also serves to offer their own expertise (§5.1). */}
+      <p className="mt-2 max-w-xl text-[12.5px] leading-relaxed text-muted-foreground">
+        Hier suchst du Unterstützung. Möchtest du deine eigene Expertise
+        anbieten? Wechsle zu{" "}
+        <button
+          type="button"
+          onClick={goToSupply}
+          className="rounded-sm font-medium text-primary underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+        >
+          «Gefunden werden»
+        </button>
+        .
       </p>
 
       <p className="mt-4 text-xs text-muted-foreground">
