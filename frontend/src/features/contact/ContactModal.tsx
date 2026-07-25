@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useId, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { Check, Loader2 } from "lucide-react"
 
@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from "@/features/auth/useAuth"
 import { initials } from "@/features/profile/profileUtils"
@@ -30,9 +31,12 @@ const MISSING_LABELS: Record<ContactGatingCheck, string> = {
 interface ContactModalProps {
   /** Recipient entity (must be a claimed profile). */
   toEntityId: number
-  /** Recipient display name — shown in the success state. */
+  /** Recipient display name — the dialog headline. */
   toName: string
-  /** Collapsed context quote: the search query or «request title». */
+  /**
+   * One-line context, rendered truncated: "Deine Suche: «…»" or «request title».
+   * Never the match rationale — that is already on the screen behind the dialog.
+   */
   quote?: string | null
   /** Set when initiated from a board request — transitions it to 'kontaktiert'. */
   requestId?: number | null
@@ -44,11 +48,13 @@ interface ContactModalProps {
 
 /**
  * The first-contact handoff dialog (design: HandoffModal, reference §11) —
- * "Stell dich einmal vor". Shows the sender context, gates on profile
- * completeness (inline warnings + "Profil vervollständigen" link, never a
- * silently disabled button), and confirms the one-time handoff: the recipient
- * sees message + contact data in their Postfach, everything else runs
- * off-platform.
+ * "Stell dich einmal vor". The recipient is the headline, because testers kept
+ * closing the dialog to re-check whom they were writing to. Everything else is
+ * secondary: who you contact as, one truncated line of context, and the message
+ * itself. Gates on profile completeness (inline warnings + "Profil
+ * vervollständigen" link, never a silently disabled button), and confirms the
+ * one-time handoff: the recipient sees message + contact data in their Postfach,
+ * everything else runs off-platform.
  */
 export function ContactModal({
   toEntityId,
@@ -61,6 +67,8 @@ export function ContactModal({
 }: ContactModalProps) {
   const { isAuthenticated } = useAuth()
   const navigate = useNavigate()
+  // One modal per search result is mounted — ids must not collide.
+  const fieldId = useId()
   const [message, setMessage] = useState("")
   const [sent, setSent] = useState(false)
 
@@ -132,47 +140,76 @@ export function ContactModal({
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle>Stell dich einmal vor</DialogTitle>
-              <DialogDescription className="sr-only">
-                Kontaktanfrage an {toName}
+              {/* pr-8 keeps a wrapped long name clear of the close button. */}
+              <DialogTitle className="pr-8 leading-snug break-words">
+                Kontakt mit {toName} aufnehmen
+              </DialogTitle>
+              <DialogDescription>
+                Stell dich einmal vor — {toName} entscheidet, ob daraus ein
+                Austausch wird.
               </DialogDescription>
             </DialogHeader>
 
-            {sender && (
-              <div className="flex items-start gap-3 rounded-lg bg-muted/50 px-3.5 py-3">
-                <span
-                  aria-hidden="true"
-                  className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary"
+            {/* min-w-0: DialogContent is a grid, so without it the nowrap
+                context line sets the column's min-content width and pushes the
+                whole dialog body past the panel edge. */}
+            <div className="min-w-0 space-y-2">
+              {/* Context, one line: the search behind this contact. Truncated
+                  visually — the head carries the label, the full value stays in
+                  the title and in the text node screen readers announce. */}
+              {quote && (
+                <p
+                  className="truncate text-xs text-muted-foreground"
+                  title={quote}
                 >
-                  {initials(sender.displayName)}
-                </span>
-                <div className="min-w-0 text-sm">
-                  <p>
-                    Du kontaktierst als{" "}
-                    <span className="font-semibold">{sender.displayName}</span>
-                    {sender.orgName ? ` · ${sender.orgName}` : ""}
-                  </p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    Der Empfänger sieht deinen Namen, deinen Arbeitgeber und
-                    wonach du gesucht hast.
-                  </p>
+                  {quote}
+                </p>
+              )}
+
+              {sender && (
+                <div className="flex items-start gap-2.5">
+                  <span
+                    aria-hidden="true"
+                    className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary"
+                  >
+                    {initials(sender.displayName)}
+                  </span>
+                  <div className="min-w-0 text-xs text-muted-foreground">
+                    <p>
+                      Du kontaktierst als{" "}
+                      <span className="font-medium text-foreground">
+                        {sender.displayName}
+                      </span>
+                      {sender.orgName ? ` · ${sender.orgName}` : ""}
+                    </p>
+                    <p className="mt-0.5">
+                      Der Empfänger sieht deinen Namen, deinen Arbeitgeber und
+                      wonach du gesucht hast.
+                    </p>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
-            {quote && (
-              <blockquote className="border-l-2 border-primary/30 pl-3 text-sm leading-relaxed whitespace-pre-line text-muted-foreground">
-                {quote}
-              </blockquote>
-            )}
-
-            <Textarea
-              autoFocus
-              rows={4}
-              placeholder="Kurze persönliche Nachricht…"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-            />
+            <div className="space-y-1.5">
+              <Label htmlFor={fieldId}>Deine Nachricht</Label>
+              <Textarea
+                id={fieldId}
+                aria-describedby={`${fieldId}-hint`}
+                autoFocus
+                rows={4}
+                placeholder="Beschreibe kurz, worum es geht und was du dir vom Austausch erhoffst."
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+              />
+              <p
+                id={`${fieldId}-hint`}
+                className="text-xs leading-relaxed text-muted-foreground"
+              >
+                2–4 Sätze genügen. Die Nachricht ist der persönliche Einstieg,
+                kein vollständiges Projektbriefing.
+              </p>
+            </div>
 
             <div>
               <Button

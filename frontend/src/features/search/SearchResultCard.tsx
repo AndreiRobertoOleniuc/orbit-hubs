@@ -304,14 +304,13 @@ export function SearchResultCard({
 
       {contactable && (
         <span onClick={(e) => e.stopPropagation()}>
+          {/* The quote is the search only — the rationale is already the body
+              copy behind the dialog, repeating it there crowded the compose
+              field at exactly the moment people were writing. */}
           <ContactModal
             toEntityId={entity.id}
             toName={entity.displayName}
-            quote={
-              rationale
-                ? `Gesucht: «${query}»\nWarum passend: ${rationale}`
-                : `Gesucht: «${query}»`
-            }
+            quote={`Deine Suche: «${query}»`}
             searchedText={query}
             open={contactOpen}
             onOpenChange={setContactOpen}
