@@ -1,13 +1,103 @@
+import type { UpdateAvailabilityBody } from "@/lib/api"
+import { sameSet } from "@/lib/utils"
 import type { AvailabilityDto, EntityDto } from "@/types/api"
 
-/** The collaboration types a supply profile can be open to (spec §6). */
-export const COLLABORATION_TYPES = [
-  "Bachelorarbeit",
-  "Innosuisse",
-  "Mandat",
-  "Forschung",
-  "Praktikum",
+/** A collaboration type: the persisted value plus the text we show for it. */
+export interface CollaborationType {
+  /** Stored in `preferredCollaboration` and sent to the API — never change. */
+  value: string
+  /** Display only. Phrased from the supply side, so it states the direction. */
+  label: string
+}
+
+/**
+ * The collaboration types a supply profile can be open to (spec §6).
+ *
+ * The bare nouns are ambiguous in a supply profile — a tester read
+ * "Bachelorarbeit" as "I am looking for someone to write one" rather than
+ * "I can supervise one". The labels resolve that; the values stay untouched
+ * because they are already persisted.
+ */
+export const COLLABORATION_TYPES: readonly CollaborationType[] = [
+  { value: "Bachelorarbeit", label: "Bachelorarbeit betreuen" },
+  { value: "Innosuisse", label: "Innosuisse-Projekt" },
+  { value: "Mandat", label: "Mandat übernehmen" },
+  { value: "Forschung", label: "Forschungskooperation" },
+  { value: "Praktikum", label: "Praktikum anbieten" },
 ] as const
+
+/** Prompt shown above the choices — names who is offering what to whom. */
+export const COLLABORATION_PROMPT = "Wofür dürfen andere dich kontaktieren?"
+
+/**
+ * Display label for a persisted value. Values written before this mapping
+ * existed (or by a future backend) fall back to the raw value rather than
+ * disappearing from the UI.
+ */
+export function collaborationLabel(value: string): string {
+  return COLLABORATION_TYPES.find((t) => t.value === value)?.label ?? value
+}
+
+/**
+ * The availability form's own state, shared by the profile editor and the
+ * onboarding step so the two surfaces can't drift apart again. Uses form-native
+ * types — empty strings rather than nulls — and omits `openToRequests`, which
+ * each surface expresses with its own control (a switch vs. a choice card).
+ */
+export interface AvailabilityDraft {
+  availableFrom: string
+  availableTo: string
+  pensumPct: number
+  note: string
+  preferredCollaboration: string[]
+}
+
+/** Saved availability → editable draft. Missing Pensum starts at full time. */
+export function toAvailabilityDraft(
+  a: AvailabilityDto | null | undefined
+): AvailabilityDraft {
+  return {
+    availableFrom: a?.availableFrom ?? "",
+    availableTo: a?.availableTo ?? "",
+    pensumPct: a?.pensumPct ?? 100,
+    note: a?.note ?? "",
+    preferredCollaboration: a?.preferredCollaboration ?? [],
+  }
+}
+
+/**
+ * Draft → API body. Closing the profile clears the fields that make it look
+ * available (Pensum, collaboration types) but keeps the window and note, so
+ * toggling back on restores what was typed rather than starting over.
+ */
+export function toAvailabilityBody(
+  openToRequests: boolean,
+  d: AvailabilityDraft
+): UpdateAvailabilityBody {
+  return {
+    openToRequests,
+    availableFrom: d.availableFrom || null,
+    availableTo: d.availableTo || null,
+    pensumPct: openToRequests ? d.pensumPct : null,
+    note: d.note.trim() || null,
+    preferredCollaboration: openToRequests ? d.preferredCollaboration : [],
+  }
+}
+
+/** Whether the draft still matches what was saved — drives the Speichern state. */
+export function availabilityDraftChanged(
+  a: AvailabilityDto | null | undefined,
+  d: AvailabilityDraft
+): boolean {
+  const base = toAvailabilityDraft(a)
+  return (
+    base.availableFrom !== d.availableFrom ||
+    base.availableTo !== d.availableTo ||
+    base.pensumPct !== d.pensumPct ||
+    base.note !== d.note ||
+    !sameSet(base.preferredCollaboration, d.preferredCollaboration)
+  )
+}
 
 const MONTHS_DE = [
   "Jan",

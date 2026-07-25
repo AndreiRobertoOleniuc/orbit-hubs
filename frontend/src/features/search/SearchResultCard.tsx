@@ -7,6 +7,7 @@ import { ContactModal } from "@/features/contact/ContactModal"
 import {
   availabilityMismatch,
   availabilityPillText,
+  collaborationLabel,
   type AvailabilityCriteria,
 } from "@/features/profile/availabilityUtils"
 import { sourceTypeInfo } from "@/features/profile/profileUtils"
@@ -249,7 +250,9 @@ export function SearchResultCard({
             {distance && availability && <Sep />}
             {availability && <span>{availability}</span>}
             {collab.length > 0 && (availability || distance) && <Sep />}
-            {collab.length > 0 && <span>{collab.join(", ")}</span>}
+            {collab.length > 0 && (
+              <span>{collab.map(collaborationLabel).join(", ")}</span>
+            )}
             {mismatch.pensum && (
               <span
                 className="inline-flex items-center gap-1 font-medium text-amber-700 dark:text-amber-500"

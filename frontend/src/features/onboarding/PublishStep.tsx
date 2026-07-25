@@ -2,14 +2,18 @@ import { CheckCircle2, Loader2, Pencil, Rocket } from "lucide-react"
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { COLLABORATION_TYPES } from "@/features/profile/availabilityUtils"
+import { AvailabilityFields } from "@/features/profile/AvailabilityFields"
+import { AvailabilityPreview } from "@/features/profile/AvailabilityPreview"
+import {
+  toAvailabilityBody,
+  toAvailabilityDraft,
+  type AvailabilityDraft,
+} from "@/features/profile/availabilityUtils"
 import {
   usePublishEntityMutation,
   useUpdateAvailabilityMutation,
 } from "@/lib/api"
-import { cn, todayIso } from "@/lib/utils"
+import { cn } from "@/lib/utils"
 import type { EntityDto } from "@/types/api"
 
 type AvailabilityChoice = "open" | "closed" | null
@@ -28,41 +32,25 @@ export function PublishStep({
   const [choice, setChoice] = useState<AvailabilityChoice>(
     availability?.openToRequests ? "open" : supply ? null : "closed"
   )
-  const [from, setFrom] = useState(availability?.availableFrom ?? "")
-  const [to, setTo] = useState(availability?.availableTo ?? "")
-  const [pensum, setPensum] = useState(availability?.pensumPct ?? 100)
-  const [note, setNote] = useState(availability?.note ?? "")
-  const [collaboration, setCollaboration] = useState<string[]>(
-    availability?.preferredCollaboration ?? []
+  const [draft, setDraft] = useState<AvailabilityDraft>(() =>
+    toAvailabilityDraft(availability)
   )
   const [error, setError] = useState<string | null>(null)
   const [updateAvailability, { isLoading: availabilitySaving }] =
     useUpdateAvailabilityMutation()
   const [publish, { isLoading: publishing }] = usePublishEntityMutation()
 
-  const toggleCollaboration = (value: string) =>
-    setCollaboration((current) =>
-      current.includes(value)
-        ? current.filter((item) => item !== value)
-        : [...current, value]
-    )
+  const patch = (p: Partial<AvailabilityDraft>) =>
+    setDraft((d) => ({ ...d, ...p }))
+
+  const body = toAvailabilityBody(choice === "open", draft)
 
   const submit = async () => {
     if (supply && choice == null) return
     setError(null)
     try {
       if (supply) {
-        await updateAvailability({
-          entityId: entity.id,
-          body: {
-            openToRequests: choice === "open",
-            availableFrom: choice === "open" && from ? from : null,
-            availableTo: choice === "open" && to ? to : null,
-            pensumPct: choice === "open" ? pensum : null,
-            note: choice === "open" && note.trim() ? note.trim() : null,
-            preferredCollaboration: choice === "open" ? collaboration : [],
-          },
-        }).unwrap()
+        await updateAvailability({ entityId: entity.id, body }).unwrap()
       }
       onPublished(await publish(entity.id).unwrap())
     } catch {
@@ -91,7 +79,9 @@ export function PublishStep({
         <section className="mt-6 rounded-xl border bg-card p-5">
           <h2 className="font-semibold">Bist du offen für Anfragen?</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Diese Auswahl kannst du später jederzeit im Profil ändern.
+            Deine Verfügbarkeit ist ein Signal, kein Filter: Sie bestimmt, wie
+            weit oben du bei passenden Suchen erscheinst — ausgeschlossen wirst
+            du nie. Die Auswahl kannst du später jederzeit im Profil ändern.
           </p>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             <ChoiceButton
@@ -109,77 +99,13 @@ export function PublishStep({
           </div>
 
           {choice === "open" && (
-            <div className="mt-5 space-y-4 border-t pt-5">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="onboarding-available-from">
-                    Verfügbar ab
-                  </Label>
-                  <Input
-                    id="onboarding-available-from"
-                    type="date"
-                    min={todayIso()}
-                    max={to || undefined}
-                    value={from}
-                    onChange={(event) => setFrom(event.target.value)}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="onboarding-available-to">Verfügbar bis</Label>
-                  <Input
-                    id="onboarding-available-to"
-                    type="date"
-                    min={from || todayIso()}
-                    value={to}
-                    onChange={(event) => setTo(event.target.value)}
-                  />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="onboarding-pensum">Pensum: {pensum} %</Label>
-                <input
-                  id="onboarding-pensum"
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={10}
-                  value={pensum}
-                  className="w-full accent-primary"
-                  onChange={(event) => setPensum(Number(event.target.value))}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Art der Zusammenarbeit</Label>
-                <div className="flex flex-wrap gap-2">
-                  {COLLABORATION_TYPES.map((type) => (
-                    <button
-                      key={type}
-                      type="button"
-                      aria-pressed={collaboration.includes(type)}
-                      className={cn(
-                        "rounded-full border px-3 py-1 text-sm transition-colors",
-                        collaboration.includes(type)
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "text-muted-foreground hover:bg-muted"
-                      )}
-                      onClick={() => toggleCollaboration(type)}
-                    >
-                      {type}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="onboarding-availability-note">
-                  Notiz (optional)
-                </Label>
-                <Input
-                  id="onboarding-availability-note"
-                  placeholder="z.B. remote bevorzugt"
-                  value={note}
-                  onChange={(event) => setNote(event.target.value)}
-                />
-              </div>
+            <div className="mt-5 space-y-5 border-t pt-5">
+              <AvailabilityFields
+                value={draft}
+                onChange={patch}
+                idPrefix="onboarding-avail"
+              />
+              <AvailabilityPreview availability={body} />
             </div>
           )}
         </section>

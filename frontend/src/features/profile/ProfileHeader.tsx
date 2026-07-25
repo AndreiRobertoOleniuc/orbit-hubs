@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button"
 import { useAuth } from "@/features/auth/useAuth"
 import { ContactModal } from "@/features/contact/ContactModal"
 import { AvailabilityBadge } from "@/features/profile/AvailabilityBadge"
+import { collaborationLabel } from "@/features/profile/availabilityUtils"
 import {
   initials,
   isHrVerified,
@@ -127,6 +128,7 @@ export function ProfileHeader({
             </button>
           )}
         </div>
+        <AvailabilityDetail entity={entity} />
         {(entity.locationLabel || languages.length > 0 || websiteUrl) && (
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
             {entity.locationLabel && (
@@ -186,4 +188,23 @@ export function ProfileHeader({
       )}
     </header>
   )
+}
+
+/**
+ * The prose half of an availability statement: which kinds of collaboration are
+ * on offer, plus the owner's own note. The badge next to it carries only the
+ * window and Pensum, so without this line the note had nowhere to surface at
+ * all — people wrote one in the editor and never saw it again.
+ */
+function AvailabilityDetail({ entity }: { entity: EntityDto }) {
+  const availability = entity.availability
+  if (!availability?.openToRequests) return null
+
+  const collab = availability.preferredCollaboration ?? []
+  const detail = [collab.map(collaborationLabel).join(", "), availability.note]
+    .filter(Boolean)
+    .join(" · ")
+  if (!detail) return null
+
+  return <p className="mt-2 text-sm text-muted-foreground">{detail}</p>
 }
