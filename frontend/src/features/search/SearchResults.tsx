@@ -152,22 +152,34 @@ export function SearchResults({
             </>
           )}
 
+          {/* Umformulieren steht vorn und gefüllt: eine zu kurze, stichwortartige
+              Anfrage ist die häufigste Ursache für null Treffer, und sie zu
+              schärfen ist der billigste nächste Schritt — billiger jedenfalls
+              als eine Anfrage auszuschreiben. */}
           {!isLoading && !isError && !hasResults && (
             <div className="mx-auto mt-10 max-w-xl rounded-xl bg-card p-8 text-center ring-1 ring-foreground/10">
               <h2 className="text-xl font-bold">Kein direkter Treffer</h2>
+              <p className="mt-2 truncate text-sm text-muted-foreground">
+                «{query}»
+              </p>
               <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                Erstelle eine Anfrage: Sie erscheint öffentlich unter «Offene
-                Anfragen», passende Profile werden benachrichtigt, und du wirst
-                informiert, sobald jemand reagiert.
+                Kurze Stichwörter finden oft nichts — beschreibe dein Anliegen
+                in ein bis zwei Sätzen. Oder erstelle eine Anfrage: Sie
+                erscheint öffentlich unter «Offene Anfragen», passende Profile
+                werden benachrichtigt, und du wirst informiert, sobald jemand
+                reagiert.
               </p>
               <div className="mt-6 flex flex-col items-center gap-2">
+                <Button onClick={onEdit}>Suche umformulieren</Button>
                 <WidenButton
                   scope={scope}
                   regions={regions}
                   hubs={hubs}
                   onWiden={onWiden}
                 />
-                <Button onClick={onCreateRequest}>Anfrage erstellen</Button>
+                <Button variant="outline" onClick={onCreateRequest}>
+                  Anfrage erstellen
+                </Button>
               </div>
             </div>
           )}

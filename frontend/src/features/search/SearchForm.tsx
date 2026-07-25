@@ -83,7 +83,7 @@ export function SearchForm({
         rows={3}
         autoFocus
         className="mt-1.5 text-base"
-        placeholder="Beschreibe, was du brauchst, z. B. «Embedded-Firmware-Entwickler für 2 Monate»"
+        placeholder="Beschreibe in ein bis zwei Sätzen, was du brauchst, z. B. «Ich suche eine Person, die Nutzerfeedback zu Requirements verdichtet, ca. 20 % ab August.»"
         value={query}
         aria-invalid={queryMissing}
         aria-describedby={queryMissing ? "search-query-error" : undefined}

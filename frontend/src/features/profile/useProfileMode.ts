@@ -25,6 +25,21 @@ export function useProfileMode(): {
 }
 
 /**
+ * Whether the given entity belongs to the signed-in user. Used to suppress
+ * actions that make no sense on your own profile — contacting yourself, above
+ * all, which the backend rejects with a 400 and which surfaces in the preview
+ * ("So sehen dich andere") and whenever your own profile ranks in your search.
+ */
+export function useIsOwnEntity(entityId: number | null | undefined): boolean {
+  const { isAuthenticated } = useAuth()
+  const { data: entities } = useGetMyEntitiesQuery(undefined, {
+    skip: !isAuthenticated,
+  })
+  if (entityId == null) return false
+  return (entities ?? []).some((entity) => entity.id === entityId)
+}
+
+/**
  * Persists a mode change on the user's entity. The mutation's cache
  * invalidation refreshes everything that reads the mode (header switch,
  * navigation, profile), so callers only need to handle their own navigation.

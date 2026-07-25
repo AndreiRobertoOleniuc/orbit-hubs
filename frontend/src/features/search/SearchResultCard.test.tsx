@@ -68,3 +68,27 @@ describe("SearchResultCard → ContactModal", () => {
     expect(screen.getAllByText(RATIONALE)).toHaveLength(1)
   })
 })
+
+describe("SearchResultCard → top match", () => {
+  const renderAt = (rank: number) =>
+    render(
+      <MemoryRouter>
+        <SearchResultCard
+          result={resultFixture()}
+          rank={rank}
+          query="embedded firmware security review"
+          selected={false}
+          onSelect={() => {}}
+        />
+      </MemoryRouter>
+    )
+
+  it("marks only rank 1 as the top match", () => {
+    renderAt(0)
+    expect(screen.getByText("Bester Match")).not.toBeNull()
+
+    cleanup()
+    renderAt(1)
+    expect(screen.queryByText("Bester Match")).toBeNull()
+  })
+})

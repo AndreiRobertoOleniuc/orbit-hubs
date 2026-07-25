@@ -14,10 +14,12 @@ export function ZefixOrgInput({
   value,
   onChange,
   id,
+  required,
 }: {
   value: string
   onChange: (name: string) => void
   id?: string
+  required?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [search, { data: hits, isFetching }] = useLazySearchZefixQuery()
@@ -45,6 +47,7 @@ export function ZefixOrgInput({
     <div className="relative">
       <Input
         id={id}
+        required={required}
         placeholder="Firma suchen (Handelsregister) oder frei eingeben…"
         value={value}
         autoComplete="off"

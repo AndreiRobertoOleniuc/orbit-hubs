@@ -67,7 +67,7 @@ export function AppLayout() {
               <div className="mt-2 flex flex-col items-stretch gap-2 border-t pt-3 sm:flex-row sm:items-center">
                 <ModeSwitch className="w-full justify-between sm:w-auto" />
                 <div className="flex flex-wrap items-center gap-2">
-                  <AuthControls />
+                  <AuthControls onNavigate={() => setMobileOpen(false)} />
                 </div>
               </div>
             </nav>

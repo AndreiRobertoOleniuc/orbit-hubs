@@ -46,10 +46,16 @@ describe("EvidenceSelectionStep", () => {
     const continueButton = screen.getByRole("button", {
       name: /Auswahl speichern und weiter/i,
     })
-    expect((continueButton as HTMLButtonElement).disabled).toBe(true)
+
+    // The button stays clickable while nothing is chosen — a disabled one
+    // would never explain what is missing.
+    await user.click(continueButton)
+    expect(api.replace).not.toHaveBeenCalled()
+    expect(screen.getByRole("alert").textContent).toMatch(
+      /mindestens einen Nachweis/i
+    )
 
     await user.click(screen.getByRole("checkbox", { name: /orbit-ui/i }))
-    expect((continueButton as HTMLButtonElement).disabled).toBe(false)
     await user.click(continueButton)
 
     expect(api.replace).toHaveBeenCalledWith({
@@ -57,6 +63,31 @@ describe("EvidenceSelectionStep", () => {
       activeSourceIds: [21],
     })
     expect(onContinue).toHaveBeenCalledWith(entity)
+  })
+
+  it("selects and clears every curatable source in one go", async () => {
+    const user = userEvent.setup()
+    const entity = entityFixture({
+      sources: [21, 22].map((id) => ({
+        id,
+        sourceType: "github",
+        label: `repo-${id}`,
+        sourceUrl: `https://github.com/orbit/repo-${id}`,
+        fetchStatus: "ok",
+        fetchedAt: null,
+        active: true,
+      })),
+    })
+
+    render(<EvidenceSelectionStep entity={entity} onContinue={vi.fn()} />)
+
+    expect(screen.getByText("2 von 2 ausgewählt")).toBeTruthy()
+
+    await user.click(screen.getByRole("button", { name: "Alle abwählen" }))
+    expect(screen.getByText("0 von 2 ausgewählt")).toBeTruthy()
+
+    await user.click(screen.getByRole("button", { name: "Alle auswählen" }))
+    expect(screen.getByText("2 von 2 ausgewählt")).toBeTruthy()
   })
 
   it("lets the already-used website be opened, unlike a non-http source key", () => {

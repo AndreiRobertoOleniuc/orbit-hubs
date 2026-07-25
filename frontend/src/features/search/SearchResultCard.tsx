@@ -11,6 +11,7 @@ import {
   type AvailabilityCriteria,
 } from "@/features/profile/availabilityUtils"
 import { sourceHref, sourceTypeInfo } from "@/features/profile/profileUtils"
+import { useIsOwnEntity } from "@/features/profile/useProfileMode"
 import { cn } from "@/lib/utils"
 import { useGetContactedEntityIdsQuery } from "@/lib/api"
 import type { SearchCitationDto, SearchResultDto } from "@/types/api"
@@ -95,7 +96,10 @@ export function SearchResultCard({
   })
   const { entity, rationale, citations, distance } = result
   const isTopMatch = rank === 0
-  const contactable = isAuthenticated && entity.claimed
+  // Das eigene Profil kann in den eigenen Treffern auftauchen — dort führt
+  // "Kontakt aufnehmen" sonst in ein 400 des Backends.
+  const isOwnProfile = useIsOwnEntity(entity.id)
+  const contactable = isAuthenticated && entity.claimed && !isOwnProfile
   const alreadyContacted = contactedIds?.includes(entity.id) ?? false
 
   // "Professor at University of Bern" + org "University of Bern" is the same
@@ -169,7 +173,7 @@ export function SearchResultCard({
             <div className="min-w-0">
               {isTopMatch && (
                 <p className="mb-1 text-[11px] font-medium tracking-wide text-primary">
-                  Beste Passung
+                  Bester Match
                 </p>
               )}
               <h3 className="text-lg leading-tight font-semibold tracking-tight">
@@ -201,9 +205,11 @@ export function SearchResultCard({
                 title={
                   contactable
                     ? undefined
-                    : !isAuthenticated
-                      ? "Anmeldung nötig"
-                      : "Profil nicht beansprucht — Kontakt nicht möglich"
+                    : isOwnProfile
+                      ? "Das ist dein eigenes Profil"
+                      : !isAuthenticated
+                        ? "Anmeldung nötig"
+                        : "Profil nicht beansprucht — Kontakt nicht möglich"
                 }
                 onClick={stop(() => setContactOpen(true))}
               >

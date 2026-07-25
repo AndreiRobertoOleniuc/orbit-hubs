@@ -49,12 +49,18 @@ export function ModeSwitch({ className }: { className?: string }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
+        {/* Das Präfix macht aus einem Zustands-Label einen Umschalter: ohne es
+            lasen Testende den Trigger als weitere Beschriftung und fanden den
+            Moduswechsel nicht. Kein aria-label mehr — der sichtbare Text ist
+            jetzt der Accessible Name (WCAG 2.5.3, Label in Name). */}
         <Button
           variant="outline"
           size="sm"
           className={cn("gap-1.5", className)}
-          aria-label="Modus wechseln"
         >
+          <span className="hidden font-normal text-muted-foreground sm:inline">
+            Modus:
+          </span>
           {MODE_LABEL[mode]}
           <ChevronDown className="size-3.5 opacity-60" />
         </Button>

@@ -138,13 +138,21 @@ export function ProfileDetailsStep({
         </p>
       </div>
 
-      <div className="mt-6 space-y-5 rounded-xl border bg-card p-5">
+      {/* Dieselbe Legende wie in Suche und Anfrage-Formular — die Sternchen
+          standen hier bisher unerklärt. `required` zusätzlich am Input, weil
+          das Sternchen im Label aria-hidden ist. */}
+      <p className="mt-6 text-xs text-muted-foreground">
+        <span className="text-destructive">*</span> Pflichtfeld
+      </p>
+
+      <div className="mt-2 space-y-5 rounded-xl border bg-card p-5">
         <div className="space-y-1.5">
           <Label htmlFor="onboarding-name" required>
             {person ? "Name" : "Organisationsname"}
           </Label>
           <Input
             id="onboarding-name"
+            required
             value={displayName}
             onChange={(event) => setDisplayName(event.target.value)}
           />
@@ -156,6 +164,7 @@ export function ProfileDetailsStep({
           </Label>
           <Input
             id="onboarding-role"
+            required
             placeholder={
               person
                 ? "z.B. Professorin für Embedded Systems"
@@ -205,6 +214,7 @@ export function ProfileDetailsStep({
             </Label>
             <ZefixOrgInput
               id="onboarding-company"
+              required
               value={orgName}
               onChange={setOrgName}
             />

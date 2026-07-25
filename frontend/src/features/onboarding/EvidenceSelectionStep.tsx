@@ -10,6 +10,9 @@ import type { EntityDto, EntitySourceDto } from "@/types/api"
 
 const CURATABLE = new Set(["github", "orcid_pub"])
 
+/** Ab dieser Anzahl kuratierbarer Quellen startet die Auswahl leer. */
+const BULK_THRESHOLD = 10
+
 export function EvidenceSelectionStep({
   entity,
   onContinue,
@@ -23,9 +26,15 @@ export function EvidenceSelectionStep({
   const fixed = entity.sources.filter(
     (source) => !CURATABLE.has(source.sourceType) && source.active
   )
-  const [selected, setSelected] = useState<number[]>(
-    selectable.filter((source) => source.active).map((source) => source.id)
+  // Bei wenigen Quellen ist eine leere Vorauswahl reine Mehrarbeit, bei vielen
+  // dagegen eine Erleichterung: ab dieser Menge startet der Schritt leer und
+  // die Auswahl wird bewusst getroffen, statt Zeile für Zeile abgewählt.
+  const [selected, setSelected] = useState<number[]>(() =>
+    selectable.length > BULK_THRESHOLD
+      ? []
+      : selectable.filter((source) => source.active).map((source) => source.id)
   )
+  const [attempted, setAttempted] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [replaceSelection, { isLoading }] = useReplaceSourceSelectionMutation()
 
@@ -39,6 +48,10 @@ export function EvidenceSelectionStep({
     )
 
   const save = async () => {
+    setAttempted(true)
+    // Der Button bleibt klickbar, weil ein deaktivierter Button kein Klick-
+    // Ereignis erzeugt — und damit nie erklären könnte, was noch fehlt.
+    if (!hasEvidence) return
     setError(null)
     try {
       const updated = await replaceSelection({
@@ -97,6 +110,30 @@ export function EvidenceSelectionStep({
         </div>
       )}
 
+      {selectable.length > 1 && (
+        <div className="mt-4 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+          <span aria-live="polite">
+            {selected.length} von {selectable.length} ausgewählt
+          </span>
+          <span className="flex gap-3">
+            <button
+              type="button"
+              className="rounded-sm text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+              onClick={() => setSelected(selectable.map((source) => source.id))}
+            >
+              Alle auswählen
+            </button>
+            <button
+              type="button"
+              className="rounded-sm text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+              onClick={() => setSelected([])}
+            >
+              Alle abwählen
+            </button>
+          </span>
+        </div>
+      )}
+
       <div className="mt-4 space-y-2">
         {selectable.length > 0 ? (
           selectable.map((source) => (
@@ -115,7 +152,7 @@ export function EvidenceSelectionStep({
         )}
       </div>
 
-      {!hasEvidence && (
+      {attempted && !hasEvidence && (
         <p className="mt-3 text-sm text-destructive" role="alert">
           Wähle mindestens einen Nachweis aus.
         </p>
@@ -128,7 +165,8 @@ export function EvidenceSelectionStep({
 
       <Button
         className="mt-6 w-full"
-        disabled={!hasEvidence || isLoading}
+        disabled={isLoading}
+        aria-invalid={attempted && !hasEvidence}
         onClick={() => void save()}
       >
         {isLoading && <Loader2 className="size-4 animate-spin" />}
