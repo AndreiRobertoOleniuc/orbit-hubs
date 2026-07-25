@@ -3,7 +3,7 @@ import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { SourceGlyph } from "@/components/SourceGlyph"
-import { sourceTypeInfo } from "@/features/profile/profileUtils"
+import { sourceHref, sourceTypeInfo } from "@/features/profile/profileUtils"
 import { useReplaceSourceSelectionMutation } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import type { EntityDto, EntitySourceDto } from "@/types/api"
@@ -72,11 +72,28 @@ export function EvidenceSelectionStep({
           <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
             Bereits verwendet
           </p>
-          <p className="mt-1 text-sm">
-            {fixed
-              .map((source) => sourceTypeInfo(source.sourceType).label)
-              .join(", ")}
-          </p>
+          <ul className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+            {fixed.map((source) => {
+              const info = sourceTypeInfo(source.sourceType)
+              const url = sourceHref(source.sourceUrl)
+              return (
+                <li key={source.id} className="inline-flex items-center gap-1">
+                  {info.label}
+                  {url && (
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`${info.label} öffnen`}
+                      className="rounded-sm text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+                    >
+                      <ExternalLink className="size-3.5" />
+                    </a>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
         </div>
       )}
 
@@ -131,6 +148,7 @@ function EvidenceRow({
   onToggle: () => void
 }) {
   const info = sourceTypeInfo(source.sourceType)
+  const url = sourceHref(source.sourceUrl)
   return (
     <div
       className={cn(
@@ -159,12 +177,12 @@ function EvidenceRow({
           </span>
         </span>
       </label>
-      {source.sourceUrl && (
+      {url && (
         <a
-          href={source.sourceUrl}
+          href={url}
           target="_blank"
           rel="noopener noreferrer"
-          aria-label="Quelle öffnen"
+          aria-label={`${info.label} öffnen`}
           className="text-muted-foreground hover:text-foreground"
           onClick={(event) => event.stopPropagation()}
         >

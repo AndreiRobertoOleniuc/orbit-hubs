@@ -68,7 +68,7 @@ export function NachweisList({
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="Quelle öffnen"
+                aria-label={`${info.label} öffnen`}
                 className="text-muted-foreground hover:text-foreground"
               >
                 <ExternalLink className="size-4" />

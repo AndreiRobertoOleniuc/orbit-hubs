@@ -63,6 +63,8 @@ export const WEBSITE_SOURCE: SourceDef = {
   hint: "URL",
   glyph: "🌐",
   placeholder: "www.meine-seite.ch",
+  helper:
+    "Für dein Personenprofil: persönliche Website, Portfolio oder Blog. Eine Firmenwebsite gehört in ein Organisationsprofil.",
   guide: {
     intro: "Welche Website?",
     steps: [

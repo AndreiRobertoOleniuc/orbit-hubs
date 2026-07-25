@@ -1,3 +1,4 @@
+import { externalHref } from "@/lib/utils"
 import type { EntityDto, EntitySourceDto } from "@/types/api"
 
 /** German display name + card glyph per sources.source_type. */
@@ -44,9 +45,31 @@ export function initials(name: string): string {
     .toUpperCase()
 }
 
-/** Only http(s) source URLs are externally linkable (not zefix:…/manual:… keys). */
+/** Website sources persist `{sourceType}:{domain}` instead of an absolute URL. */
+const WEBSITE_KEY_PREFIXES = ["personal_site:", "company_site:"]
+
+/**
+ * The openable address behind a source, or null.
+ *
+ * `sources.source_url` is a dedup key, not always a URL: GitHub and ORCID store
+ * real links, but websites store `personal_site:fhnw.ch` and Zefix/manual text
+ * store keys with no web address at all. Websites are rebuilt into
+ * `https://{domain}` exactly as `IngestionOrchestrator` does when it re-fetches
+ * them; everything non-http(s) stays null so it renders as plain text.
+ */
+export function sourceHref(sourceUrl: string | null): string | null {
+  const direct = externalHref(sourceUrl)
+  if (direct || !sourceUrl) return direct
+
+  const prefix = WEBSITE_KEY_PREFIXES.find((p) => sourceUrl.startsWith(p))
+  if (!prefix) return null
+  const domain = sourceUrl.slice(prefix.length)
+  return externalHref(
+    /^https?:\/\//i.test(domain) ? domain : `https://${domain}`
+  )
+}
+
+/** {@link sourceHref} for a profile source row. */
 export function externalUrl(source: EntitySourceDto): string | null {
-  return source.sourceUrl && /^https?:\/\//i.test(source.sourceUrl)
-    ? source.sourceUrl
-    : null
+  return sourceHref(source.sourceUrl)
 }

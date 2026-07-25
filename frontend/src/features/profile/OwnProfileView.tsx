@@ -35,7 +35,7 @@ import { ProfileHeader } from "@/features/profile/ProfileHeader"
 import { ProfileMetaEditor } from "@/features/profile/ProfileMetaEditor"
 import { ProfileSectionCard } from "@/features/profile/ProfileSectionCard"
 import { SubscribedTopics } from "@/features/profile/SubscribedTopics"
-import { builtFromLabels } from "@/features/profile/profileUtils"
+import { builtFromLabels, externalUrl } from "@/features/profile/profileUtils"
 import {
   useDeleteEntityMutation,
   useResyncEntityMutation,
@@ -98,12 +98,15 @@ export function OwnProfileView({ entity }: { entity: EntityDto }) {
     }
   }
 
-  const linkedSource = (kind: SourceKind) =>
-    entity.sources.some((s) =>
+  // Keep the matched source around: the card shows a placeholder value, but the
+  // persisted URL is what makes a linked website openable from here.
+  const linkedSource = (kind: SourceKind) => {
+    const source = entity.sources.find((s) =>
       KIND_TO_SOURCE_TYPES[kind].includes(s.sourceType)
     )
-      ? { kind, value: "verknüpft" }
-      : undefined
+    if (!source) return undefined
+    return { draft: { kind, value: "verknüpft" }, href: externalUrl(source) }
+  }
 
   const addSource = async (kind: SourceKind, value: string, file?: File) => {
     setBusyKind(kind)
@@ -448,15 +451,21 @@ export function OwnProfileView({ entity }: { entity: EntityDto }) {
                   </Badge>
                 </div>
               )}
-              {sourceDefs.map((def) => (
-                <SourceCard
-                  key={def.title}
-                  def={def}
-                  added={linkedSource(def.kind)}
-                  busy={busyKind === def.kind}
-                  onAdd={(value, file) => void addSource(def.kind, value, file)}
-                />
-              ))}
+              {sourceDefs.map((def) => {
+                const linked = linkedSource(def.kind)
+                return (
+                  <SourceCard
+                    key={def.title}
+                    def={def}
+                    added={linked?.draft}
+                    href={linked?.href}
+                    busy={busyKind === def.kind}
+                    onAdd={(value, file) =>
+                      void addSource(def.kind, value, file)
+                    }
+                  />
+                )
+              })}
               {plannedDefs.length > 0 && (
                 <>
                   <p className="pt-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">

@@ -6,12 +6,19 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { SourceGlyph } from "@/components/SourceGlyph"
 import type { SourceDef, SourceDraft } from "@/features/ingestion/types"
-import { cn } from "@/lib/utils"
+import { cn, externalHref } from "@/lib/utils"
 
 interface SourceCardProps {
   def: SourceDef
   added?: SourceDraft
+  /** Overrides {@link SourceDef.helper} for this call site. */
   helper?: string
+  /**
+   * The linked source's URL, so it can be opened from the card. Persisted
+   * `sourceUrl` on the profile, the normalized draft URL during onboarding.
+   * Non-http(s) values are ignored rather than rendered as a dead link.
+   */
+  href?: string | null
   /** Shown while an add triggered from this card is in flight. */
   busy?: boolean
   onAdd: (value: string, file?: File) => void
@@ -27,6 +34,7 @@ export function SourceCard({
   def,
   added,
   helper,
+  href,
   busy,
   onAdd,
   onRemove,
@@ -41,10 +49,16 @@ export function SourceCard({
     setValue("")
   }
 
+  const helperText = helper ?? def.helper
+  const linkHref = added ? externalHref(href) : null
+  // A linked card has nothing left to expand, so it stops being a button —
+  // that keeps the open-source link valid markup and drops an inert tab stop.
+  const Head = added ? "div" : "button"
+
   return (
     <div className="rounded-lg border bg-card">
-      <button
-        type="button"
+      <Head
+        {...(added ? {} : { type: "button" as const })}
         className={cn(
           "flex w-full items-center gap-3 px-4 py-3 text-left",
           added && "cursor-default"
@@ -97,10 +111,22 @@ export function SourceCard({
         ) : (
           <Plus className="size-4 text-muted-foreground" />
         )}
-      </button>
+        {linkHref && (
+          <a
+            href={linkHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`${def.title} öffnen`}
+            onClick={(e) => e.stopPropagation()}
+            className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+          >
+            <ExternalLink className="size-4" />
+          </a>
+        )}
+      </Head>
 
-      {helper && !added && !open && (
-        <p className="px-4 pb-3 text-xs text-muted-foreground">{helper}</p>
+      {helperText && !added && !open && (
+        <p className="px-4 pb-3 text-xs text-muted-foreground">{helperText}</p>
       )}
 
       {open && !added && (

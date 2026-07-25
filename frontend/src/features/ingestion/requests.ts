@@ -1,4 +1,9 @@
-import type { IngestOutcome, SourceKind } from "@/features/ingestion/types"
+import type {
+  IngestOutcome,
+  SourceDraft,
+  SourceKind,
+} from "@/features/ingestion/types"
+import { externalHref } from "@/lib/utils"
 import type { IngestionRequestDto, IngestionResponseDto } from "@/types/api"
 
 /** Which sources.source_type values satisfy a card's source kind. */
@@ -11,6 +16,15 @@ export const KIND_TO_SOURCE_TYPES: Record<SourceKind, string[]> = {
 
 export function ensureUrl(value: string): string {
   return /^https?:\/\//i.test(value) ? value : `https://${value}`
+}
+
+/**
+ * Openable URL for a source the user linked but hasn't ingested yet — only the
+ * typed draft exists at that point. A PDF upload is a file, never a URL.
+ */
+export function draftHref(draft: SourceDraft): string | null {
+  if (draft.kind !== "website" || draft.file || !draft.value.trim()) return null
+  return externalHref(ensureUrl(draft.value.trim()))
 }
 
 /**

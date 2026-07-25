@@ -10,7 +10,7 @@ import {
   collaborationLabel,
   type AvailabilityCriteria,
 } from "@/features/profile/availabilityUtils"
-import { sourceTypeInfo } from "@/features/profile/profileUtils"
+import { sourceHref, sourceTypeInfo } from "@/features/profile/profileUtils"
 import { cn } from "@/lib/utils"
 import { useGetContactedEntityIdsQuery } from "@/lib/api"
 import type { SearchCitationDto, SearchResultDto } from "@/types/api"
@@ -31,8 +31,7 @@ function Sep() {
 function Citation({ citation }: { citation: SearchCitationDto }) {
   const info = sourceTypeInfo(citation.sourceType ?? "")
   const label = citation.label ?? info.label
-  const external =
-    citation.sourceUrl && /^https?:\/\//i.test(citation.sourceUrl)
+  const external = sourceHref(citation.sourceUrl)
   const inner = (
     <>
       <span className="w-4 shrink-0 text-[10px] font-semibold text-muted-foreground/60">
@@ -44,7 +43,7 @@ function Citation({ citation }: { citation: SearchCitationDto }) {
   const base = "flex items-baseline gap-2 text-[13px] text-muted-foreground"
   return external ? (
     <a
-      href={citation.sourceUrl!}
+      href={external}
       target="_blank"
       rel="noopener noreferrer"
       onClick={(e) => e.stopPropagation()}

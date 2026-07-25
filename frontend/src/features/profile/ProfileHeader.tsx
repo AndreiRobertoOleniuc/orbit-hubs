@@ -148,6 +148,7 @@ export function ProfileHeader({
                 href={websiteUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+                aria-label={`Website von ${entity.displayName} öffnen`}
                 className="inline-flex items-center gap-1 hover:text-foreground hover:underline"
               >
                 <ExternalLink className="size-3.5" />

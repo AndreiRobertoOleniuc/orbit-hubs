@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { SourceGlyph } from "@/components/SourceGlyph"
 import { PlannedSourceCard } from "@/features/ingestion/PlannedSourceCard"
+import { draftHref } from "@/features/ingestion/requests"
 import { SourceCard } from "@/features/ingestion/SourceCard"
 import {
   DEMAND_SOURCES,
@@ -116,16 +117,19 @@ export function SourcesStep({
           </div>
         )}
 
-        {sourceDefs.map((def) => (
-          <SourceCard
-            key={def.title}
-            def={def}
-            helper={def.helper}
-            added={sources.find((s) => s.kind === def.kind)}
-            onAdd={(value, file) => onAddSource(def.kind, value, file)}
-            onRemove={() => onRemoveSource(def.kind)}
-          />
-        ))}
+        {sourceDefs.map((def) => {
+          const draft = sources.find((s) => s.kind === def.kind)
+          return (
+            <SourceCard
+              key={def.title}
+              def={def}
+              added={draft}
+              href={draft && draftHref(draft)}
+              onAdd={(value, file) => onAddSource(def.kind, value, file)}
+              onRemove={() => onRemoveSource(def.kind)}
+            />
+          )
+        })}
 
         <div className="space-y-2 rounded-lg border bg-card px-4 py-3.5">
           <Label htmlFor="onb-description">{copy.label}</Label>
