@@ -92,6 +92,11 @@ export function SearchView() {
     return (
       <SearchResults
         query={form.query}
+        criteria={{
+          wantFrom: form.wantFrom || null,
+          wantTo: form.wantTo || null,
+          wantPensumPct: form.wantPensum ? Number(form.wantPensum) : null,
+        }}
         data={results}
         isLoading={isLoading}
         isError={isError}

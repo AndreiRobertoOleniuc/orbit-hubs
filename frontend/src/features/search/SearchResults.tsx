@@ -1,5 +1,6 @@
 import { useEffect, useState, type CSSProperties } from "react"
 import { Button } from "@/components/ui/button"
+import type { AvailabilityCriteria } from "@/features/profile/availabilityUtils"
 import { ProfileSidePanel } from "@/features/search/ProfileSidePanel"
 import { SearchLoadingState } from "@/features/search/SearchLoadingState"
 import { SearchResultCard } from "@/features/search/SearchResultCard"
@@ -14,6 +15,8 @@ import type {
 
 interface SearchResultsProps {
   query: string
+  /** Zeitfilter + Pensum of the executed search — compared against each hit. */
+  criteria: AvailabilityCriteria
   data: SearchResponseDto | undefined
   isLoading: boolean
   isError: boolean
@@ -43,6 +46,7 @@ function WidenButton({
 
 export function SearchResults({
   query,
+  criteria,
   data,
   isLoading,
   isError,
@@ -111,21 +115,27 @@ export function SearchResults({
 
           {!isLoading && !isError && hasResults && (
             <>
-              <h2 className="mt-7 mb-4 text-xl font-bold">
-                Treffer ({results.length})
+              <h2 className="mt-8 mb-1 flex items-baseline gap-2 text-[11px] tracking-wide text-muted-foreground">
+                <span className="tabular-nums">{results.length} Treffer</span>
+                <span aria-hidden className="text-muted-foreground/40">
+                  ·
+                </span>
+                <span>nach Passung sortiert</span>
               </h2>
-              <div className="flex flex-col gap-4">
+              <ol className="mt-3 flex flex-col gap-3">
                 {results.map((r, i) => (
-                  <SearchResultCard
-                    key={r.entity.id}
-                    result={r}
-                    rank={i}
-                    query={query}
-                    selected={panelOpen && selected?.id === r.entity.id}
-                    onSelect={() => openProfile(r.entity)}
-                  />
+                  <li key={r.entity.id}>
+                    <SearchResultCard
+                      result={r}
+                      rank={i}
+                      query={query}
+                      criteria={criteria}
+                      selected={panelOpen && selected?.id === r.entity.id}
+                      onSelect={() => openProfile(r.entity)}
+                    />
+                  </li>
                 ))}
-              </div>
+              </ol>
               <div className="mt-8 flex flex-col items-center gap-3 text-center">
                 {nextWiderScope(scope, regions, hubs) && (
                   <p className="text-sm text-muted-foreground">
