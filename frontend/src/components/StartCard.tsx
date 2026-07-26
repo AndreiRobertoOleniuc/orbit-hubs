@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate } from "react-router"
 import { SignInButton } from "@clerk/react"
 
 import { useAuth } from "@/features/auth/useAuth"

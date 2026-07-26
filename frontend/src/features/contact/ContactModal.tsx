@@ -1,5 +1,5 @@
 import { useId, useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useNavigate } from "react-router"
 import { Check, Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"

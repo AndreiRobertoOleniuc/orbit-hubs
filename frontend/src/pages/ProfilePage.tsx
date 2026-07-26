@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom"
+import { useParams } from "react-router"
 
 import { OwnProfilePage } from "@/pages/OwnProfilePage"
 import { PublicProfilePage } from "@/pages/PublicProfilePage"

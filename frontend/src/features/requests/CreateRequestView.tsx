@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useLocation, useNavigate } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router"
 import { ArrowLeft, Loader2, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"

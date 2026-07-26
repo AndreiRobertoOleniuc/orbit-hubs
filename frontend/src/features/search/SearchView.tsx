@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom"
+import { useNavigate } from "react-router"
 
 import type { CreateRequestPrefill } from "@/features/requests/CreateRequestView"
 import { SearchForm, type SearchFormState } from "@/features/search/SearchForm"

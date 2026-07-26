@@ -1,5 +1,5 @@
 import { SignInButton, SignUpButton, UserButton } from "@clerk/react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate } from "react-router"
 import { UserRound } from "lucide-react"
 
 import { Button } from "@/components/ui/button"

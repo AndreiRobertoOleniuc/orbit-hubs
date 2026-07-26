@@ -1,6 +1,6 @@
 import { CheckCircle2 } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Navigate, useNavigate, useSearchParams } from "react-router-dom"
+import { Navigate, useNavigate, useSearchParams } from "react-router"
 
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"

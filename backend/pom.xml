@@ -6,7 +6,7 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>4.0.6</version>
+		<version>4.0.7</version>
 		<relativePath /> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.orbit</groupId>
@@ -30,6 +30,12 @@
 	<properties>
 		<java.version>21</java.version>
 		<spring-ai.version>2.0.0-M6</spring-ai.version>
+		<!-- Security overrides: patch levels newer than what the Boot 4.0.7 BOM
+		     manages. Drop an entry once the parent catches up to it. -->
+		<netty.version>4.2.16.Final</netty.version>
+		<jackson-bom.version>3.1.5</jackson-bom.version>
+		<jackson-2-bom.version>2.21.5</jackson-2-bom.version>
+		<postgresql.version>42.7.13</postgresql.version>
 	</properties>
 	<dependencies>
 		<dependency>

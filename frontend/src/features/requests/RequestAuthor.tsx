@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom"
+import { useNavigate } from "react-router"
 import { Building2 } from "lucide-react"
 
 import { initials } from "@/features/requests/requestUtils"

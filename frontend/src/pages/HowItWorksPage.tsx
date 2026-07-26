@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom"
+import { Link } from "react-router"
 import { BadgeCheck, Mail, PenLine, Search, Sparkles } from "lucide-react"
 
 import { Button } from "@/components/ui/button"

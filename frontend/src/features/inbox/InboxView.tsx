@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Link, useSearchParams } from "react-router-dom"
+import { Link, useSearchParams } from "react-router"
 import { Check, ClipboardCopy, Inbox, Loader2, Mail, Send } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
