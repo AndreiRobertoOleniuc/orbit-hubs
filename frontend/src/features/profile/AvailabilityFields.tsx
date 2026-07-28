@@ -1,9 +1,14 @@
+import { useState } from "react"
+import { X } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { InfoHint } from "@/components/InfoHint"
 import {
+  addCollaborationType,
+  COLLABORATION_MAX_LENGTH,
   COLLABORATION_PROMPT,
   COLLABORATION_TYPES,
+  isSuggestedCollaboration,
   type AvailabilityDraft,
 } from "@/features/profile/availabilityUtils"
 import { cn, todayIso } from "@/lib/utils"
@@ -32,6 +37,10 @@ export function AvailabilityFields({
   const id = (suffix: string) => `${idPrefix}-${suffix}`
   const { availableFrom, availableTo, pensumPct, note } = value
   const collaboration = value.preferredCollaboration
+  const [customDraft, setCustomDraft] = useState("")
+
+  /** Free-text entries — everything the suggestion chips don't already cover. */
+  const customTypes = collaboration.filter((t) => !isSuggestedCollaboration(t))
 
   const toggleCollab = (type: string) =>
     onChange({
@@ -39,6 +48,13 @@ export function AvailabilityFields({
         ? collaboration.filter((t) => t !== type)
         : [...collaboration, type],
     })
+
+  const addCustom = () => {
+    onChange({
+      preferredCollaboration: addCollaborationType(collaboration, customDraft),
+    })
+    setCustomDraft("")
+  }
 
   return (
     <div className="space-y-5">
@@ -137,11 +153,52 @@ export function AvailabilityFields({
               </button>
             )
           })}
+          {customTypes.map((type) => (
+            <span
+              key={type}
+              className="inline-flex items-center gap-1 rounded-full border border-primary bg-primary/10 py-1 pr-1.5 pl-3 text-sm text-primary"
+            >
+              {type}
+              <button
+                type="button"
+                onClick={() => toggleCollab(type)}
+                aria-label={`${type} entfernen`}
+                className="rounded-full p-0.5 hover:bg-primary/20"
+              >
+                <X className="size-3.5" />
+              </button>
+            </span>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <Input
+            id={id("collab-custom")}
+            value={customDraft}
+            maxLength={COLLABORATION_MAX_LENGTH}
+            placeholder="Eigene Art der Zusammenarbeit"
+            aria-label="Eigene Art der Zusammenarbeit hinzufügen"
+            onChange={(e) => setCustomDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return
+              // The field sits inside the profile form — Enter adds the chip
+              // instead of submitting everything.
+              e.preventDefault()
+              addCustom()
+            }}
+          />
+          <button
+            type="button"
+            onClick={addCustom}
+            disabled={!customDraft.trim()}
+            className="rounded-md border border-input px-3 text-sm hover:bg-muted disabled:opacity-50"
+          >
+            Hinzufügen
+          </button>
         </div>
         <FieldGroupHint>
-          Wird auf deinem Profil angezeigt, sortiert die Treffer aber nicht.
-          Innosuisse = staatlich geförderte Innovationsprojekte · Mandat =
-          bezahlter Auftrag.
+          Vorschläge zum Anklicken, eigene Angaben frei formulierbar. Wird auf
+          deinem Profil angezeigt, sortiert die Treffer aber nicht. Innosuisse =
+          staatlich geförderte Innovationsprojekte · Mandat = bezahlter Auftrag.
         </FieldGroupHint>
       </div>
 

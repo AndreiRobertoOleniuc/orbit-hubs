@@ -11,7 +11,10 @@ export interface CollaborationType {
 }
 
 /**
- * The collaboration types a supply profile can be open to (spec §6).
+ * The suggested collaboration types for a supply profile (spec §6). Suggestions,
+ * not a closed list — the field is free text end to end (`text[]` in Postgres),
+ * because in practice almost every profile names something these five don't
+ * cover, and the value is only ever displayed, never matched on.
  *
  * The bare nouns are ambiguous in a supply profile — a tester read
  * "Bachelorarbeit" as "I am looking for someone to write one" rather than
@@ -29,13 +32,39 @@ export const COLLABORATION_TYPES: readonly CollaborationType[] = [
 /** Prompt shown above the choices — names who is offering what to whom. */
 export const COLLABORATION_PROMPT = "Wofür dürfen andere dich kontaktieren?"
 
+/** Longest collaboration type we accept — keeps a chip on one line. */
+export const COLLABORATION_MAX_LENGTH = 60
+
 /**
- * Display label for a persisted value. Values written before this mapping
- * existed (or by a future backend) fall back to the raw value rather than
+ * Display label for a persisted value. Free-text entries (and values written
+ * before this mapping existed) fall back to the raw value rather than
  * disappearing from the UI.
  */
 export function collaborationLabel(value: string): string {
   return COLLABORATION_TYPES.find((t) => t.value === value)?.label ?? value
+}
+
+/** Whether a value is one of the suggestions rather than a free-text entry. */
+export function isSuggestedCollaboration(value: string): boolean {
+  return COLLABORATION_TYPES.some((t) => t.value === value)
+}
+
+/**
+ * Adds a free-text collaboration type to a selection. Trims and truncates the
+ * input and drops case-insensitive duplicates — including of the suggestions,
+ * so typing "mandat" selects the existing chip instead of adding a second one.
+ * Returns the unchanged list when there is nothing to add.
+ */
+export function addCollaborationType(
+  selected: string[],
+  raw: string
+): string[] {
+  const value = raw.trim().slice(0, COLLABORATION_MAX_LENGTH)
+  if (!value) return selected
+  const existing = [...selected, ...COLLABORATION_TYPES.map((t) => t.value)]
+  const match = existing.find((v) => v.toLowerCase() === value.toLowerCase())
+  if (match) return selected.includes(match) ? selected : [...selected, match]
+  return [...selected, value]
 }
 
 /**
