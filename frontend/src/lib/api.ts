@@ -48,12 +48,19 @@ export interface UpdateProfileMetaBody {
   locationLabel: string | null
 }
 
-/** Body for admin hub create/edit. */
+/**
+ * Body for admin hub create/edit. The region is either an existing one
+ * (`regionId`) or a place picked from the geo search (`regionName` + coords),
+ * which the backend creates on demand under the CH root.
+ */
 export interface HubMutationBody {
   name: string
   slug?: string
   hubType?: string | null
-  regionId: number
+  regionId?: number | null
+  regionName?: string | null
+  regionLatitude?: number | null
+  regionLongitude?: number | null
 }
 const baseUrl = `${import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080"}/api/v1`
 
@@ -96,6 +103,7 @@ export const apiSlice = createApi({
     "MyEntities",
     "Entity",
     "Hubs",
+    "Regions",
     "Subscriptions",
     "Board",
     "MyRequests",
@@ -440,6 +448,7 @@ export const apiSlice = createApi({
 
     getRegions: builder.query<RegionDto[], void>({
       query: () => "/regions",
+      providesTags: ["Regions"],
     }),
 
     // ─── Tag vocabulary autocomplete ───
@@ -450,11 +459,12 @@ export const apiSlice = createApi({
 
     getAdminRegions: builder.query<RegionDto[], void>({
       query: () => "/admin/regions",
+      providesTags: ["Regions"],
     }),
 
     createHub: builder.mutation<HubDto, HubMutationBody>({
       query: (body) => ({ url: "/admin/hubs", method: "POST", body }),
-      invalidatesTags: ["Hubs"],
+      invalidatesTags: ["Hubs", "Regions"],
     }),
 
     updateHub: builder.mutation<HubDto, { id: number; body: HubMutationBody }>({
@@ -463,7 +473,7 @@ export const apiSlice = createApi({
         method: "PUT",
         body,
       }),
-      invalidatesTags: ["Hubs"],
+      invalidatesTags: ["Hubs", "Regions"],
     }),
 
     deleteHub: builder.mutation<void, number>({

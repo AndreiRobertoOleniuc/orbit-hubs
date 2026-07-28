@@ -42,15 +42,13 @@ class AdminHubController {
 
     @PostMapping("/api/v1/admin/hubs")
     ResponseEntity<HubDto> create(@RequestBody HubMutationRequest request) {
-        HubDto dto = hubService.createHub(request.name(), request.slug(),
-                request.hubType(), request.regionId());
+        HubDto dto = hubService.createHub(request);
         return dto != null ? ResponseEntity.ok(dto) : ResponseEntity.badRequest().build();
     }
 
     @PutMapping("/api/v1/admin/hubs/{id}")
     ResponseEntity<HubDto> update(@PathVariable Long id, @RequestBody HubMutationRequest request) {
-        HubDto dto = hubService.updateHub(id, request.name(), request.slug(),
-                request.hubType(), request.regionId());
+        HubDto dto = hubService.updateHub(id, request);
         return dto != null ? ResponseEntity.ok(dto) : ResponseEntity.notFound().build();
     }
 

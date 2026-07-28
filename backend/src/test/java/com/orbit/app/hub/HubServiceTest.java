@@ -6,6 +6,7 @@ import java.util.Optional;
 
 import com.orbit.app.admin.AdminAccess;
 import com.orbit.app.auth.CurrentUser;
+import com.orbit.app.controllers.dto.HubMutationRequest;
 import com.orbit.domain.entity.Hub;
 import com.orbit.domain.entity.Region;
 import com.orbit.domain.repository.HubRepository;
@@ -62,9 +63,9 @@ class HubServiceTest {
 
         assertThatThrownBy(service::listHubsAsAdmin).isInstanceOf(HubAccessDeniedException.class);
         assertThatThrownBy(service::listRegionsAsAdmin).isInstanceOf(HubAccessDeniedException.class);
-        assertThatThrownBy(() -> service.createHub("X", null, null, 1L))
+        assertThatThrownBy(() -> service.createHub(hubRequest("X", 1L)))
                 .isInstanceOf(HubAccessDeniedException.class);
-        assertThatThrownBy(() -> service.updateHub(1L, "X", null, null, 1L))
+        assertThatThrownBy(() -> service.updateHub(1L, hubRequest("X", 1L)))
                 .isInstanceOf(HubAccessDeniedException.class);
         assertThatThrownBy(() -> service.deleteHub(1L)).isInstanceOf(HubAccessDeniedException.class);
         verify(hubs, never()).save(any());
@@ -81,21 +82,56 @@ class HubServiceTest {
             return saved;
         });
 
-        var dto = service.createHub("Innovation Hub", "", "ecosystem", 10L);
+        var dto = service.createHub(new HubMutationRequest("Innovation Hub", "", "ecosystem", 10L, null, null, null));
 
         assertThat(dto.slug()).isEqualTo("innovation-hub");
         assertThat(dto.regionName()).isEqualTo("Aargau");
     }
 
     @Test
+    void newRegionIsCreatedOnDemandUnderTheChRoot() {
+        allowAdmin();
+        Region root = region(1L, "ch", "Schweiz");
+        when(regions.findBySlug("ch")).thenReturn(Optional.of(root));
+        when(regions.findBySlug("kanton-bern")).thenReturn(Optional.empty());
+        when(regions.save(any())).thenAnswer(invocation -> {
+            Region saved = invocation.getArgument(0);
+            setField(saved, "id", 30L);
+            return saved;
+        });
+        when(hubs.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var dto = service.createHub(new HubMutationRequest(
+                "Switzerland Innovation Park", null, "incubator", null, "Kanton Bern", 46.9, 7.4));
+
+        assertThat(dto.regionId()).isEqualTo(30L);
+        assertThat(dto.regionName()).isEqualTo("Kanton Bern");
+        verify(regions).save(any(Region.class));
+    }
+
+    @Test
+    void existingRegionIsReusedWhenPickedByName() {
+        allowAdmin();
+        Region existing = region(10L, "aargau", "Aargau");
+        when(regions.findBySlug("aargau")).thenReturn(Optional.of(existing));
+        when(hubs.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var dto = service.createHub(new HubMutationRequest(
+                "Hightech Zentrum", null, null, null, "Aargau", null, null));
+
+        assertThat(dto.regionId()).isEqualTo(10L);
+        verify(regions, never()).save(any());
+    }
+
+    @Test
     void invalidCreateReturnsNullAndInvalidUpdateRegionThrows() {
         allowAdmin();
-        assertThat(service.createHub("", null, null, 1L)).isNull();
+        assertThat(service.createHub(hubRequest("", 1L))).isNull();
 
         Hub hub = hub(20L, "old", "Old", 10L);
         when(hubs.findById(20L)).thenReturn(Optional.of(hub));
         when(regions.findById(99L)).thenReturn(Optional.empty());
-        assertThatThrownBy(() -> service.updateHub(20L, "New", null, null, 99L))
+        assertThatThrownBy(() -> service.updateHub(20L, hubRequest("New", 99L)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Region not found");
     }
@@ -108,7 +144,7 @@ class HubServiceTest {
         when(hubs.findById(20L)).thenReturn(Optional.of(hub));
         when(regions.findById(11L)).thenReturn(Optional.of(region));
 
-        var dto = service.updateHub(20L, "New Name", "New Slug", "city", 11L);
+        var dto = service.updateHub(20L, new HubMutationRequest("New Name", "New Slug", "city", 11L, null, null, null));
 
         assertThat(dto.slug()).isEqualTo("new-slug");
         assertThat(dto.name()).isEqualTo("New Name");
@@ -126,6 +162,10 @@ class HubServiceTest {
 
         assertThat(service.deleteHub(404L)).isFalse();
         verify(hubs, never()).deleteById(404L);
+    }
+
+    private static HubMutationRequest hubRequest(String name, Long regionId) {
+        return new HubMutationRequest(name, null, null, regionId, null, null, null);
     }
 
     private void allowAdmin() {

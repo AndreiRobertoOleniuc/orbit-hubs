@@ -38,9 +38,15 @@ public class Region {
     }
 
     public Region(String slug, String name, Long parentRegionId) {
+        this(slug, name, parentRegionId, null, null);
+    }
+
+    public Region(String slug, String name, Long parentRegionId, Double latitude, Double longitude) {
         this.slug = slug;
         this.name = name;
         this.parentRegionId = parentRegionId;
+        this.latitude = latitude;
+        this.longitude = longitude;
     }
 
     public Long getId() {
