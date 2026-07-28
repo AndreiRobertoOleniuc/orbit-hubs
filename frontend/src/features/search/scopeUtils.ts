@@ -89,8 +89,8 @@ export function scopeHint(
 ): { name: string; hint: string } {
   if (value === SCOPE_ALL) {
     return {
-      name: "Ganze Schweiz",
-      hint: "Profile aus der ganzen Schweiz — ohne räumliche Einschränkung.",
+      name: "Ganze Schweiz / Online",
+      hint: "Profile aus der ganzen Schweiz — ohne räumliche Einschränkung, inkl. ortsunabhängiger Zusammenarbeit.",
     }
   }
   if (value.startsWith("hub:")) {

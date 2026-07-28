@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useLocation, useNavigate } from "react-router"
-import { ArrowLeft, Loader2, X } from "lucide-react"
+import { ArrowLeft, Loader2, Tags, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -148,6 +148,73 @@ export function CreateRequestView() {
           )}
         </div>
 
+        {/* Tags decide the distribution cohort (rule-based, §8.2) — so they sit
+            directly under the query and are framed as the key signal, not as
+            an afterthought at the end of the form. */}
+        <div
+          className={cn(
+            "flex flex-col gap-2 rounded-xl border p-4",
+            tagsMissing
+              ? "border-destructive/60 bg-destructive/5"
+              : "border-primary/35 bg-primary/[0.04]"
+          )}
+        >
+          <div className="flex items-center gap-2">
+            <Tags className="size-4 shrink-0 text-primary" />
+            <span id="req-tags-label" className={CAP}>
+              Themen-Tags <span className="text-destructive">*</span>
+            </span>
+          </div>
+          <p
+            id="req-tags-help"
+            className="text-[12.5px] leading-relaxed text-muted-foreground"
+          >
+            <strong className="text-foreground/80">
+              Wichtigstes Verteil-Signal:
+            </strong>{" "}
+            Deine Tags entscheiden, wer benachrichtigt wird – Profile mit
+            denselben Themen und alle, die diese Themen abonniert haben.
+            Mindestens ein Tag erforderlich.
+          </p>
+          <div
+            role="group"
+            aria-labelledby="req-tags-label"
+            aria-describedby={
+              tagsMissing ? "req-tags-help req-tags-error" : "req-tags-help"
+            }
+            aria-invalid={tagsMissing}
+            className="flex flex-wrap items-center gap-2"
+          >
+            {tags.map((t) => (
+              <span
+                key={t}
+                className="inline-flex items-center gap-1 rounded-full bg-primary/10 py-1 pr-1.5 pl-3 text-sm text-primary"
+              >
+                {t}
+                <button
+                  type="button"
+                  aria-label={`Tag ${t} entfernen`}
+                  onClick={() => setTags(tags.filter((x) => x !== t))}
+                  className="rounded-full p-0.5 transition-colors hover:bg-primary/15"
+                >
+                  <X className="size-3" />
+                </button>
+              </span>
+            ))}
+            <TagAutocompleteInput
+              selected={tags}
+              onAdd={(label) => setTags([...tags, label])}
+              placeholder="Tag hinzufügen…"
+            />
+          </div>
+          {tagsMissing && (
+            <p id="req-tags-error" className="text-sm text-destructive">
+              Füge mindestens einen Tag hinzu, bevor du die Anfrage
+              veröffentlichst.
+            </p>
+          )}
+        </div>
+
         <div className="flex flex-col gap-1.5">
           <label htmlFor="req-title" className={CAP}>
             Titel
@@ -271,53 +338,6 @@ export function CreateRequestView() {
             value={deadline}
             onChange={(e) => setDeadline(e.target.value)}
           />
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <span id="req-tags-label" className={CAP}>
-            Themen-Tags <span className="text-destructive">*</span>
-          </span>
-          <div
-            role="group"
-            aria-labelledby="req-tags-label"
-            aria-describedby={
-              tagsMissing ? "req-tags-help req-tags-error" : "req-tags-help"
-            }
-            aria-invalid={tagsMissing}
-            className="flex flex-wrap items-center gap-2"
-          >
-            {tags.map((t) => (
-              <span
-                key={t}
-                className="inline-flex items-center gap-1 rounded-full bg-primary/10 py-1 pr-1.5 pl-3 text-sm text-primary"
-              >
-                {t}
-                <button
-                  type="button"
-                  aria-label={`Tag ${t} entfernen`}
-                  onClick={() => setTags(tags.filter((x) => x !== t))}
-                  className="rounded-full p-0.5 transition-colors hover:bg-primary/15"
-                >
-                  <X className="size-3" />
-                </button>
-              </span>
-            ))}
-            <TagAutocompleteInput
-              selected={tags}
-              onAdd={(label) => setTags([...tags, label])}
-              placeholder="Tag hinzufügen…"
-            />
-          </div>
-          <p id="req-tags-help" className="text-[12.5px] text-muted-foreground">
-            Mindestens ein Tag erforderlich – Tags bestimmen, an welche
-            passenden Profile deine Anfrage verteilt wird.
-          </p>
-          {tagsMissing && (
-            <p id="req-tags-error" className="text-sm text-destructive">
-              Füge mindestens einen Tag hinzu, bevor du die Anfrage
-              veröffentlichst.
-            </p>
-          )}
         </div>
 
         {isError && (

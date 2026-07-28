@@ -32,7 +32,7 @@ export function HubRegionSelect({
         className
       )}
     >
-      <option value="all">Alle (ganze Schweiz)</option>
+      <option value="all">Ganze Schweiz / Online</option>
       {orderedRegions.length > 0 && (
         <optgroup label="Regionen">
           {orderedRegions.map((r) => (
