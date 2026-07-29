@@ -1,6 +1,8 @@
 import { useEffect, useState, type CSSProperties } from "react"
 import { Button } from "@/components/ui/button"
+import { useAuth } from "@/features/auth/useAuth"
 import type { AvailabilityCriteria } from "@/features/profile/availabilityUtils"
+import { useProfileMode } from "@/features/profile/useProfileMode"
 import { ProfileSidePanel } from "@/features/search/ProfileSidePanel"
 import { SearchLoadingState } from "@/features/search/SearchLoadingState"
 import { SearchResultCard } from "@/features/search/SearchResultCard"
@@ -59,6 +61,14 @@ export function SearchResults({
 }: SearchResultsProps) {
   const results = data?.results ?? []
   const hasResults = results.length > 0
+  const { isAuthenticated } = useAuth()
+  const { hasEntity: hasActiveProfile } = useProfileMode()
+  const canCreateRequest = isAuthenticated && hasActiveProfile
+  const requestLockReason = !isAuthenticated
+    ? "Melde dich an und erstelle dein Orbit-Profil, bevor du eine Anfrage ausschreibst."
+    : !hasActiveProfile
+      ? "Erstelle zuerst dein Orbit-Profil. Danach kannst du Anfragen ausschreiben."
+      : null
 
   // The selected profile opens in a slide-out panel next to the list, so the
   // (expensive) search stays on screen and results can be compared by
@@ -176,9 +186,21 @@ export function SearchResults({
                   hubs={hubs}
                   onWiden={onWiden}
                 />
-                <Button variant="outline" onClick={onCreateRequest}>
+                <Button
+                  variant="outline"
+                  disabled={!canCreateRequest}
+                  title={
+                    canCreateRequest ? undefined : "Aktives Orbit-Profil nötig"
+                  }
+                  onClick={onCreateRequest}
+                >
                   Anfrage erstellen
                 </Button>
+                {requestLockReason && (
+                  <p className="max-w-sm text-xs leading-relaxed text-muted-foreground">
+                    {requestLockReason}
+                  </p>
+                )}
               </div>
             </div>
           )}

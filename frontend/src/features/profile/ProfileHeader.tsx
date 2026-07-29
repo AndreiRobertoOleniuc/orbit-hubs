@@ -16,7 +16,10 @@ import { useAuth } from "@/features/auth/useAuth"
 import { ContactModal } from "@/features/contact/ContactModal"
 import { AvailabilityBadge } from "@/features/profile/AvailabilityBadge"
 import { collaborationLabel } from "@/features/profile/availabilityUtils"
-import { useIsOwnEntity } from "@/features/profile/useProfileMode"
+import {
+  useIsOwnEntity,
+  useProfileMode,
+} from "@/features/profile/useProfileMode"
 import {
   initials,
   isHrVerified,
@@ -58,11 +61,22 @@ export function ProfileHeader({
   // wie für alle anderen — er darf hier nur nicht funktionieren, sonst endet
   // ein Klick im 400 des Backends ("Cannot contact your own profile").
   const isOwnProfile = useIsOwnEntity(entity.id)
-  const contactable = isAuthenticated && entity.claimed && !isOwnProfile
+  const { hasEntity: hasActiveProfile } = useProfileMode()
+  const contactable =
+    isAuthenticated && hasActiveProfile && entity.claimed && !isOwnProfile
   const { data: contactedIds } = useGetContactedEntityIdsQuery(undefined, {
     skip: !isAuthenticated,
   })
   const alreadyContacted = contactedIds?.includes(entity.id) ?? false
+  const contactLockReason = contactable
+    ? null
+    : isOwnProfile
+      ? "Das ist dein eigenes Profil."
+      : !isAuthenticated
+        ? "Melde dich an, um Kontakt aufzunehmen."
+        : !hasActiveProfile
+          ? "Erstelle zuerst dein Orbit-Profil, damit andere sehen, wer sie kontaktiert."
+          : "Kontakt ist für dieses Profil gerade nicht verfügbar."
 
   return (
     <header className="min-w-0">
@@ -111,25 +125,34 @@ export function ProfileHeader({
 
         {showContact && (
           <>
-            <Button
-              className="w-full sm:w-auto"
-              variant={alreadyContacted ? "outline" : "default"}
-              disabled={!contactable}
-              title={
-                contactable
-                  ? undefined
-                  : isOwnProfile
-                    ? "Das ist dein eigenes Profil"
-                    : !isAuthenticated
-                      ? "Anmeldung nötig"
-                      : "Profil nicht beansprucht — Kontakt nicht möglich"
-              }
-              onClick={() => setContactOpen(true)}
-            >
-              {!isAuthenticated && <Lock className="size-3.5" />}
-              {alreadyContacted && <Check className="size-4" />}
-              {alreadyContacted ? "Erneut kontaktieren" : "Kontakt aufnehmen"}
-            </Button>
+            <div className="w-full space-y-1.5 sm:w-auto sm:max-w-72 sm:text-right">
+              <Button
+                className="w-full sm:w-auto"
+                variant={alreadyContacted ? "outline" : "default"}
+                disabled={!contactable}
+                title={
+                  contactable
+                    ? undefined
+                    : isOwnProfile
+                      ? "Das ist dein eigenes Profil"
+                      : !isAuthenticated
+                        ? "Anmeldung nötig"
+                        : !hasActiveProfile
+                          ? "Aktives Orbit-Profil nötig"
+                          : "Kontakt gerade nicht verfügbar"
+                }
+                onClick={() => setContactOpen(true)}
+              >
+                {!isAuthenticated && <Lock className="size-3.5" />}
+                {alreadyContacted && <Check className="size-4" />}
+                {alreadyContacted ? "Erneut kontaktieren" : "Kontakt aufnehmen"}
+              </Button>
+              {contactLockReason && (
+                <p className="text-xs leading-snug text-muted-foreground">
+                  {contactLockReason}
+                </p>
+              )}
+            </div>
             {contactable && (
               <ContactModal
                 toEntityId={entity.id}

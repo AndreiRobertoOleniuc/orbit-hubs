@@ -61,17 +61,18 @@ export function CreateRequestView() {
   const queryMissing = attemptedSubmit && !queryText.trim()
   const tagsMissing = attemptedSubmit && tags.length === 0
 
-  const { switchMode, hasEntity } = useSwitchProfileMode()
+  const { switchMode, hasEntity: hasActiveProfile } = useSwitchProfileMode()
   // Offering expertise happens on the profile, not here — send the user there
   // in the right mode (or through onboarding if they have no profile yet).
   const goToSupply = () => {
-    if (!hasEntity) return navigate("/onboarding?mode=supply")
+    if (!hasActiveProfile) return navigate("/onboarding?mode=supply")
     switchMode("supply")
     navigate("/profile")
   }
 
   const submit = async () => {
     setAttemptedSubmit(true)
+    if (!hasActiveProfile) return
     if (!queryText.trim() || tags.length === 0) return
     const created = await createRequest({
       title: title.trim() || null,
@@ -124,6 +125,24 @@ export function CreateRequestView() {
       <p className="mt-4 text-xs text-muted-foreground">
         <span className="text-destructive">*</span> Pflichtfeld
       </p>
+
+      {!hasActiveProfile && (
+        <div className="mt-4 rounded-xl border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm dark:border-amber-400/30 dark:bg-amber-950/40">
+          <p className="font-medium">Aktives Orbit-Profil nötig</p>
+          <p className="mt-1 text-muted-foreground">
+            Erstelle zuerst dein Profil. Danach kannst du Anfragen ausschreiben
+            und Kontaktanfragen senden.
+          </p>
+          <Button
+            className="mt-3"
+            size="sm"
+            type="button"
+            onClick={() => navigate("/onboarding?mode=demand")}
+          >
+            Profil erstellen
+          </Button>
+        </div>
+      )}
 
       <div className="mt-4 flex flex-col gap-6">
         <div className="flex flex-col gap-1.5">
@@ -343,7 +362,12 @@ export function CreateRequestView() {
           </p>
         )}
 
-        <Button className="w-full" disabled={isLoading} onClick={submit}>
+        <Button
+          className="w-full"
+          disabled={isLoading || !hasActiveProfile}
+          title={!hasActiveProfile ? "Aktives Orbit-Profil nötig" : undefined}
+          onClick={submit}
+        >
           {isLoading && <Loader2 className="size-4 animate-spin" />}
           Anfrage veröffentlichen
         </Button>

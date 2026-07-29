@@ -84,6 +84,8 @@ class ClerkAuthIntegrationTest {
         // live request shows until closed, §8.1) — filtering on 'open' would
         // leave the board permanently empty.
         String token = token("user_test_board", "board@orbit.test", "Boardy", "http://localhost:5173");
+        provision(token);
+        insertEntity("user_test_board", "IT-Test Boardy", "self_employed");
 
         String created = mockMvc.perform(post("/api/v1/requests")
                         .header("Authorization", "Bearer " + token)
@@ -172,6 +174,8 @@ class ClerkAuthIntegrationTest {
         // Regression: CurrentUser must be constructor-injected in the service —
         // a CurrentUser handler-method parameter breaks all request routes.
         String token = token("user_test_req", "req@orbit.test", "Req", "http://localhost:5173");
+        provision(token);
+        insertEntity("user_test_req", "IT-Test Req", "self_employed");
 
         mockMvc.perform(post("/api/v1/requests")
                         .header("Authorization", "Bearer " + token)
@@ -432,6 +436,7 @@ class ClerkAuthIntegrationTest {
         provision(tokenB);
 
         long tagId = insertTag("embedded", "Embedded");
+        insertEntity("user_test_da", "IT-Test Alice", "self_employed");
         long entityB = insertEntity("user_test_db", "IT-Test Bea", "self_employed");
         jdbc.sql("INSERT INTO entity_tags (entity_id, tag_id, origin) VALUES (:e, :t, 'manual')")
                 .param("e", entityB).param("t", tagId).update();
@@ -577,6 +582,7 @@ class ClerkAuthIntegrationTest {
         provision(senderToken);
         provision(recipientToken);
 
+        insertEntity("user_test_link_owner", "IT-Test Link Owner", "self_employed");
         long senderEntity = insertEntity("user_test_link_sender", "IT-Test Link Sender", "self_employed");
         long recipientEntity = insertEntity("user_test_link_recipient", "IT-Test Link Recipient", "company");
         insertSource(senderEntity, "manual_text");

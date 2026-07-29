@@ -81,6 +81,11 @@ public class RequestService {
     public RequestDto createRequest(CreateRequest req) {
         String userId = currentUser.userId()
                 .orElseThrow(() -> new IllegalStateException("Not authenticated"));
+        boolean hasActiveProfile = entityRepository.findByOwnerIdOrderByCreatedAtDesc(userId).stream()
+                .anyMatch(entity -> "active".equals(entity.getStatus()));
+        if (!hasActiveProfile) {
+            throw new IllegalArgumentException("An active Orbit profile is required to create requests");
+        }
 
         if (req.queryText() == null || req.queryText().isBlank()) {
             throw new IllegalArgumentException("queryText is required");

@@ -16,11 +16,12 @@ export function useProfileMode(): {
   const { data: entities } = useGetMyEntitiesQuery(undefined, {
     skip: !isAuthenticated,
   })
-  const entity = entities?.[0]
+  const entity = entities?.find((e) => e.status === "active") ?? entities?.[0]
+  const activeEntity = entity?.status === "active" ? entity : null
   return {
-    mode: entity?.profileMode ?? "supply",
-    entityId: entity?.id ?? null,
-    hasEntity: Boolean(entity),
+    mode: activeEntity?.profileMode ?? entity?.profileMode ?? "supply",
+    entityId: activeEntity?.id ?? null,
+    hasEntity: Boolean(activeEntity),
   }
 }
 

@@ -11,7 +11,10 @@ import {
   type AvailabilityCriteria,
 } from "@/features/profile/availabilityUtils"
 import { sourceHref, sourceTypeInfo } from "@/features/profile/profileUtils"
-import { useIsOwnEntity } from "@/features/profile/useProfileMode"
+import {
+  useIsOwnEntity,
+  useProfileMode,
+} from "@/features/profile/useProfileMode"
 import { cn } from "@/lib/utils"
 import { useGetContactedEntityIdsQuery } from "@/lib/api"
 import type { SearchCitationDto, SearchResultDto } from "@/types/api"
@@ -99,8 +102,19 @@ export function SearchResultCard({
   // Das eigene Profil kann in den eigenen Treffern auftauchen — dort führt
   // "Kontakt aufnehmen" sonst in ein 400 des Backends.
   const isOwnProfile = useIsOwnEntity(entity.id)
-  const contactable = isAuthenticated && entity.claimed && !isOwnProfile
+  const { hasEntity: hasActiveProfile } = useProfileMode()
+  const contactable =
+    isAuthenticated && hasActiveProfile && entity.claimed && !isOwnProfile
   const alreadyContacted = contactedIds?.includes(entity.id) ?? false
+  const contactLockReason = contactable
+    ? null
+    : isOwnProfile
+      ? "Das ist dein eigenes Profil."
+      : !isAuthenticated
+        ? "Melde dich an, um Kontakt aufzunehmen."
+        : !hasActiveProfile
+          ? "Erstelle zuerst dein Orbit-Profil, damit andere sehen, wer sie kontaktiert."
+          : "Kontakt ist für dieses Profil gerade nicht verfügbar."
 
   // "Professor at University of Bern" + org "University of Bern" is the same
   // fact twice — drop the org when the headline already carries it.
@@ -190,32 +204,43 @@ export function SearchResultCard({
               )}
             </div>
 
-            <div className="flex shrink-0 items-center gap-3 sm:pt-0.5">
-              <button
-                type="button"
-                onClick={stop(onSelect)}
-                className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-              >
-                Profil ansehen
-              </button>
-              <Button
-                size="sm"
-                variant={alreadyContacted ? "outline" : "default"}
-                disabled={!contactable}
-                title={
-                  contactable
-                    ? undefined
-                    : isOwnProfile
-                      ? "Das ist dein eigenes Profil"
-                      : !isAuthenticated
-                        ? "Anmeldung nötig"
-                        : "Profil nicht beansprucht — Kontakt nicht möglich"
-                }
-                onClick={stop(() => setContactOpen(true))}
-              >
-                {alreadyContacted && <Check />}
-                {alreadyContacted ? "Erneut kontaktieren" : "Kontakt aufnehmen"}
-              </Button>
+            <div className="flex shrink-0 flex-col items-start gap-1.5 sm:items-end sm:pt-0.5">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={stop(onSelect)}
+                  className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                >
+                  Profil ansehen
+                </button>
+                <Button
+                  size="sm"
+                  variant={alreadyContacted ? "outline" : "default"}
+                  disabled={!contactable}
+                  title={
+                    contactable
+                      ? undefined
+                      : isOwnProfile
+                        ? "Das ist dein eigenes Profil"
+                        : !isAuthenticated
+                          ? "Anmeldung nötig"
+                          : !hasActiveProfile
+                            ? "Aktives Orbit-Profil nötig"
+                            : "Kontakt gerade nicht verfügbar"
+                  }
+                  onClick={stop(() => setContactOpen(true))}
+                >
+                  {alreadyContacted && <Check />}
+                  {alreadyContacted
+                    ? "Erneut kontaktieren"
+                    : "Kontakt aufnehmen"}
+                </Button>
+              </div>
+              {contactLockReason && (
+                <p className="max-w-64 text-xs leading-snug text-muted-foreground sm:text-right">
+                  {contactLockReason}
+                </p>
+              )}
             </div>
           </div>
 

@@ -32,7 +32,7 @@ import tools.jackson.databind.json.JsonMapper;
  * frozen sender context; everything after runs off-platform via email shown in
  * the recipient's Postfach. No SMTP — the handoff is in-app only.
  * <p>
- * Gating (§11.1): a sender needs a signed-in profile with a verified email and
+ * Gating (§11.1): a sender needs an active signed-in profile with a verified email and
  * at least one self-describing source (LinkedIn, website or own description).
  * NOT required: affiliation, availability, complete skill profile. The rule is
  * simply "anyone with a profile can contact anyone" — person or organization.
@@ -74,7 +74,7 @@ public class ContactService {
             missing.add("email");
         }
 
-        DiscoveryEntity sender = senderEntity();
+        DiscoveryEntity sender = senderActiveEntity();
         if (sender == null) {
             missing.add("entity");
             missing.add("source");
@@ -115,7 +115,7 @@ public class ContactService {
             throw new IllegalArgumentException("Recipient profile is not claimed");
         }
 
-        DiscoveryEntity sender = senderEntity();
+        DiscoveryEntity sender = senderActiveEntity();
         if (recipient.getId().equals(sender.getId())) {
             throw new IllegalArgumentException("Cannot contact your own profile");
         }
@@ -235,11 +235,14 @@ public class ContactService {
         return text.substring(0, DESCRIPTION_MAX_CHARS).stripTrailing() + "…";
     }
 
-    /** The sender's identity — the current user's newest owned entity. */
-    private DiscoveryEntity senderEntity() {
+    /** The sender's identity — the current user's newest active owned entity. */
+    private DiscoveryEntity senderActiveEntity() {
         String userId = currentUser.userId()
                 .orElseThrow(() -> new IllegalStateException("Not authenticated"));
         List<DiscoveryEntity> owned = entityRepository.findByOwnerIdOrderByCreatedAtDesc(userId);
-        return owned.isEmpty() ? null : owned.get(0);
+        return owned.stream()
+                .filter(entity -> "active".equals(entity.getStatus()))
+                .findFirst()
+                .orElse(null);
     }
 }

@@ -6,7 +6,12 @@ import { ProfileHeader } from "@/features/profile/ProfileHeader"
 import { entityFixture } from "@/test/entityFixture"
 
 const api = vi.hoisted(() => ({
-  myEntities: [] as { id: number; displayName: string }[],
+  myEntities: [] as {
+    id: number
+    displayName: string
+    status: string
+    profileMode: string
+  }[],
 }))
 
 vi.mock("@/lib/api", () => ({
@@ -69,19 +74,34 @@ describe("ProfileHeader", () => {
   it("does not let you contact yourself from your own preview", () => {
     auth.isAuthenticated = true
     const entity = entityFixture({ claimed: true })
-    api.myEntities = [{ id: entity.id, displayName: entity.displayName }]
+    api.myEntities = [
+      {
+        id: entity.id,
+        displayName: entity.displayName,
+        status: "active",
+        profileMode: "supply",
+      },
+    ]
 
     render(<ProfileHeader entity={entity} showContact />)
 
     const button = screen.getByRole("button", { name: /Kontakt aufnehmen/i })
     expect((button as HTMLButtonElement).disabled).toBe(true)
     expect(button.getAttribute("title")).toBe("Das ist dein eigenes Profil")
+    expect(screen.getByText("Das ist dein eigenes Profil.")).not.toBeNull()
   })
 
   it("keeps contacting someone else's claimed profile available", () => {
     auth.isAuthenticated = true
     const entity = entityFixture({ claimed: true })
-    api.myEntities = [{ id: entity.id + 1, displayName: "Grace Hopper" }]
+    api.myEntities = [
+      {
+        id: entity.id + 1,
+        displayName: "Grace Hopper",
+        status: "active",
+        profileMode: "supply",
+      },
+    ]
 
     render(
       <MemoryRouter>
@@ -91,5 +111,29 @@ describe("ProfileHeader", () => {
 
     const button = screen.getByRole("button", { name: /Kontakt aufnehmen/i })
     expect((button as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  it("explains when contact is temporarily unavailable", () => {
+    auth.isAuthenticated = true
+    api.myEntities = [
+      {
+        id: 7,
+        displayName: "Grace Hopper",
+        status: "active",
+        profileMode: "supply",
+      },
+    ]
+
+    render(
+      <MemoryRouter>
+        <ProfileHeader entity={entityFixture({ claimed: false })} showContact />
+      </MemoryRouter>
+    )
+
+    const button = screen.getByRole("button", { name: /Kontakt aufnehmen/i })
+    expect((button as HTMLButtonElement).disabled).toBe(true)
+    expect(
+      screen.getByText("Kontakt ist für dieses Profil gerade nicht verfügbar.")
+    ).not.toBeNull()
   })
 })

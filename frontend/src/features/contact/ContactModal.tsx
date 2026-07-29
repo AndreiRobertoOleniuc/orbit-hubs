@@ -22,7 +22,7 @@ import {
 import type { ContactGatingCheck } from "@/types/api"
 
 const MISSING_LABELS: Record<ContactGatingCheck, string> = {
-  entity: "Ein eigenes Profil",
+  entity: "Ein aktives Orbit-Profil",
   email: "Eine bestätigte E-Mail-Adresse",
   source: "Mindestens eine Quelle: LinkedIn, Website oder eigene Beschreibung",
 }

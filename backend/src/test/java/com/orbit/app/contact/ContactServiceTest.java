@@ -132,6 +132,20 @@ class ContactServiceTest {
         assertThat(service.gating().missing()).isEmpty();
     }
 
+    @Test
+    void draftProfileDoesNotSatisfySenderGating() {
+        DiscoveryEntity sender = new DiscoveryEntity("person", "Ada", "Engineer", null);
+        setField(sender, "id", SENDER_ENTITY);
+        sender.setOwnerId(RECIPIENT_USER);
+        sender.setStatus("draft");
+        when(currentUser.email()).thenReturn(Optional.of("ada@example.org"));
+        when(entityRepository.findByOwnerIdOrderByCreatedAtDesc(RECIPIENT_USER))
+                .thenReturn(List.of(sender));
+
+        assertThat(service.gating().allowed()).isFalse();
+        assertThat(service.gating().missing()).contains("entity", "source");
+    }
+
     private static void setField(Object target, String name, Object value) {
         try {
             Field field = target.getClass().getDeclaredField(name);

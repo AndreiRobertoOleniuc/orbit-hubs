@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button"
 import { useAuth } from "@/features/auth/useAuth"
 import { ContactModal } from "@/features/contact/ContactModal"
 import { initials } from "@/features/profile/profileUtils"
+import { useProfileMode } from "@/features/profile/useProfileMode"
 import {
   AuthorKindBadge,
   RequestStatusBadge,
@@ -277,6 +278,7 @@ function OwnerLifecycle({ request }: { request: RequestDto }) {
  */
 export function RequestDetailView({ requestId }: { requestId: string }) {
   const { isAuthenticated, status } = useAuth()
+  const { hasEntity: hasActiveProfile } = useProfileMode()
   const [contactOpen, setContactOpen] = useState(false)
   // `mine` is resolved from the caller's token, so the request must not be
   // fetched until Clerk has settled — otherwise a hard reload fires the public
@@ -436,28 +438,39 @@ export function RequestDetailView({ requestId }: { requestId: string }) {
               const alreadyContacted =
                 request.authorEntityId != null &&
                 (contactedIds?.includes(request.authorEntityId) ?? false)
+              const contactLocked =
+                !isAuthenticated ||
+                !hasActiveProfile ||
+                request.authorEntityId == null
+              const contactLockReason = !isAuthenticated
+                ? "Melde dich an, um Kontakt aufzunehmen."
+                : !hasActiveProfile
+                  ? "Erstelle zuerst dein Orbit-Profil, damit andere sehen, wer sie kontaktiert."
+                  : request.authorEntityId == null
+                    ? "Die Person hat noch kein Kontaktprofil in Orbit. Direkter Kontakt ist möglich, sobald das Profil aktiv ist."
+                    : null
               return (
-                <Button
-                  className="w-full"
-                  variant={alreadyContacted ? "outline" : "default"}
-                  disabled={!isAuthenticated || request.authorEntityId == null}
-                  onClick={() => setContactOpen(true)}
-                >
-                  {!isAuthenticated && <Lock className="size-3.5" />}
-                  {alreadyContacted && <Check className="size-4" />}
-                  {alreadyContacted
-                    ? "Erneut kontaktieren"
-                    : "Kontakt aufnehmen"}
-                </Button>
+                <>
+                  <Button
+                    className="w-full"
+                    variant={alreadyContacted ? "outline" : "default"}
+                    disabled={contactLocked}
+                    onClick={() => setContactOpen(true)}
+                  >
+                    {!isAuthenticated && <Lock className="size-3.5" />}
+                    {alreadyContacted && <Check className="size-4" />}
+                    {alreadyContacted
+                      ? "Erneut kontaktieren"
+                      : "Kontakt aufnehmen"}
+                  </Button>
+                  {contactLockReason && (
+                    <p className="mt-2.5 text-xs leading-relaxed text-muted-foreground">
+                      {contactLockReason}
+                    </p>
+                  )}
+                </>
               )
             })()}
-            {(!isAuthenticated || request.authorEntityId == null) && (
-              <p className="mt-2.5 text-xs text-muted-foreground">
-                {!isAuthenticated
-                  ? "Anmeldung nötig, um Kontakt aufzunehmen."
-                  : "Diese Anfrage hat kein verknüpftes Profil — Kontakt nicht möglich."}
-              </p>
-            )}
             {request.authorEntityId != null && (
               <ContactModal
                 toEntityId={request.authorEntityId}

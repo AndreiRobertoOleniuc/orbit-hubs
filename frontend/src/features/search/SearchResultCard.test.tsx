@@ -14,7 +14,15 @@ vi.mock("@/lib/api", () => ({
     isLoading: false,
   }),
   useGetMyEntitiesQuery: () => ({
-    data: [{ id: 7, displayName: "Grace Hopper", orgName: "FHNW" }],
+    data: [
+      {
+        id: 7,
+        displayName: "Grace Hopper",
+        orgName: "FHNW",
+        status: "active",
+        profileMode: "demand",
+      },
+    ],
   }),
   useCreateContactRequestMutation: () => [
     vi.fn(() => ({ unwrap: () => Promise.resolve({}) })),
@@ -66,6 +74,29 @@ describe("SearchResultCard → ContactModal", () => {
     ).not.toBeNull()
     // Still only the card's copy — the dialog does not carry a second one.
     expect(screen.getAllByText(RATIONALE)).toHaveLength(1)
+  })
+
+  it("explains when contact is temporarily unavailable", () => {
+    render(
+      <MemoryRouter>
+        <SearchResultCard
+          result={{
+            ...resultFixture(),
+            entity: entityFixture({ claimed: false }),
+          }}
+          rank={0}
+          query="embedded firmware security review"
+          selected={false}
+          onSelect={() => {}}
+        />
+      </MemoryRouter>
+    )
+
+    const button = screen.getByRole("button", { name: "Kontakt aufnehmen" })
+    expect((button as HTMLButtonElement).disabled).toBe(true)
+    expect(
+      screen.getByText("Kontakt ist für dieses Profil gerade nicht verfügbar.")
+    ).not.toBeNull()
   })
 })
 
