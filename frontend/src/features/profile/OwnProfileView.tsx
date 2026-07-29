@@ -104,9 +104,13 @@ export function OwnProfileView({ entity }: { entity: EntityDto }) {
   // Keep the matched source around: the card shows a placeholder value, but the
   // persisted URL is what makes a linked website openable from here.
   const linkedSource = (kind: SourceKind) => {
-    const source = entity.sources.find((s) =>
+    const matches = entity.sources.filter((s) =>
       KIND_TO_SOURCE_TYPES[kind].includes(s.sourceType)
     )
+    const source =
+      kind === "github"
+        ? (matches.find((s) => s.active) ?? matches[0])
+        : matches[0]
     if (!source) return undefined
     return {
       draft: { kind, value: "verknüpft" },
