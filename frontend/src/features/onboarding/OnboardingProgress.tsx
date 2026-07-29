@@ -2,22 +2,19 @@ import { Check } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
-const STEPS = [
-  "Profiltyp",
-  "Quellen",
-  "Nachweise",
-  "Profildaten",
-  "Kompetenzen",
-  "Veröffentlichen",
-]
-
-export function OnboardingProgress({ current }: { current: number }) {
+export function OnboardingProgress({
+  current,
+  steps,
+}: {
+  current: number
+  steps: string[]
+}) {
   return (
     <ol
       className="flex min-w-max items-center gap-1"
-      aria-label={`Schritt ${current + 1} von ${STEPS.length}: ${STEPS[current]}`}
+      aria-label={`Schritt ${current + 1} von ${steps.length}: ${steps[current]}`}
     >
-      {STEPS.map((label, index) => (
+      {steps.map((label, index) => (
         <li key={label} className="flex items-center gap-1">
           {index > 0 && (
             <span

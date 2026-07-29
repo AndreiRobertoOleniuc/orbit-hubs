@@ -39,6 +39,10 @@ export interface IngestionResponseDto {
   error?: string
 }
 
+export interface ApiErrorDto {
+  message: string
+}
+
 // ─── Entities (profile read models) ───
 
 export type EntityType = "person" | "organization"

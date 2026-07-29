@@ -4,6 +4,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import org.slf4j.Logger;
@@ -89,6 +90,10 @@ public class IngestionService {
         if (file.isEmpty()) {
             throw new IllegalArgumentException("File is empty");
         }
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename != null && !originalFilename.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
+            throw new IllegalArgumentException("File must be uploaded as a PDF");
+        }
         validateProfileMode(onboardingDraft, profileMode);
 
         log.info("LinkedIn PDF upload: filename={}, size={} bytes",
@@ -142,6 +147,74 @@ public class IngestionService {
         }
     }
 
+    /**
+     * Upload a regular, text-based CV PDF. Text extraction happens in the CV
+     * adapter; the standard enrichment pipeline then derives summary and tags.
+     */
+    public Map<String, Object> ingestCvPdf(
+            MultipartFile file, boolean onboardingDraft, String profileMode, String displayName) {
+        if (file.isEmpty()) {
+            throw new IllegalArgumentException("File is empty");
+        }
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename != null && !originalFilename.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
+            throw new IllegalArgumentException("CV must be uploaded as a PDF file");
+        }
+        validateProfileMode(onboardingDraft, profileMode);
+
+        log.info("CV PDF upload: filename={}, size={} bytes", file.getOriginalFilename(), file.getSize());
+        Path tempFile = null;
+        try {
+            byte[] pdfBytes = file.getBytes();
+            String contentHash = HashUtils.sha256Hex(pdfBytes);
+            tempFile = Files.createTempFile("orbit-cv-", ".pdf");
+            Files.write(tempFile, pdfBytes);
+
+            String ownerId = currentUser.userId().orElse(null);
+            Map<String, String> context = new HashMap<>();
+            context.put("file_path", tempFile.toString());
+            context.put("filename", originalFilename == null ? "Lebenslauf.pdf" : originalFilename);
+            if (displayName != null && !displayName.isBlank()) {
+                context.put("name", displayName.trim());
+            } else if (ownerId != null) {
+                users.findById(ownerId)
+                        .map(user -> user.getDisplayName())
+                        .filter(name -> !name.isBlank())
+                        .ifPresent(name -> context.put("name", name));
+            }
+
+            SourceRef ref = new SourceRef(
+                    "cv:pdf:" + contentHash,
+                    "cv_pdf",
+                    "user_supplied",
+                    "user_consent",
+                    context,
+                    ownerId,
+                    onboardingDraft,
+                    profileMode);
+            return summarizeResults("cv_pdf", orchestrator.ingestMulti(ref));
+        } catch (Exception e) {
+            log.error("CV PDF upload failed: {}", e.getMessage(), e);
+            return Map.of(
+                    "sourceType", "cv_pdf",
+                    "sources", 0,
+                    "ingested", 0,
+                    "skipped", 0,
+                    "errors", 1,
+                    "totalChunks", 0,
+                    "results", List.of(),
+                    "error", e.getMessage());
+        } finally {
+            if (tempFile != null) {
+                try {
+                    Files.deleteIfExists(tempFile);
+                } catch (Exception e) {
+                    log.warn("Failed to delete CV temp file: {}", tempFile);
+                }
+            }
+        }
+    }
+
     // ─── Helpers ───
 
     private static void validateProfileMode(boolean onboardingDraft, String profileMode) {
@@ -172,7 +245,7 @@ public class IngestionService {
     public String[] provenanceFor(String sourceType) {
         return switch (sourceType) {
             case "github", "orcid_pub", "zefix" -> new String[]{"harvested", "public_data"};
-            case "linkedin_pdf" -> new String[]{"user_supplied", "user_consent"};
+            case "linkedin_pdf", "cv_pdf" -> new String[]{"user_supplied", "user_consent"};
             case "manual_text" -> new String[]{"user_supplied", "self_declared"};
             case "personal_site", "company_site" -> new String[]{"harvested", "public_data"};
             default -> new String[]{"harvested", "public_data"};

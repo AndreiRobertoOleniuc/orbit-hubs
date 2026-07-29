@@ -73,10 +73,19 @@ export function SourcesStep({
       : DEMAND_SOURCES
   const plannedDefs = isOrg ? ORG_PLANNED : supply ? PERSON_PLANNED : []
   const copy = descriptionCopy(supply, isOrg)
-  const canFinish =
-    sources.length > 0 ||
-    description.trim().length > 0 ||
-    (isOrg && firm != null)
+  const hasDemandPersonBasis =
+    sources.some(
+      (source) => source.kind === "cv" || source.kind === "linkedin"
+    ) || description.trim().length > 0
+  const canFinish = supply
+    ? sources.length > 0 ||
+      description.trim().length > 0 ||
+      (isOrg && firm != null)
+    : isOrg
+      ? firm != null ||
+        sources.some((source) => source.kind === "website") ||
+        description.trim().length > 0
+      : hasDemandPersonBasis
 
   return (
     <>
@@ -172,7 +181,7 @@ export function SourcesStep({
             ? "Mindestens eine Quelle verlinken — oder kurz in eigenen Worten beschreiben."
             : isOrg
               ? "Firmenwebsite oder eine kurze Beschreibung — eines genügt."
-              : "LinkedIn-PDF, Website-URL oder eine kurze Beschreibung — eines genügt."}
+              : "Lebenslauf, LinkedIn-PDF oder eine kurze Beschreibung — eines genügt. Eine Website kannst du freiwillig ergänzen."}
         </p>
       )}
       {!supply && (

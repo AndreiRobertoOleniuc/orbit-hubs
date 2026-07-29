@@ -7,6 +7,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Field;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -15,6 +16,7 @@ import com.orbit.app.controllers.dto.RespondContactRequest;
 import com.orbit.app.profile.EntityAccessDeniedException;
 import com.orbit.domain.entity.ContactRequest;
 import com.orbit.domain.entity.DiscoveryEntity;
+import com.orbit.domain.entity.Source;
 import com.orbit.domain.repository.ContactRequestRepository;
 import com.orbit.domain.repository.DiscoveryEntityRepository;
 import com.orbit.domain.repository.RequestRepository;
@@ -111,6 +113,23 @@ class ContactServiceTest {
     void contactedEntityIdsEmptyWithoutEntity() {
         when(entityRepository.findByOwnerIdOrderByCreatedAtDesc(RECIPIENT_USER)).thenReturn(List.of());
         assertThat(service.contactedEntityIds()).isEmpty();
+    }
+
+    @Test
+    void cvPdfSatisfiesSenderGating() {
+        DiscoveryEntity sender = new DiscoveryEntity("person", "Ada", "Engineer", null);
+        setField(sender, "id", SENDER_ENTITY);
+        sender.setOwnerId(RECIPIENT_USER);
+        when(currentUser.email()).thenReturn(Optional.of("ada@example.org"));
+        when(entityRepository.findByOwnerIdOrderByCreatedAtDesc(RECIPIENT_USER))
+                .thenReturn(List.of(sender));
+        when(sourceRepository.findByEntityIdOrderByCreatedAtAsc(SENDER_ENTITY))
+                .thenReturn(List.of(new Source(
+                        SENDER_ENTITY, "cv_pdf", "cv:test", "Lebenslauf",
+                        "user_supplied", "user_consent", "content", "hash", "ok", Instant.now())));
+
+        assertThat(service.gating().allowed()).isTrue();
+        assertThat(service.gating().missing()).isEmpty();
     }
 
     private static void setField(Object target, String name, Object value) {

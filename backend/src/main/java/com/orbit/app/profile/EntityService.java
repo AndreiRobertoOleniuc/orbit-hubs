@@ -396,8 +396,23 @@ public class EntityService {
                 throw new IllegalArgumentException("A company is required for employed profiles");
             }
         }
-        if (sources.findByEntityIdAndActiveTrueOrderByCreatedAtAsc(entity.getId()).isEmpty()) {
+        List<Source> activeSources = sources.findByEntityIdAndActiveTrueOrderByCreatedAtAsc(entity.getId());
+        if (activeSources.isEmpty()) {
             throw new IllegalArgumentException("At least one active evidence source is required");
+        }
+        if ("demand".equals(entity.getProfileMode())) {
+            Set<String> qualifyingTypes = "organization".equals(entity.getEntityType())
+                    ? Set.of("zefix", "company_site", "manual_text")
+                    : Set.of("cv_pdf", "linkedin_pdf", "manual_text");
+            boolean hasDemandIdentitySource = activeSources.stream()
+                    .map(Source::getSourceType)
+                    .anyMatch(qualifyingTypes::contains);
+            if (!hasDemandIdentitySource) {
+                throw new IllegalArgumentException("A qualifying identity source is required for demand profiles");
+            }
+            // Summary and tags remain best-effort AI-generated fields. Demand
+            // publication must not fail solely because enrichment is offline.
+            return;
         }
         if (entity.getSummary() == null || entity.getSummary().isBlank()) {
             throw new IllegalArgumentException("A profile summary is required");

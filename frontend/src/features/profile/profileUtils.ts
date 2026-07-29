@@ -6,6 +6,7 @@ const SOURCE_TYPE_INFO: Record<string, { label: string; glyph: string }> = {
   github: { label: "GitHub", glyph: "GH" },
   orcid_pub: { label: "Publikation", glyph: "iD" },
   zefix: { label: "Handelsregister", glyph: "HR" },
+  cv_pdf: { label: "Lebenslauf", glyph: "CV" },
   linkedin_pdf: { label: "LinkedIn-Profil", glyph: "in" },
   personal_site: { label: "Website", glyph: "🌐" },
   company_site: { label: "Firmenwebsite", glyph: "🌐" },

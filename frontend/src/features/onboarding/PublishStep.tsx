@@ -67,11 +67,12 @@ export function PublishStep({
       <div className="text-center">
         <Rocket className="mx-auto size-9 text-primary" />
         <h1 className="mt-3 text-2xl font-bold tracking-tight">
-          Fast geschafft
+          {supply ? "Fast geschafft" : "Dein Absenderprofil ist bereit"}
         </h1>
         <p className="mx-auto mt-2 max-w-lg text-sm text-muted-foreground">
-          Prüfe die wichtigsten Angaben. Erst mit dem letzten Klick wird dein
-          Profil öffentlich und in Orbit auffindbar.
+          {supply
+            ? "Prüfe die wichtigsten Angaben. Erst mit dem letzten Klick wird dein Profil öffentlich und in Orbit auffindbar."
+            : "Prüfe deine Basisdaten. Orbit erstellt Beschreibung und Kompetenzen im Hintergrund automatisch aus deiner Grundlage."}
         </p>
       </div>
 
@@ -120,15 +121,17 @@ export function PublishStep({
             onEdit={() => onEdit(3)}
           />
           <ReviewRow
-            label="Nachweise"
+            label={supply ? "Nachweise" : "Grundlage"}
             value={`${activeEvidence} aktiv${entity.hubs.length > 0 ? ` · ${entity.hubs.length} Hub${entity.hubs.length > 1 ? "s" : ""}` : ""}`}
-            onEdit={() => onEdit(2)}
+            onEdit={supply ? () => onEdit(2) : undefined}
           />
-          <ReviewRow
-            label="Kompetenzen"
-            value={`${entity.tags.length} Tags · Beschreibung geprüft`}
-            onEdit={() => onEdit(4)}
-          />
+          {supply && (
+            <ReviewRow
+              label="Kompetenzen"
+              value={`${entity.tags.length} Tags · Beschreibung geprüft`}
+              onEdit={() => onEdit(4)}
+            />
+          )}
         </div>
       </section>
 
@@ -152,7 +155,7 @@ export function PublishStep({
         {(availabilitySaving || publishing) && (
           <Loader2 className="size-4 animate-spin" />
         )}
-        Profil veröffentlichen
+        {supply ? "Profil veröffentlichen" : "Onboarding abschliessen"}
       </Button>
     </div>
   )
@@ -202,7 +205,7 @@ function ReviewRow({
 }: {
   label: string
   value: string
-  onEdit: () => void
+  onEdit?: () => void
 }) {
   return (
     <div className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
@@ -212,9 +215,11 @@ function ReviewRow({
         </p>
         <p className="mt-0.5 truncate text-sm">{value}</p>
       </div>
-      <Button variant="ghost" size="sm" onClick={onEdit}>
-        <Pencil className="size-3.5" /> Ändern
-      </Button>
+      {onEdit && (
+        <Button variant="ghost" size="sm" onClick={onEdit}>
+          <Pencil className="size-3.5" /> Ändern
+        </Button>
+      )}
     </div>
   )
 }

@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { SourceCard } from "@/features/ingestion/SourceCard"
 import {
   COMPANY_WEBSITE_SOURCE,
+  CV_SOURCE,
   WEBSITE_SOURCE,
 } from "@/features/ingestion/sourceDefs"
 import type { SourceDraft } from "@/features/ingestion/types"
@@ -95,5 +96,24 @@ describe("SourceCard", () => {
     // The URL input only exists while the card is expanded.
     expect(screen.queryByRole("textbox")).toBeNull()
     expect(screen.queryByRole("button", { name: /Hinzufügen/i })).toBeNull()
+  })
+
+  it("rejects oversized PDFs with the upload limit instead of adding them", async () => {
+    const user = userEvent.setup()
+    const onAdd = vi.fn()
+    const { container } = render(<SourceCard def={CV_SOURCE} onAdd={onAdd} />)
+
+    await user.click(screen.getByRole("button", { name: /Lebenslauf/i }))
+    const input =
+      container.querySelector<HTMLInputElement>('input[type="file"]')
+    expect(input).not.toBeNull()
+    const oversizedPdf = new File(["pdf"], "large-cv.pdf", {
+      type: "application/pdf",
+    })
+    Object.defineProperty(oversizedPdf, "size", { value: 20 * 1024 * 1024 + 1 })
+    await user.upload(input!, oversizedPdf)
+
+    expect(screen.getByRole("alert").textContent).toContain("maximal 20 MB")
+    expect(onAdd).not.toHaveBeenCalled()
   })
 })

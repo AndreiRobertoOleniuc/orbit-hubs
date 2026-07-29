@@ -118,6 +118,7 @@ Ingestion runs **per source** and must be **idempotent** (safe to re-run) and **
 | `personal_site` | crawl; strip nav/footer/cookie/scripts | About + projects | domain | `domain` (registrable) | tags; last-fetched, title |
 | `company_site` | crawl | About / products / team | domain | `domain` | tags; team names → candidate `entity_links` |
 | `linkedin_pdf` | user upload → PDF text extraction | headline + About + each role | "LinkedIn-Profil" | `linkedin_url` | tags; employer → **affiliation + hub candidate**; languages |
+| `cv_pdf` | user upload → deterministic PDFBox text extraction | extracted CV text | uploaded filename | none (attaches to the signed-in entity) | normal enrichment derives summary + tags; scanned PDFs require future OCR |
 | `manual_text` | user-typed 2–3 sentences (Demand min profile) | the text itself (one chunk) | "Eigene Beschreibung" | none (attaches to the signed-in entity) | tags (light); **consent_basis = self_declared** |
 
 Common rules: **strip boilerplate before embedding** (cookie banners, nav, badge images, license headers) — embedding noise degrades retrieval more than missing text does. **Languages** (DE/EN/FR from the onboarding chips or parsed from sources) are stored on `entities.languages[]`, not as a source.

@@ -4,6 +4,7 @@ import { AppLayout } from "@/components/layout/AppLayout"
 import { AuthGuard } from "@/features/auth/AuthGuard"
 import { AdminHubsPage } from "@/pages/AdminHubsPage"
 import { BoardPage } from "@/pages/BoardPage"
+import { AuthCompletePage } from "@/pages/AuthCompletePage"
 import { HowItWorksPage } from "@/pages/HowItWorksPage"
 import { InboxPage } from "@/pages/InboxPage"
 import { MyRequestsPage } from "@/pages/MyRequestsPage"
@@ -36,6 +37,7 @@ export const router = createBrowserRouter([
       {
         element: <AuthGuard />,
         children: [
+          { path: "auth/complete", element: <AuthCompletePage /> },
           { path: "onboarding", element: <OnboardingPage /> },
           { path: "profile", element: <ProfilePage /> },
           { path: "requests", element: <MyRequestsPage /> },

@@ -9,7 +9,7 @@ import java.util.List;
  * <p>
  * {@code missing} check ids: {@code entity} (no own profile yet),
  * {@code email} (no verified email), {@code affiliation} (Zugehörigkeit not
- * set), {@code source} (no LinkedIn / website / own description source).
+ * set), {@code source} (no CV / LinkedIn / website / own description source).
  */
 public record ContactGatingDto(
         boolean allowed,

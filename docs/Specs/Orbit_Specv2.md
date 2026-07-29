@@ -91,7 +91,7 @@ Nachfrage läuft nie ins Leere.
 
 Angebot ist passiv und **nie ein Post**.
 
-Das Profil ist das stehende Angebot und rund um die Uhr findbar. Es wird automatisch aus verlinkten Quellen aufgebaut — bei Personen aus GitHub, ORCID, einem LinkedIn-PDF, Website und Sprachen, bei Organisationen aus Handelsregister/Zefix und Firmenwebsite. Tags und Beschreibung werden aus den Quellen abgeleitet und lassen sich manuell editieren. Jede Aussage ist mit zitierten Nachweisen belegt.
+Das Profil ist das stehende Angebot und rund um die Uhr findbar. Es wird automatisch aus verlinkten Quellen aufgebaut — bei Personen aus GitHub, ORCID, einem normalen CV-PDF, einem LinkedIn-PDF, Website und Sprachen, bei Organisationen aus Handelsregister/Zefix und Firmenwebsite. Tags und Beschreibung werden aus den Quellen abgeleitet und lassen sich manuell editieren. Jede Aussage ist mit zitierten Nachweisen belegt.
 
 Organisationen werden über das Handelsregister abgeglichen und tragen ein **HR-verifiziert**-Badge.
 
@@ -205,17 +205,18 @@ Die automatische Hub-/Region-Aufweitung bei «Dringend» bleibt **regelbasiert**
 
 ## 10. Onboarding — geteilt nach Modus
 
-Das Onboarding gabelt sich nach der Einstiegsfrage, baut aber dasselbe Grundprofil:
+Nach Login oder Registrierung führt Orbit Nutzer ohne aktives Profil einmalig direkt ins Onboarding; Nutzer mit aktivem Profil kehren zum ursprünglich aufgerufenen Ziel zurück. Das Onboarding ist kein globaler Lock: öffentliche Seiten bleiben erreichbar. Es gabelt sich nach der ersten Einstiegsfrage «Ich suche» / «Gefunden werden», baut aber dasselbe Grundprofil:
 
 | Schritt | Demand-Onboarding | Supply-Onboarding |
 |---|---|---|
 | Wer bist du | Person / Organisation | Person / Organisation |
 | Basics | Name, E-Mail, Sprachen | Name, E-Mail, Sprachen |
-| Quellen | **mindestens eine** (LinkedIn-PDF / Website / manuelle Kurzbeschreibung) | **vollständig** (GitHub/ORCID/CV bzw. Zefix/Website) |
+| Quellen | Person: **CV-PDF / LinkedIn-PDF / manuelle Kurzbeschreibung**; Organisation: **Zefix / Firmenwebsite / Kurzbeschreibung** | **vollständig** (GitHub/ORCID/CV bzw. Zefix/Website) |
+| Nachweise & Kompetenzen | automatische Ableitung im Hintergrund, kein Pflicht-Prüfschritt | Auswahl und Prüfung als Pflichtschritte |
 | Verfügbarkeit | übersprungen | **Kern-Schritt** (Toggle + Datumsbereich + Pensum %) |
 | Abschluss | «Du kannst suchen / eine Anfrage ausschreiben» (zwei Buttons «Suche starten» / «Anfrage ausschreiben») | «Dein Profil ist live» |
 
-**Demand** braucht ein Grundprofil (Name + verifizierte E-Mail + zugehörige Organisation/Rolle) **und mindestens eine Quelle** — LinkedIn-PDF, Website oder eine manuelle Kurzbeschreibung (2–3 Sätze). Der Grund: Wer eine Anfrage stellt oder Kontakt aufnimmt, übergibt dem Empfänger Kontext über sich selbst. Der Empfänger muss einschätzen können, *wer* da anfragt — z. B. «Software Engineer bei der ZKB möchte sich zu deinem Cybersecurity-Wissen austauschen». Der grosse GitHub/ORCID-Block und der Verfügbarkeits-Schritt entfallen in dieser Variante; am Ende ein dezenter Hinweis: «Willst du auch gefunden werden? Du kannst dein Profil später vervollständigen.»
+**Demand** braucht ein Grundprofil (Name + verifizierte E-Mail + zugehörige Organisation/Rolle) und eine geeignete Identitätsgrundlage. Für Personen ist das ein normales textbasiertes CV-PDF, ein LinkedIn-PDF oder eine manuelle Kurzbeschreibung (2–3 Sätze); eine persönliche Website ist freiwillig, ersetzt diese Grundlage aber nicht. Für Organisationen genügt Zefix, Firmenwebsite oder Kurzbeschreibung. Der Grund: Wer eine Anfrage stellt oder Kontakt aufnimmt, übergibt dem Empfänger Kontext über sich selbst. Der Empfänger muss einschätzen können, *wer* da anfragt — z. B. «Software Engineer bei der ZKB möchte sich zu deinem Cybersecurity-Wissen austauschen». Summary und Kompetenz-Tags werden weiterhin automatisch aus der Quelle abgeleitet, müssen im kurzen Demand-Flow aber nicht manuell geprüft werden und blockieren bei einem LLM-Ausfall nicht den Abschluss. GitHub/ORCID-Nachweisauswahl und Verfügbarkeit entfallen; der Abschluss bietet «Suche starten» und «Anfrage ausschreiben».
 
 **Supply** durchläuft den vollen Quellen- und Verfügbarkeits-Flow, weil sein Profil das stehende Angebot ist. Beide Pfade landen im selben Profil-Objekt; ein Demand-Nutzer kann seine Quellen später ergänzen und wird damit auch findbar.
 
@@ -229,7 +230,7 @@ Kontaktaufnahme ist niedrigschwellig, aber nicht anonym. **Mindestanforderung, u
 
 1. Angemeldetes Grundprofil (Name + **verifizierte E-Mail**).
 2. Zugeordnete **Organisation oder Rolle** (Firma, «Selbständig» oder «Privatperson») — damit der Empfänger weiss, wer anfragt.
-3. **Mindestens eine Quelle** (LinkedIn / Website / manuelle Kurzbeschreibung), aus der eine knappe Absender-Beschreibung gebaut wird.
+3. **Mindestens eine geeignete Identitätsquelle** (CV / LinkedIn / manuelle Kurzbeschreibung; bei Organisationen Zefix / Firmenwebsite / Kurzbeschreibung), aus der eine knappe Absender-Beschreibung gebaut wird.
 4. Eine **persönliche Nachricht** im Kontaktdialog (nicht leer).
 
 **Nicht** erforderlich: vollständiger Quellen-Flow, aktive Verfügbarkeit, ausgefülltes Kompetenzprofil. Ein Suchender soll kontaktieren können, ohne selbst «offen für Anfragen» sein zu müssen — aber er ist nie ein leeres, kontextloses Konto.

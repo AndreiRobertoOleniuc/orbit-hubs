@@ -89,6 +89,7 @@ export function useIngestionRun() {
               org: isOrg,
               onboardingDraft: true,
               profileMode,
+              displayName,
             }),
         })
       }

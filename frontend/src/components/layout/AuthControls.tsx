@@ -1,5 +1,5 @@
 import { SignInButton, SignUpButton, UserButton } from "@clerk/react"
-import { useNavigate } from "react-router"
+import { useLocation, useNavigate } from "react-router"
 import { UserRound } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -9,6 +9,8 @@ import { useAuth } from "@/features/auth/useAuth"
 export function AuthControls({ onNavigate }: { onNavigate?: () => void }) {
   const { isAuthenticated } = useAuth()
   const navigate = useNavigate()
+  const { pathname, search } = useLocation()
+  const authCompleteUrl = `/auth/complete?returnTo=${encodeURIComponent(`${pathname}${search}`)}`
   if (isAuthenticated)
     return (
       <UserButton>
@@ -39,8 +41,8 @@ export function AuthControls({ onNavigate }: { onNavigate?: () => void }) {
           no return location. */}
       <SignInButton
         mode="modal"
-        fallbackRedirectUrl="/"
-        signUpFallbackRedirectUrl="/"
+        forceRedirectUrl={authCompleteUrl}
+        signUpForceRedirectUrl={authCompleteUrl}
       >
         <Button variant="outline" size="sm">
           Anmelden
@@ -48,8 +50,8 @@ export function AuthControls({ onNavigate }: { onNavigate?: () => void }) {
       </SignInButton>
       <SignUpButton
         mode="modal"
-        fallbackRedirectUrl="/"
-        signInFallbackRedirectUrl="/"
+        forceRedirectUrl={authCompleteUrl}
+        signInForceRedirectUrl={authCompleteUrl}
       >
         <Button size="sm">Registrieren</Button>
       </SignUpButton>

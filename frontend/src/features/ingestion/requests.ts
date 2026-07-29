@@ -6,10 +6,20 @@ import type {
 import { externalHref } from "@/lib/utils"
 import type { IngestionRequestDto, IngestionResponseDto } from "@/types/api"
 
+export const MAX_PDF_UPLOAD_BYTES = 20 * 1024 * 1024
+export const MAX_PDF_UPLOAD_LABEL = "20 MB"
+
+export function pdfUploadSizeError(file: File): string | null {
+  return file.size > MAX_PDF_UPLOAD_BYTES
+    ? `Die PDF ist zu gross. Bitte wähle eine Datei mit maximal ${MAX_PDF_UPLOAD_LABEL}.`
+    : null
+}
+
 /** Which sources.source_type values satisfy a card's source kind. */
 export const KIND_TO_SOURCE_TYPES: Record<SourceKind, string[]> = {
   github: ["github"],
   orcid: ["orcid_pub"],
+  cv: ["cv_pdf"],
   linkedin: ["linkedin_pdf"],
   website: ["personal_site", "company_site"],
 }
@@ -29,10 +39,10 @@ export function draftHref(draft: SourceDraft): string | null {
 
 /**
  * Build the POST /ingestion body for a text-based source kind.
- * LinkedIn is file-based and goes through the multipart endpoint instead.
+ * CV and LinkedIn are file-based and use multipart endpoints instead.
  */
 export function buildSourceRequest(
-  kind: Exclude<SourceKind, "linkedin">,
+  kind: Exclude<SourceKind, "cv" | "linkedin">,
   value: string,
   options: { org: boolean }
 ): IngestionRequestDto {

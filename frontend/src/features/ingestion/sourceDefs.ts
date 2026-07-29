@@ -57,6 +57,16 @@ export const LINKEDIN_SOURCE: SourceDef = {
   },
 }
 
+export const CV_SOURCE: SourceDef = {
+  kind: "cv",
+  title: "Lebenslauf",
+  hint: "PDF-Upload",
+  glyph: "CV",
+  upload: true,
+  helper:
+    "Für normale, textbasierte Lebensläufe. Eingescannte PDFs ohne auswählbaren Text werden noch nicht unterstützt.",
+}
+
 export const WEBSITE_SOURCE: SourceDef = {
   kind: "website",
   title: "Website",
@@ -90,6 +100,8 @@ export function defForKind(kind: SourceKind, org: boolean): SourceDef {
       return GITHUB_SOURCE
     case "orcid":
       return ORCID_SOURCE
+    case "cv":
+      return CV_SOURCE
     case "linkedin":
       return LINKEDIN_SOURCE
     case "website":
@@ -101,12 +113,17 @@ export function defForKind(kind: SourceKind, org: boolean): SourceDef {
 export const PERSON_SOURCES: SourceDef[] = [
   GITHUB_SOURCE,
   ORCID_SOURCE,
+  CV_SOURCE,
   LINKEDIN_SOURCE,
   WEBSITE_SOURCE,
 ]
 
 /** Demand-side: only "wer fragt an" sources. */
-export const DEMAND_SOURCES: SourceDef[] = [LINKEDIN_SOURCE, WEBSITE_SOURCE]
+export const DEMAND_SOURCES: SourceDef[] = [
+  CV_SOURCE,
+  LINKEDIN_SOURCE,
+  WEBSITE_SOURCE,
+]
 
 /** Supply-side organization: the website carries the profile. */
 export const ORG_SOURCES: SourceDef[] = [COMPANY_WEBSITE_SOURCE]

@@ -5,6 +5,10 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { SourceGlyph } from "@/components/SourceGlyph"
+import {
+  MAX_PDF_UPLOAD_LABEL,
+  pdfUploadSizeError,
+} from "@/features/ingestion/requests"
 import type { SourceDef, SourceDraft } from "@/features/ingestion/types"
 import { cn, externalHref } from "@/lib/utils"
 
@@ -41,6 +45,7 @@ export function SourceCard({
 }: SourceCardProps) {
   const [open, setOpen] = useState(false)
   const [value, setValue] = useState("")
+  const [fileError, setFileError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const commit = (v: string, file?: File) => {
@@ -163,7 +168,15 @@ export function SourceCard({
                   className="hidden"
                   onChange={(e) => {
                     const file = e.target.files?.[0]
-                    if (file) commit(file.name, file)
+                    if (!file) return
+                    const error = pdfUploadSizeError(file)
+                    if (error) {
+                      setFileError(error)
+                      e.target.value = ""
+                      return
+                    }
+                    setFileError(null)
+                    commit(file.name, file)
                   }}
                 />
                 <Button
@@ -172,7 +185,7 @@ export function SourceCard({
                   className="w-full sm:flex-1"
                   onClick={() => fileRef.current?.click()}
                 >
-                  PDF auswählen…
+                  PDF auswählen (max. {MAX_PDF_UPLOAD_LABEL})
                 </Button>
               </>
             ) : (
@@ -197,6 +210,11 @@ export function SourceCard({
               </>
             )}
           </div>
+          {fileError && (
+            <p className="px-4 pb-3 text-sm text-destructive" role="alert">
+              {fileError}
+            </p>
+          )}
         </div>
       )}
     </div>

@@ -2,19 +2,30 @@ import { useCallback } from "react"
 
 import {
   buildSourceRequest,
+  pdfUploadSizeError,
   summarizeIngestion,
 } from "@/features/ingestion/requests"
 import type { IngestOutcome, SourceKind } from "@/features/ingestion/types"
 import {
   useIngestSourceMutation,
+  useUploadCvPdfMutation,
   useUploadLinkedInPdfMutation,
 } from "@/lib/api"
-import type { IngestionRequestDto } from "@/types/api"
-import type { ProfileMode } from "@/types/api"
+import type { ApiErrorDto, IngestionRequestDto, ProfileMode } from "@/types/api"
 
 const FAILED: IngestOutcome = {
   status: "error",
   detail: "Quelle konnte nicht gelesen werden",
+}
+
+function failedOutcome(error: unknown): IngestOutcome {
+  if (typeof error !== "object" || error === null || !("data" in error)) {
+    return FAILED
+  }
+  const data = error.data as Partial<ApiErrorDto> | undefined
+  return typeof data?.message === "string"
+    ? { status: "error", detail: data.message }
+    : FAILED
 }
 
 /**
@@ -25,14 +36,15 @@ const FAILED: IngestOutcome = {
 export function useSourceIngestion() {
   const [ingestSource, ingestState] = useIngestSourceMutation()
   const [uploadLinkedInPdf, uploadState] = useUploadLinkedInPdfMutation()
+  const [uploadCvPdf, cvUploadState] = useUploadCvPdfMutation()
 
   /** Fire a prepared POST /ingestion body (zefix, manual_text, …). */
   const ingestRequest = useCallback(
     async (request: IngestionRequestDto): Promise<IngestOutcome> => {
       try {
         return summarizeIngestion(await ingestSource(request).unwrap())
-      } catch {
-        return FAILED
+      } catch (error) {
+        return failedOutcome(error)
       }
     },
     [ingestSource]
@@ -48,10 +60,13 @@ export function useSourceIngestion() {
         org: boolean
         onboardingDraft?: boolean
         profileMode?: ProfileMode
+        displayName?: string
       }
     ): Promise<IngestOutcome> => {
       if (kind === "linkedin") {
         if (!file) return FAILED
+        const sizeError = pdfUploadSizeError(file)
+        if (sizeError) return { status: "error", detail: sizeError }
         try {
           return summarizeIngestion(
             await uploadLinkedInPdf({
@@ -60,8 +75,25 @@ export function useSourceIngestion() {
               profileMode: options.profileMode,
             }).unwrap()
           )
-        } catch {
-          return FAILED
+        } catch (error) {
+          return failedOutcome(error)
+        }
+      }
+      if (kind === "cv") {
+        if (!file) return FAILED
+        const sizeError = pdfUploadSizeError(file)
+        if (sizeError) return { status: "error", detail: sizeError }
+        try {
+          return summarizeIngestion(
+            await uploadCvPdf({
+              file,
+              onboardingDraft: options.onboardingDraft,
+              profileMode: options.profileMode,
+              displayName: options.displayName,
+            }).unwrap()
+          )
+        } catch (error) {
+          return failedOutcome(error)
         }
       }
       return ingestRequest({
@@ -70,12 +102,13 @@ export function useSourceIngestion() {
         profileMode: options.profileMode,
       })
     },
-    [ingestRequest, uploadLinkedInPdf]
+    [ingestRequest, uploadCvPdf, uploadLinkedInPdf]
   )
 
   return {
     ingestRequest,
     ingestSourceKind,
-    isLoading: ingestState.isLoading || uploadState.isLoading,
+    isLoading:
+      ingestState.isLoading || uploadState.isLoading || cvUploadState.isLoading,
   }
 }

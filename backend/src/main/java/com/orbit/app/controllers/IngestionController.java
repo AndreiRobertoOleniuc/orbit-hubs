@@ -39,4 +39,13 @@ public class IngestionController {
             @RequestParam(value = "profileMode", required = false) String profileMode) {
         return ingestionService.ingestLinkedInPdf(file, onboardingDraft, profileMode);
     }
+
+    @PostMapping("/cv-pdf")
+    public Map<String, Object> uploadCvPdf(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "onboardingDraft", defaultValue = "false") boolean onboardingDraft,
+            @RequestParam(value = "profileMode", required = false) String profileMode,
+            @RequestParam(value = "displayName", required = false) String displayName) {
+        return ingestionService.ingestCvPdf(file, onboardingDraft, profileMode, displayName);
+    }
 }

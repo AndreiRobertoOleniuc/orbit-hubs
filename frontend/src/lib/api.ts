@@ -182,6 +182,30 @@ export const apiSlice = createApi({
       invalidatesTags: ["MyEntities"],
     }),
 
+    uploadCvPdf: builder.mutation<
+      IngestionResponseDto,
+      {
+        file: File
+        onboardingDraft?: boolean
+        profileMode?: ProfileMode
+        displayName?: string
+      }
+    >({
+      query: ({ file, onboardingDraft, profileMode, displayName }) => {
+        const formData = new FormData()
+        formData.append("file", file)
+        if (onboardingDraft) formData.append("onboardingDraft", "true")
+        if (profileMode) formData.append("profileMode", profileMode)
+        if (displayName) formData.append("displayName", displayName)
+        return {
+          url: "/ingestion/cv-pdf",
+          method: "POST",
+          body: formData,
+        }
+      },
+      invalidatesTags: ["MyEntities"],
+    }),
+
     // ─── Entity tag & summary editing ───
 
     updateEntityTags: builder.mutation<
@@ -494,6 +518,7 @@ export const {
   useLazySearchZefixQuery,
   useIngestSourceMutation,
   useUploadLinkedInPdfMutation,
+  useUploadCvPdfMutation,
   useUpdateEntityTagsMutation,
   useUpdateEntitySummaryMutation,
   useResyncEntityMutation,

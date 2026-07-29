@@ -1,12 +1,12 @@
 /** Which linkable source a card represents. */
-export type SourceKind = "github" | "orcid" | "linkedin" | "website"
+export type SourceKind = "github" | "orcid" | "cv" | "linkedin" | "website"
 
 /** A source the user added in the UI, not yet ingested. */
 export interface SourceDraft {
   kind: SourceKind
   /** Display value: username, ORCID iD, URL or PDF file name. */
   value: string
-  /** Only set for LinkedIn PDF uploads. */
+  /** Only set for CV and LinkedIn PDF uploads. */
   file?: File
 }
 

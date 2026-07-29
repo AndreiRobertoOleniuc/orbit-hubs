@@ -1,6 +1,7 @@
 package com.orbit.app.controllers;
 
 import com.orbit.app.profile.EntityAccessDeniedException;
+import com.orbit.app.controllers.dto.ApiErrorDto;
 import com.orbit.app.hub.HubAccessDeniedException;
 import com.orbit.app.inference.InferenceUnavailableException;
 
@@ -10,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 /**
  * Global exception → HTTP status mapping. Keeps controllers thin — services
@@ -20,6 +22,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  *   <li>{@link EntityAccessDeniedException} → 403 (entity exists, wrong owner)</li>
  *   <li>{@link HubAccessDeniedException} → 403 (hub admin action, not admin)</li>
  *   <li>{@link IllegalArgumentException} → 400 (bad request — invalid input)</li>
+ *   <li>{@link MaxUploadSizeExceededException} → 413 (uploaded PDF too large)</li>
  *   <li>{@link InferenceUnavailableException} → 503 (required managed model unavailable)</li>
  *   <li>Any other {@link RuntimeException} → 500 (logged, not leaked to client)</li>
  * </ul>
@@ -42,6 +45,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Void> handleBadRequest(IllegalArgumentException ex) {
         return ResponseEntity.badRequest().build();
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiErrorDto> handleMaxUploadSize(MaxUploadSizeExceededException ex) {
+        log.info("Rejected oversized PDF upload: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONTENT_TOO_LARGE)
+                .body(new ApiErrorDto("Die PDF ist zu gross. Bitte wähle eine Datei mit maximal 20 MB."));
     }
 
     @ExceptionHandler(InferenceUnavailableException.class)

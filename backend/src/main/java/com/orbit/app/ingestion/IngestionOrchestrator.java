@@ -281,7 +281,7 @@ public class IngestionOrchestrator {
 
     /**
      * Resync an entity: re-ingest ALL its sources, then run a final enrichment
-     * pass. Sources that can't be re-fetched (LinkedIn PDF uploads, manual text)
+     * pass. Sources that can't be re-fetched (CV/LinkedIn PDF uploads, manual text)
      * are skipped — their chunks stay intact. The dedup mechanism ensures
      * unchanged sources are skipped without re-embedding.
      * <p>

@@ -55,6 +55,7 @@ class IngestionServiceTest {
     void assignsCorrectProvenancePolicies() {
         assertThat(service.provenanceFor("manual_text")).containsExactly("user_supplied", "self_declared");
         assertThat(service.provenanceFor("linkedin_pdf")).containsExactly("user_supplied", "user_consent");
+        assertThat(service.provenanceFor("cv_pdf")).containsExactly("user_supplied", "user_consent");
         assertThat(service.provenanceFor("github")).containsExactly("harvested", "public_data");
         assertThat(service.provenanceFor("unknown")).containsExactly("harvested", "public_data");
     }
@@ -131,6 +132,37 @@ class IngestionServiceTest {
         assertThat(result).containsEntry("ingested", 1).containsEntry("totalChunks", 4);
         verify(orchestrator).ingestMulti(org.mockito.ArgumentMatchers.argThat((SourceRef ref) ->
                 ref.url().startsWith("linkedin:pdf:") && ref.ownerId().equals("user-1")));
+    }
+
+    @Test
+    void cvPdfUsesItsOwnSourceTypeAndAuthenticatedDisplayName() {
+        when(currentUser.userId()).thenReturn(Optional.of("user-1"));
+        when(users.findById("user-1"))
+                .thenReturn(Optional.of(new User("user-1", "ada@example.org", "Ada Lovelace")));
+        when(orchestrator.ingestMulti(any())).thenReturn(List.of(IngestionResult.ingested(1L, 2L, 2)));
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "cv.pdf", "application/pdf", "pdf-content".getBytes(StandardCharsets.UTF_8));
+
+        Map<String, Object> result = service.ingestCvPdf(file, true, "demand", null);
+
+        assertThat(result).containsEntry("sourceType", "cv_pdf").containsEntry("ingested", 1);
+        verify(orchestrator).ingestMulti(org.mockito.ArgumentMatchers.argThat((SourceRef ref) ->
+                ref.url().startsWith("cv:pdf:")
+                        && "cv_pdf".equals(ref.sourceType())
+                        && "Ada Lovelace".equals(ref.context().get("name"))
+                        && "cv.pdf".equals(ref.context().get("filename"))
+                        && ref.onboardingDraft()
+                        && "demand".equals(ref.profileMode())));
+    }
+
+    @Test
+    void cvUploadRejectsNonPdfFilenames() {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "cv.txt", "text/plain", "not a PDF".getBytes(StandardCharsets.UTF_8));
+
+        assertThatThrownBy(() -> service.ingestCvPdf(file, true, "demand", null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("PDF");
     }
 
     private String url(String type, Map<String, String> context) {

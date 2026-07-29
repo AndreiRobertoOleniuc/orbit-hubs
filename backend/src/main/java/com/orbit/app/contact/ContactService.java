@@ -42,7 +42,7 @@ public class ContactService {
 
     /** Source types that satisfy the "≥1 source" gating check (§11.1). */
     private static final Set<String> GATING_SOURCE_TYPES =
-            Set.of("linkedin_pdf", "personal_site", "company_site", "manual_text");
+            Set.of("cv_pdf", "linkedin_pdf", "personal_site", "company_site", "manual_text");
 
     private static final int DESCRIPTION_MAX_CHARS = 300;
 

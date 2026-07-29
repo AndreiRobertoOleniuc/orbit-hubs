@@ -14,6 +14,12 @@ spring:
     hibernate:
       # Flyway owns the schema; Hibernate only validates against it, never mutates.
       ddl-auto: validate
+  servlet:
+    multipart:
+      # PDFs are processed transiently and discarded after text extraction. Keep a
+      # generous but bounded limit; request size includes multipart overhead.
+      max-file-size: ${ORBIT_UPLOAD_MAX_FILE_SIZE:20MB}
+      max-request-size: ${ORBIT_UPLOAD_MAX_REQUEST_SIZE:21MB}
   security:
     oauth2:
       resourceserver:

@@ -73,11 +73,12 @@ export function StartCard({
 
   // Gated, unauthenticated visitors sign in first, then land in the chosen flow.
   if (gated && !isAuthenticated) {
+    const authCompleteUrl = `/auth/complete?returnTo=${encodeURIComponent(existingProfileTarget)}`
     return (
       <SignInButton
         mode="modal"
-        forceRedirectUrl={target}
-        signUpForceRedirectUrl={target}
+        forceRedirectUrl={authCompleteUrl}
+        signUpForceRedirectUrl={authCompleteUrl}
       >
         {card}
       </SignInButton>
