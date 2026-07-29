@@ -67,9 +67,9 @@ export function SearchForm({
         Wen suchst du?
       </h1>
       <p className="mx-auto mb-6 max-w-md text-center text-[15px] leading-relaxed text-muted-foreground">
-        Beschreibe dein Anliegen in eigenen Worten. Wir gleichen es mit belegten
-        Kompetenzen aus öffentlichen Quellen ab — <strong>Hub / Region</strong>{" "}
-        steuert, wo wir zuerst suchen.
+        Beschreibe kurz, was du brauchst. Orbit sucht in belegten Profilen und
+        zeigt dir die Quellen dazu. Mit <strong>Hub / Region</strong> grenzt du
+        ein, wo wir suchen.
       </p>
 
       <p className="mb-2 text-xs text-muted-foreground">
@@ -155,8 +155,8 @@ export function SearchForm({
       </div>
 
       <p className="mt-2.5 text-[12.5px] text-muted-foreground">
-        Leer lassen = keine Zeit-Einschränkung. Beeinflusst die Reihenfolge,
-        filtert nicht hart.
+        Leer lassen heisst: keine zeitliche Einschränkung. Das sortiert die
+        Treffer mit, schliesst aber niemanden aus.
       </p>
 
       <Button className="mt-4 w-full" onClick={handleSearch}>
@@ -165,8 +165,7 @@ export function SearchForm({
 
       <p className="mx-auto mt-3 max-w-md text-center text-[13px] leading-relaxed text-muted-foreground">
         <MapPin className="mr-1 inline size-3.5 align-[-2px]" />
-        <strong className="text-foreground/80">{hint.name}</strong> —{" "}
-        {hint.hint}
+        <strong className="text-foreground/80">{hint.name}</strong>: {hint.hint}
       </p>
       <p className="mt-4 text-center text-sm text-muted-foreground">
         Kein Konto nötig zum Suchen.
@@ -236,8 +235,8 @@ export function SearchForm({
 
       <div className="text-center">
         <p className="mx-auto mb-3 max-w-md text-sm text-muted-foreground">
-          Du weisst schon, wen du brauchst? Schreibe eine Anfrage aus — passende
-          Profile werden benachrichtigt.
+          Du weisst schon ziemlich genau, wen du brauchst? Schreib eine Anfrage
+          aus, dann werden passende Profile benachrichtigt.
         </p>
         {isAuthenticated ? (
           <Button

@@ -50,7 +50,7 @@ describe("Demand SourcesStep", () => {
         .hasAttribute("disabled")
     ).toBe(true)
     expect(
-      screen.getByText(/Lebenslauf, LinkedIn-PDF oder eine kurze Beschreibung/i)
+      screen.getByText(/Lebenslauf, LinkedIn-PDF oder Kurzbeschreibung/i)
     ).toBeTruthy()
   })
 })

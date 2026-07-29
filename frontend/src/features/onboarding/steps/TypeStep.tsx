@@ -25,20 +25,19 @@ export function TypeStep({ userLabel, onSelect }: TypeStepProps) {
         Als was möchtest du auf Orbit auftreten?
       </h1>
       <p className="mx-auto mb-8 max-w-xl text-center text-muted-foreground">
-        Das bestimmt, wie dein Profil aufgebaut wird und an wen sich Anfragen
-        richten. Ob du Expertise anbietest oder suchst, wählst du danach —
-        beides ist mit beiden Varianten möglich.
+        Wähle, wer später auf Orbit sichtbar ist: du selbst oder eure
+        Organisation. Ob du suchst oder gefunden werden willst, kommt danach.
       </p>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <TypeCard
           icon={<User className="size-9 text-primary" />}
           title="Als Person"
-          summary="Du trittst mit deinem eigenen Namen auf — selbständig, angestellt oder in der Forschung."
+          summary="Du bist mit deinem eigenen Namen sichtbar, egal ob selbständig, angestellt oder in der Forschung."
           bullets={[
             "Anfragen gehen direkt an dich",
-            "Profil entsteht aus deinen Quellen: GitHub, OpenAlex, LinkedIn-PDF, Website",
-            "Deine Firma oder Hochschule kannst du danach als Zugehörigkeit angeben",
+            "Wir nutzen deine Quellen: GitHub, OpenAlex, LinkedIn-PDF, Website",
+            "Firma oder Hochschule kannst du danach ergänzen",
           ]}
           onClick={() => onSelect("person")}
         />
@@ -49,22 +48,21 @@ export function TypeStep({ userLabel, onSelect }: TypeStepProps) {
           bullets={[
             "Anfragen gehen an die Organisation",
             "Stammdaten kommen aus dem Handelsregister (Zefix)",
-            "Passend, wenn das Angebot dem Unternehmen gehört und nicht einer Person",
+            "Gut, wenn das Angebot der Firma gehört und nicht dir persönlich",
           ]}
           onClick={() => onSelect("organization")}
         />
       </div>
 
       <p className="mt-6 text-center text-sm text-muted-foreground">
-        Bist du unsicher, wähle <span className="font-medium">Person</span> —
-        das ist der übliche Fall für Einzelne, auch wenn sie zu einer Firma
-        gehören. Die Wahl lässt sich später nicht mehr wechseln.
+        Unsicher? Wähle <span className="font-medium">Person</span>. Das passt
+        für die meisten Einzelpersonen, auch wenn sie zu einer Firma gehören.
+        Diese Wahl bleibt danach fix.
       </p>
 
       {userLabel && (
         <p className="mt-4 text-center text-sm text-muted-foreground">
-          Angemeldet als {userLabel} — dein Profil wird mit diesem Konto
-          verknüpft.
+          Angemeldet als {userLabel}. Dieses Konto gehört später zum Profil.
         </p>
       )}
     </>

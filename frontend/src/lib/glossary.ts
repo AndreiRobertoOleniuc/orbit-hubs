@@ -5,21 +5,21 @@
  * not duplicated here.
  */
 export const GLOSSARY = {
-  hub: "Ein Hub ist eine Zugehörigkeit — eine Institution, ein Inkubator oder eine Szene (z. B. FHNW, Technopark). Kein geografischer Umkreis, sondern wo du dazugehörst. Er steuert, in welchem Kreis dein Profil zuerst gefunden wird.",
+  hub: "Ein Hub ist eine Zugehörigkeit: eine Institution, ein Inkubator oder eine Szene, zum Beispiel FHNW oder Technopark. Es geht nicht um Distanz, sondern darum, wo du dazugehörst. Dort wird dein Profil zuerst gesucht.",
   region:
-    "Eine Region fasst mehrere Hubs geografisch zusammen (z. B. Aargau). Findest du in deinem Hub zu wenig, kannst du auf die Region und die ganze Schweiz erweitern.",
+    "Eine Region fasst mehrere Hubs zusammen, zum Beispiel Aargau. Wenn dein Hub zu eng ist, kannst du auf die Region oder die ganze Schweiz erweitern.",
   postfach:
     "Dein Postfach sammelt Kontaktanfragen an dich und von dir sowie Anfragen, die zu deinem Profil passen. Der erste Kontakt läuft hier, alles Weitere per E-Mail.",
   anfrage:
-    "Eine Anfrage ist eine öffentliche Ausschreibung: Du beschreibst, wen oder was du suchst — passende Profile werden benachrichtigt und können sich bei dir melden.",
+    "Eine Anfrage ist eine öffentliche Ausschreibung. Du beschreibst, wen oder was du suchst. Passende Profile bekommen eine Meldung und können sich bei dir melden.",
   pensum:
     "Pensum = Arbeitspensum in Prozent (100 % = Vollzeit). Beeinflusst die Reihenfolge der Treffer, filtert aber nicht hart.",
   nachweise:
-    "Nachweise sind die zitierten Belege hinter deinem Profil — die konkreten Quellen, aus denen Orbit deine Kompetenzen ableitet.",
+    "Nachweise sind die zitierten Belege hinter deinem Profil: die Quellen, aus denen Orbit deine Kompetenzen ableitet.",
   kompetenzen:
-    "Kompetenzen fassen zusammen, worin du stark bist — als Kurzprofil und Tags, automatisch aus deinen Quellen abgeleitet und manuell ergänzbar.",
+    "Kompetenzen zeigen, worin du stark bist: als Kurzprofil und Tags. Orbit leitet sie aus deinen Quellen ab; du kannst sie danach bearbeiten.",
   verfuegbarkeit:
-    "«Offen für Anfragen» zeigt anderen, dass du für Zusammenarbeit offen bist — mit optionalem Zeitraum, Pensum und Art der Zusammenarbeit. Erscheint als Badge in Suchergebnissen.",
+    "«Offen für Anfragen» zeigt anderen, dass du für Zusammenarbeit offen bist. Zeitraum, Pensum und Art der Zusammenarbeit kannst du ergänzen.",
 } as const
 
 export type GlossaryTerm = keyof typeof GLOSSARY

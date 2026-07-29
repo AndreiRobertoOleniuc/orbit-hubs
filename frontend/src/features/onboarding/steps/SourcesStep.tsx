@@ -91,9 +91,7 @@ export function SourcesStep({
     <>
       {supply ? (
         <h1 className="mb-2 text-2xl font-bold tracking-tight">
-          {isOrg
-            ? "Verlinke deine Quellen — wir bauen euer Profil für euch."
-            : "Verlinke deine Quellen — wir bauen dein Profil für dich."}
+          {isOrg ? "Verlinkt eure Quellen" : "Verlinke deine Quellen"}
         </h1>
       ) : (
         <>
@@ -102,8 +100,8 @@ export function SourcesStep({
           </h1>
           <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
             {isOrg
-              ? "Damit der Empfänger weiss, wer anfragt, brauchen wir eine kurze Beschreibung eures Unternehmens. Eine Angabe genügt."
-              : "Damit der Empfänger weiss, wer anfragt, brauchen wir eine kurze Beschreibung von dir. Gib mindestens eine Angabe an."}
+              ? "Eine kurze Beschreibung oder Website reicht, damit andere wissen, wer anfragt."
+              : "Eine kurze Beschreibung, ein Lebenslauf oder LinkedIn reicht, damit andere wissen, wer anfragt."}
           </p>
         </>
       )}
@@ -117,7 +115,7 @@ export function SourcesStep({
                 Handelsregister
               </span>
               <span className="block truncate text-xs text-muted-foreground">
-                {firm.name} · aus dem vorherigen Schritt übernommen
+                {firm.name} · aus dem letzten Schritt übernommen
               </span>
             </span>
             <Badge variant="secondary">
@@ -152,11 +150,11 @@ export function SourcesStep({
           <p className="text-xs text-muted-foreground">
             {supply
               ? isOrg
-                ? "Falls die Quellen nicht alles abdecken — beschreibt kurz, woran ihr arbeitet."
-                : "Falls die Quellen nicht alles abdecken — beschreib kurz, woran du arbeitest."
+                ? "Wenn auf der Website etwas fehlt, ergänzt es hier kurz."
+                : "Wenn deine Quellen etwas nicht zeigen, ergänze es hier kurz."
               : isOrg
-                ? "Reicht völlig — ein, zwei Sätze, wer ihr seid und was ihr sucht."
-                : "Reicht völlig — ein, zwei Sätze, wer du bist und was du suchst."}
+                ? "Ein bis zwei Sätze reichen: wer ihr seid und was ihr sucht."
+                : "Ein bis zwei Sätze reichen: wer du bist und was du suchst."}
           </p>
         </div>
 
@@ -178,17 +176,17 @@ export function SourcesStep({
       {!canFinish && (
         <p className="mt-3 text-center text-sm text-muted-foreground">
           {supply
-            ? "Mindestens eine Quelle verlinken — oder kurz in eigenen Worten beschreiben."
+            ? "Verlinke mindestens eine Quelle oder beschreibe dich kurz."
             : isOrg
-              ? "Firmenwebsite oder eine kurze Beschreibung — eines genügt."
-              : "Lebenslauf, LinkedIn-PDF oder eine kurze Beschreibung — eines genügt. Eine Website kannst du freiwillig ergänzen."}
+              ? "Firmenwebsite oder Kurzbeschreibung, eines davon genügt."
+              : "Lebenslauf, LinkedIn-PDF oder Kurzbeschreibung, eines davon genügt. Eine Website ist freiwillig."}
         </p>
       )}
       {!supply && (
         <p className="mt-6 text-center text-sm text-muted-foreground">
           {isOrg
-            ? "Wollt ihr auch gefunden werden? Ihr könnt euer Profil später vervollständigen."
-            : "Willst du auch gefunden werden? Du kannst dein Profil später vervollständigen."}
+            ? "Wollt ihr später auch gefunden werden? Das Profil könnt ihr danach ausbauen."
+            : "Willst du später auch gefunden werden? Dein Profil kannst du danach ausbauen."}
         </p>
       )}
     </>

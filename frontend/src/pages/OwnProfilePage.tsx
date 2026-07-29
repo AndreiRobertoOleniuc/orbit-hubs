@@ -35,8 +35,8 @@ export function OwnProfilePage() {
       <div className="mx-auto max-w-xl py-16 text-center">
         <h1 className="text-2xl font-semibold">Noch kein Profil</h1>
         <p className="mx-auto mt-2 max-w-md text-muted-foreground">
-          Verlinke deine Quellen — GitHub, ORCID, LinkedIn oder deine Website —
-          und wir bauen dein Profil automatisch für dich.
+          Verlinke GitHub, ORCID, LinkedIn oder deine Website. Daraus entsteht
+          dein Profil.
         </p>
         <Button asChild className="mt-6 w-full sm:w-auto sm:min-w-52">
           <Link to="/onboarding?mode=supply">Profil erstellen</Link>
@@ -111,7 +111,7 @@ export function OwnProfilePage() {
             <span>
               <strong className="font-medium text-foreground">Vorschau</strong>{" "}
               <span className="text-muted-foreground">
-                — so erscheint dein Profil in Suche, Board und für andere.
+                So erscheint dein Profil in Suche, Board und für andere.
               </span>
             </span>
           </div>

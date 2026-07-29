@@ -162,7 +162,9 @@ export function OwnProfileView({ entity }: { entity: EntityDto }) {
         parts.length > 0 ? `✓ ${parts.join(", ")}` : "✓ Profil aktualisiert"
       )
     } catch {
-      setResyncMessage("Resync fehlgeschlagen — versuche es später erneut.")
+      setResyncMessage(
+        "Die Quellen konnten nicht neu ausgewertet werden. Versuch es später nochmals."
+      )
     }
     setResyncing(false)
     setTimeout(() => setResyncMessage(null), 5000)
@@ -189,7 +191,7 @@ export function OwnProfileView({ entity }: { entity: EntityDto }) {
         <p className="rounded-lg border border-dashed bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
           Du bist im Modus{" "}
           <strong className="text-foreground">«Ich suche»</strong>. Um gefunden
-          zu werden, wechsle zu{" "}
+          zu werden, wechsle in den Modus{" "}
           <button
             className="font-medium text-primary hover:underline"
             onClick={switchToSupply}
@@ -274,8 +276,8 @@ export function OwnProfileView({ entity }: { entity: EntityDto }) {
                     </p>
                   ) : (
                     <p className="text-sm text-muted-foreground">
-                      Noch keine Quellen verknüpft — dieses Profil wurde manuell
-                      erstellt.
+                      Noch keine Quellen verknüpft. Dieses Profil wurde manuell
+                      angelegt.
                     </p>
                   )}
                   <button
@@ -367,7 +369,8 @@ export function OwnProfileView({ entity }: { entity: EntityDto }) {
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground">
-                      Noch keine Tags abgeleitet — verknüpfe weitere Quellen.
+                      Noch keine Tags vorhanden. Verknüpfe weitere Quellen oder
+                      füge Tags manuell hinzu.
                     </p>
                   )}
                   <button
@@ -377,8 +380,8 @@ export function OwnProfileView({ entity }: { entity: EntityDto }) {
                     Tags anpassen
                   </button>
                   <p className="text-xs text-muted-foreground">
-                    Tags werden aus deinen Quellen abgeleitet — du kannst sie
-                    hier manuell ergänzen oder entfernen.
+                    Orbit leitet Tags aus deinen Quellen ab. Du kannst sie hier
+                    ergänzen oder entfernen.
                   </p>
                 </div>
               )}
@@ -396,7 +399,7 @@ export function OwnProfileView({ entity }: { entity: EntityDto }) {
                     className="flex min-h-10 items-center gap-1 rounded-sm text-xs text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-50"
                     onClick={() => void handleResync()}
                     disabled={resyncing || isLoading}
-                    title="Quellen neu auswerten — aktualisiert Kompetenzen und Nachweise aus allen verknüpften Quellen"
+                    title="Quellen neu auswerten und Kompetenzen sowie Nachweise aktualisieren"
                   >
                     <RefreshCw
                       className={
@@ -431,8 +434,8 @@ export function OwnProfileView({ entity }: { entity: EntityDto }) {
           </p>
           <ProfileSectionCard title="Deine Quellen">
             <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
-              Je mehr du verlinkst, desto besser belegt ist dein Profil —
-              Kompetenzen und Nachweise leiten wir automatisch ab.
+              Je mehr du verlinkst, desto besser ist dein Profil belegt.
+              Kompetenzen und Nachweise entstehen automatisch aus den Quellen.
             </p>
             <div className="space-y-2.5">
               {hasZefix && (

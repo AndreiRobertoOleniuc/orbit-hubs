@@ -71,8 +71,8 @@ export function PublishStep({
         </h1>
         <p className="mx-auto mt-2 max-w-lg text-sm text-muted-foreground">
           {supply
-            ? "Prüfe die wichtigsten Angaben. Erst mit dem letzten Klick wird dein Profil öffentlich und in Orbit auffindbar."
-            : "Prüfe deine Basisdaten. Orbit erstellt Beschreibung und Kompetenzen im Hintergrund automatisch aus deiner Grundlage."}
+            ? "Prüfe kurz die wichtigsten Angaben. Mit dem letzten Klick wird dein Profil öffentlich."
+            : "Prüfe deine Basisdaten. Beschreibung und Kompetenzen entstehen automatisch aus deiner Grundlage."}
         </p>
       </div>
 
@@ -80,15 +80,14 @@ export function PublishStep({
         <section className="mt-6 rounded-xl border bg-card p-5">
           <h2 className="font-semibold">Bist du offen für Anfragen?</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Deine Verfügbarkeit ist ein Signal, kein Filter: Sie bestimmt, wie
-            weit oben du bei passenden Suchen erscheinst — ausgeschlossen wirst
-            du nie. Die Auswahl kannst du später jederzeit im Profil ändern.
+            Deine Verfügbarkeit hilft beim Sortieren der Treffer. Sie schliesst
+            dich nicht aus. Du kannst sie später im Profil ändern.
           </p>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             <ChoiceButton
               active={choice === "open"}
               title="Ja, ich bin offen"
-              description="Orbit darf meine Verfügbarkeit hervorheben."
+              description="Meine Verfügbarkeit darf sichtbar sein."
               onClick={() => setChoice("open")}
             />
             <ChoiceButton

@@ -102,8 +102,8 @@ export function CreateRequestView() {
         Anfrage ausschreiben
       </h1>
       <p className="mt-1.5 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
-        Deine Anfrage erscheint öffentlich unter «Offene Anfragen». Passende
-        Profile werden benachrichtigt und können sich direkt bei dir melden.
+        Deine Anfrage landet öffentlich bei den offenen Anfragen. Passende
+        Profile bekommen eine Meldung und können sich direkt bei dir melden.
       </p>
 
       {/* An Anfrage is always a request for help — testers weren't sure whether
@@ -170,11 +170,10 @@ export function CreateRequestView() {
             className="text-[12.5px] leading-relaxed text-muted-foreground"
           >
             <strong className="text-foreground/80">
-              Wichtigstes Verteil-Signal:
+              Wichtig für die Verteilung:
             </strong>{" "}
-            Deine Tags entscheiden, wer benachrichtigt wird – Profile mit
-            denselben Themen und alle, die diese Themen abonniert haben.
-            Mindestens ein Tag erforderlich.
+            Benachrichtigt werden Profile mit denselben Themen und Personen, die
+            diese Themen abonniert haben. Mindestens ein Tag ist nötig.
           </p>
           <div
             role="group"
@@ -319,9 +318,7 @@ export function CreateRequestView() {
             })}
           </div>
           <p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">
-            <strong className="text-foreground/80">
-              So verteilen wir deine Anfrage:
-            </strong>{" "}
+            <strong className="text-foreground/80">Verteilung:</strong>{" "}
             {URGENCY_STRATEGY[urgency]}
           </p>
         </div>
@@ -351,8 +348,7 @@ export function CreateRequestView() {
           Anfrage veröffentlichen
         </Button>
         <p className="-mt-3 text-center text-xs text-muted-foreground">
-          Öffentlich auf dem Board sichtbar. Du kannst die Anfrage jederzeit
-          schliessen.
+          Öffentlich auf dem Board. Du kannst die Anfrage später schliessen.
         </p>
       </div>
     </div>

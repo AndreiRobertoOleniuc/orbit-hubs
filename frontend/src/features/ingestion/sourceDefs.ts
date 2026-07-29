@@ -64,7 +64,7 @@ export const CV_SOURCE: SourceDef = {
   glyph: "CV",
   upload: true,
   helper:
-    "Für normale, textbasierte Lebensläufe. Eingescannte PDFs ohne auswählbaren Text werden noch nicht unterstützt.",
+    "Für textbasierte Lebensläufe. Scans ohne auswählbaren Text können wir noch nicht lesen.",
 }
 
 export const WEBSITE_SOURCE: SourceDef = {
@@ -74,7 +74,7 @@ export const WEBSITE_SOURCE: SourceDef = {
   glyph: "🌐",
   placeholder: "www.meine-seite.ch",
   helper:
-    "Für dein Personenprofil: persönliche Website, Portfolio oder Blog. Eine Firmenwebsite gehört in ein Organisationsprofil.",
+    "Für dein Personenprofil: persönliche Website, Portfolio oder Blog. Firmenwebsites passen besser zu einem Organisationsprofil.",
   guide: {
     intro: "Welche Website?",
     steps: [
@@ -90,7 +90,7 @@ export const COMPANY_WEBSITE_SOURCE: SourceDef = {
   hint: "URL",
   glyph: "🌐",
   placeholder: "www.firma.ch",
-  helper: "Wir lesen eure Website aus und bauen daraus euer Profil.",
+  helper: "Wir lesen eure Website und übernehmen passende Inhalte ins Profil.",
 }
 
 /** Canonical def per kind — the org flag picks the website flavour. */

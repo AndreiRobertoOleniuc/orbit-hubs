@@ -69,8 +69,8 @@ export function IngestionRunView({
           </h1>
           <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
             {phase === "running"
-              ? "Orbit sammelt zunächst nur die Nachweise. Du entscheidest im nächsten Schritt, welche davon verwendet werden."
-              : "Dein geschützter Profilentwurf wird vorbereitet."}
+              ? "Orbit liest zuerst nur die Belege. Im nächsten Schritt wählst du aus, was ins Profil darf."
+              : "Wir bereiten deinen Profilentwurf vor."}
           </p>
         </div>
       </div>

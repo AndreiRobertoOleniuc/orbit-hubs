@@ -56,8 +56,8 @@ export function AvailabilityEditor({ entity }: { entity: EntityDto }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Deine Verfügbarkeit ist ein Signal, kein Filter: Sie bestimmt, wie weit
-        oben du bei passenden Suchen erscheinst — ausgeschlossen wirst du nie.
+        Deine Verfügbarkeit hilft beim Sortieren der Treffer. Sie schliesst dich
+        nicht aus.
       </p>
 
       {/* Open toggle */}
@@ -71,7 +71,7 @@ export function AvailabilityEditor({ entity }: { entity: EntityDto }) {
         <span>
           <span className="block text-sm font-medium">Offen für Anfragen</span>
           <span className="block text-xs text-muted-foreground">
-            Erscheint in Suchergebnissen und Verteilungen.
+            Sichtbar in Suchergebnissen und bei passenden Anfragen.
           </span>
         </span>
         <span

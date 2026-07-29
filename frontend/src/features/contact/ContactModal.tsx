@@ -24,8 +24,7 @@ import type { ContactGatingCheck } from "@/types/api"
 const MISSING_LABELS: Record<ContactGatingCheck, string> = {
   entity: "Ein eigenes Profil",
   email: "Eine bestätigte E-Mail-Adresse",
-  source:
-    "Mindestens eine Quelle — LinkedIn, Website oder eine eigene Beschreibung",
+  source: "Mindestens eine Quelle: LinkedIn, Website oder eigene Beschreibung",
 }
 
 interface ContactModalProps {
@@ -145,8 +144,8 @@ export function ContactModal({
                 Kontakt mit {toName} aufnehmen
               </DialogTitle>
               <DialogDescription>
-                Stell dich einmal vor — {toName} entscheidet, ob daraus ein
-                Austausch wird.
+                Stell dich kurz vor. {toName} entscheidet danach, ob daraus ein
+                Gespräch wird.
               </DialogDescription>
             </DialogHeader>
 
@@ -225,7 +224,7 @@ export function ContactModal({
 
               {isError && (
                 <p className="mt-2 text-center text-xs text-red-600 dark:text-red-400">
-                  Senden fehlgeschlagen — bitte versuch es noch einmal.
+                  Senden fehlgeschlagen. Bitte versuch es noch einmal.
                 </p>
               )}
 

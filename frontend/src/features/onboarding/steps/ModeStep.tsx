@@ -14,21 +14,21 @@ export function ModeStep({
           Was möchtest du mit Orbit tun?
         </h1>
         <p className="mx-auto mt-3 max-w-lg text-sm text-muted-foreground">
-          Deine Auswahl bestimmt, wie viel wir jetzt für dein Profil brauchen.
-          Du kannst den Modus später jederzeit wechseln.
+          Fürs Suchen reicht ein kurzes Profil. Wenn du gefunden werden willst,
+          fragen wir gleich etwas mehr ab. Den Modus kannst du später wechseln.
         </p>
       </div>
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
         <ModeChoice
           icon={<Search className="size-8 text-primary" />}
           title="Ich suche"
-          description="Ein kurzes Absenderprofil genügt, damit du suchen, anfragen und Kontakt aufnehmen kannst."
+          description="Du brauchst nur ein kurzes Absenderprofil und kannst danach suchen, anfragen und Kontakt aufnehmen."
           onClick={() => onSelect("demand")}
         />
         <ModeChoice
           icon={<Sparkles className="size-8 text-primary" />}
           title="Gefunden werden"
-          description="Erstelle ein vollständiges Kompetenzprofil und lege deine Verfügbarkeit fest."
+          description="Baue ein Profil aus deinen Quellen auf und zeig, wann du für Anfragen offen bist."
           onClick={() => onSelect("supply")}
         />
       </div>

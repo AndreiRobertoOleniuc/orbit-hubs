@@ -21,14 +21,16 @@ describe("SourceCard", () => {
     // No `helper` prop: the def's own copy has to carry it, otherwise the
     // own-profile source section shows nothing (only SourcesStep passed one).
     expect(
-      screen.getByText(/Eine Firmenwebsite gehört in ein Organisationsprofil/i)
+      screen.getByText(
+        /Firmenwebsites passen besser zu einem Organisationsprofil/i
+      )
     ).toBeTruthy()
   })
 
   it("keeps the org flavour's copy on its own card", () => {
     render(<SourceCard def={COMPANY_WEBSITE_SOURCE} onAdd={vi.fn()} />)
 
-    expect(screen.getByText(/Wir lesen eure Website aus/i)).toBeTruthy()
+    expect(screen.getByText(/Wir lesen eure Website/i)).toBeTruthy()
   })
 
   it("opens a linked website in a new tab", () => {

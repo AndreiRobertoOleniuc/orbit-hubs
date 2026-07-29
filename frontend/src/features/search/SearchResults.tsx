@@ -163,11 +163,10 @@ export function SearchResults({
                 «{query}»
               </p>
               <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                Kurze Stichwörter finden oft nichts — beschreibe dein Anliegen
-                in ein bis zwei Sätzen. Oder erstelle eine Anfrage: Sie
-                erscheint öffentlich unter «Offene Anfragen», passende Profile
-                werden benachrichtigt, und du wirst informiert, sobald jemand
-                reagiert.
+                Kurze Stichwörter reichen oft nicht. Beschreibe dein Anliegen in
+                ein bis zwei Sätzen. Oder erstelle eine Anfrage: Sie erscheint
+                öffentlich bei den offenen Anfragen, passende Profile bekommen
+                eine Meldung und du siehst, sobald jemand reagiert.
               </p>
               <div className="mt-6 flex flex-col items-center gap-2">
                 <Button onClick={onEdit}>Suche umformulieren</Button>

@@ -43,10 +43,10 @@ export const URGENCY_LABEL: Record<RequestUrgency, string> = {
 /** Distribution strategy per urgency — shown transparently on creation (§8.3). */
 export const URGENCY_STRATEGY: Record<RequestUrgency, string> = {
   flexible:
-    "Passende Profile werden benachrichtigt. Keine Eskalation — die Anfrage bleibt ruhig auf dem Board liegen.",
-  soon: "Passende Profile im gewählten Umkreis werden benachrichtigt, mit einer Erinnerung nach 5 Tagen.",
+    "Passende Profile bekommen eine Meldung. Danach bleibt die Anfrage ruhig auf dem Board.",
+  soon: "Passende Profile im gewählten Umkreis bekommen eine Meldung und nach 5 Tagen eine Erinnerung.",
   urgent:
-    "Alle passenden Profile im engsten Umkreis werden sofort benachrichtigt. Ohne Rückmeldung weiten wir nach 48 h automatisch aus (Hub → Region → Schweiz).",
+    "Alle passenden Profile im engsten Umkreis bekommen sofort eine Meldung. Ohne Rückmeldung weiten wir nach 48 h aus: Hub, Region, Schweiz.",
 }
 
 const dateFmt = new Intl.DateTimeFormat("de-CH", {

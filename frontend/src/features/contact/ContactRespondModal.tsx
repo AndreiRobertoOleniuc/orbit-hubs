@@ -70,7 +70,7 @@ export function ContactRespondModal({
             </span>
             <p className="mt-3 font-semibold">Antwort gesendet.</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              {fromName} sieht jetzt deine E-Mail-Adresse, und du seine — ihr
+              {fromName} sieht jetzt deine E-Mail-Adresse, und du seine. Ihr
               setzt das Gespräch ab jetzt per E-Mail fort.
             </p>
             <Button
@@ -116,7 +116,7 @@ export function ContactRespondModal({
 
               {isError && (
                 <p className="mt-2 text-center text-xs text-red-600 dark:text-red-400">
-                  Senden fehlgeschlagen — bitte versuch es noch einmal.
+                  Senden fehlgeschlagen. Bitte versuch es noch einmal.
                 </p>
               )}
 

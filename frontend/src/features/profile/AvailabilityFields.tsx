@@ -61,8 +61,8 @@ export function AvailabilityFields({
       {/* Zeitraum + Pensum — the only two fields the ranking reads. */}
       <div className="space-y-3">
         <FieldGroupHint>
-          Zeitraum und Pensum werden mit dem Zeitfilter der Suchenden verglichen
-          und beeinflussen die Reihenfolge der Treffer.
+          Zeitraum und Pensum helfen beim Sortieren, wenn Suchende einen
+          Zeitraum angeben.
         </FieldGroupHint>
 
         <div className="grid gap-3 sm:grid-cols-2">
@@ -91,7 +91,7 @@ export function AvailabilityFields({
           </div>
         </div>
         <FieldGroupHint id={id("window-hint")}>
-          Beide Felder sind optional — leer lassen heisst unbefristet.
+          Optional. Leer lassen heisst: unbefristet.
         </FieldGroupHint>
 
         <div className="space-y-1.5">
@@ -115,8 +115,8 @@ export function AvailabilityFields({
               id={id("pensum-zero")}
               className="text-xs text-amber-700 dark:text-amber-500"
             >
-              Bei 0 % zeigst du an, offen zu sein, aber keine Kapazität zu haben
-              — such dir eher ein kleines Pensum aus.
+              0 % wirkt widersprüchlich, wenn du offen für Anfragen bist. Ein
+              kleines Pensum passt meistens besser.
             </p>
           )}
         </div>
@@ -196,9 +196,9 @@ export function AvailabilityFields({
           </button>
         </div>
         <FieldGroupHint>
-          Vorschläge zum Anklicken, eigene Angaben frei formulierbar. Wird auf
-          deinem Profil angezeigt, sortiert die Treffer aber nicht. Innosuisse =
-          staatlich geförderte Innovationsprojekte · Mandat = bezahlter Auftrag.
+          Vorschläge anklicken oder eigene Begriffe schreiben. Das erscheint auf
+          deinem Profil, sortiert die Treffer aber nicht. Innosuisse = staatlich
+          geförderte Innovationsprojekte · Mandat = bezahlter Auftrag.
         </FieldGroupHint>
       </div>
 
@@ -213,8 +213,8 @@ export function AvailabilityFields({
           aria-describedby={id("note-hint")}
         />
         <FieldGroupHint id={id("note-hint")}>
-          Ein freier Hinweis an Suchende. Erscheint auf deinem Profil neben
-          deiner Verfügbarkeit.
+          Ein kurzer Hinweis für Suchende. Er erscheint neben deiner
+          Verfügbarkeit.
         </FieldGroupHint>
       </div>
     </div>

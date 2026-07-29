@@ -60,8 +60,8 @@ export function HubSelector({ entity }: { entity: EntityDto }) {
     <div className="space-y-4">
       <p className="inline-flex items-start gap-1.5 text-sm text-muted-foreground">
         <span>
-          Wähle die Hubs, denen du angehörst — sie bestimmen, in welchem Kreis
-          dein Profil zuerst gefunden wird.
+          Wähle die Hubs, zu denen du gehörst. Dort wird dein Profil zuerst
+          gesucht.
         </span>
         <InfoHint term="hub" className="mt-0.5" />
       </p>
