@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { ensureUrl } from "@/features/ingestion/requests"
+import { ensureUrl, normalizeGithubLogin } from "@/features/ingestion/requests"
 import { sourceHref } from "@/features/profile/profileUtils"
 import { externalHref } from "@/lib/utils"
 
@@ -36,6 +36,27 @@ describe("externalHref", () => {
     expect(externalHref("zefix:CHE-123.456.789")).toBeNull()
     expect(externalHref("manual:1")).toBeNull()
     expect(externalHref("javascript:alert(1)")).toBeNull()
+  })
+})
+
+describe("normalizeGithubLogin", () => {
+  it("keeps a plain GitHub username", () => {
+    expect(normalizeGithubLogin("mkeller-dev")).toBe("mkeller-dev")
+    expect(normalizeGithubLogin("@mkeller-dev")).toBe("mkeller-dev")
+  })
+
+  it("extracts the owner from GitHub profile and repository links", () => {
+    expect(normalizeGithubLogin("https://github.com/mkeller-dev")).toBe(
+      "mkeller-dev"
+    )
+    expect(normalizeGithubLogin("github.com/mkeller-dev/orbit")).toBe(
+      "mkeller-dev"
+    )
+    expect(
+      normalizeGithubLogin(
+        "https://www.github.com/mkeller-dev?tab=repositories"
+      )
+    ).toBe("mkeller-dev")
   })
 })
 

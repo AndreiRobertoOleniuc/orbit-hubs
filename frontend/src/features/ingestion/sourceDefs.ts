@@ -7,14 +7,14 @@ import type {
 export const GITHUB_SOURCE: SourceDef = {
   kind: "github",
   title: "GitHub",
-  hint: "Username",
+  hint: "Username oder Link",
   glyph: "GH",
-  placeholder: "z.B. mkeller-dev",
+  placeholder: "z.B. mkeller-dev oder github.com/mkeller-dev",
   guide: {
-    intro: "So findest du deinen GitHub-Username:",
+    intro: "Was kannst du einfügen?",
     steps: [
-      "Auf github.com einloggen",
-      "Der Username steht oben rechts im Profilmenü und in der Profil-URL (github.com/<username>)",
+      "Deinen GitHub-Username, z.B. mkeller-dev",
+      "Oder den Link zu deinem Profil oder Repository, z.B. github.com/mkeller-dev/projekt",
     ],
     link: { label: "GitHub öffnen", href: "https://github.com" },
   },

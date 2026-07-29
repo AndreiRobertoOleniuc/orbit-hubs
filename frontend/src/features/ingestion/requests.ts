@@ -29,6 +29,33 @@ export function ensureUrl(value: string): string {
 }
 
 /**
+ * GitHub ingestion works from an account login. Accept either the login itself
+ * or a copied github.com profile/repository URL and keep only the owner segment.
+ */
+export function normalizeGithubLogin(value: string): string {
+  const trimmed = value.trim()
+  if (!trimmed) return ""
+
+  const withScheme = /^https?:\/\//i.test(trimmed)
+    ? trimmed
+    : `https://${trimmed}`
+
+  try {
+    const url = new URL(withScheme)
+    const host = url.hostname.toLowerCase().replace(/^www\./, "")
+    if (host === "github.com") {
+      return decodeURIComponent(
+        url.pathname.split("/").filter(Boolean)[0] ?? ""
+      )
+    }
+  } catch {
+    // Not a URL; treat it as a username below.
+  }
+
+  return trimmed.replace(/^@/, "")
+}
+
+/**
  * Openable URL for a source the user linked but hasn't ingested yet — only the
  * typed draft exists at that point. A PDF upload is a file, never a URL.
  */
@@ -48,7 +75,10 @@ export function buildSourceRequest(
 ): IngestionRequestDto {
   switch (kind) {
     case "github":
-      return { sourceType: "github", context: { github_login: value } }
+      return {
+        sourceType: "github",
+        context: { github_login: normalizeGithubLogin(value) },
+      }
     case "orcid":
       return { sourceType: "orcid_pub", context: { orcid: value } }
     case "website":
