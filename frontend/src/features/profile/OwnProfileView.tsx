@@ -35,7 +35,10 @@ import { ProfileHeader } from "@/features/profile/ProfileHeader"
 import { ProfileMetaEditor } from "@/features/profile/ProfileMetaEditor"
 import { ProfileSectionCard } from "@/features/profile/ProfileSectionCard"
 import { SubscribedTopics } from "@/features/profile/SubscribedTopics"
-import { builtFromLabels, externalUrl } from "@/features/profile/profileUtils"
+import {
+  aggregateSourceUrl,
+  builtFromLabels,
+} from "@/features/profile/profileUtils"
 import {
   useDeleteEntityMutation,
   useResyncEntityMutation,
@@ -105,7 +108,10 @@ export function OwnProfileView({ entity }: { entity: EntityDto }) {
       KIND_TO_SOURCE_TYPES[kind].includes(s.sourceType)
     )
     if (!source) return undefined
-    return { draft: { kind, value: "verknüpft" }, href: externalUrl(source) }
+    return {
+      draft: { kind, value: "verknüpft" },
+      href: aggregateSourceUrl(source),
+    }
   }
 
   const addSource = async (kind: SourceKind, value: string, file?: File) => {

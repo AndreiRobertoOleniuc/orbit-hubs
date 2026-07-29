@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest"
 
 import { ensureUrl, normalizeGithubLogin } from "@/features/ingestion/requests"
-import { sourceHref } from "@/features/profile/profileUtils"
+import { aggregateSourceUrl, sourceHref } from "@/features/profile/profileUtils"
 import { externalHref } from "@/lib/utils"
+import type { EntitySourceDto } from "@/types/api"
 
 describe("externalHref", () => {
   it("accepts http(s) URLs", () => {
@@ -82,5 +83,36 @@ describe("sourceHref", () => {
     expect(sourceHref("manual:text:abc123")).toBeNull()
     expect(sourceHref("personal_site:")).toBeNull()
     expect(sourceHref(null)).toBeNull()
+  })
+})
+
+describe("aggregateSourceUrl", () => {
+  const source = (
+    overrides: Partial<EntitySourceDto> = {}
+  ): EntitySourceDto => ({
+    id: 1,
+    sourceType: "github",
+    label: "github.com/mkeller-dev/orbit",
+    sourceUrl: "https://github.com/mkeller-dev/orbit",
+    fetchStatus: "ok",
+    fetchedAt: null,
+    active: true,
+    ...overrides,
+  })
+
+  it("links the GitHub source card to the account, not the first repo", () => {
+    expect(aggregateSourceUrl(source())).toBe("https://github.com/mkeller-dev")
+  })
+
+  it("keeps regular single-source links unchanged", () => {
+    expect(
+      aggregateSourceUrl(
+        source({
+          sourceType: "personal_site",
+          label: "ada.example.ch",
+          sourceUrl: "personal_site:ada.example.ch",
+        })
+      )
+    ).toBe("https://ada.example.ch")
   })
 })

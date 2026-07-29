@@ -70,7 +70,33 @@ export function sourceHref(sourceUrl: string | null): string | null {
   )
 }
 
+function githubAccountHref(sourceUrl: string | null): string | null {
+  const direct = externalHref(sourceUrl)
+  if (!direct) return null
+
+  try {
+    const url = new URL(direct)
+    const host = url.hostname.toLowerCase().replace(/^www\./, "")
+    if (host !== "github.com") return null
+    const owner = url.pathname.split("/").filter(Boolean)[0]
+    return owner ? `https://github.com/${owner}` : null
+  } catch {
+    return null
+  }
+}
+
 /** {@link sourceHref} for a profile source row. */
 export function externalUrl(source: EntitySourceDto): string | null {
   return sourceHref(source.sourceUrl)
+}
+
+/**
+ * Source cards aggregate multi-row source types (GitHub repos / OpenAlex works).
+ * Their link should point to the connected account, not the first evidence item.
+ */
+export function aggregateSourceUrl(source: EntitySourceDto): string | null {
+  if (source.sourceType === "github") {
+    return githubAccountHref(source.sourceUrl)
+  }
+  return externalUrl(source)
 }
