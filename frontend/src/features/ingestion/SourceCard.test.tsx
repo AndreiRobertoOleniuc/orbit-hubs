@@ -6,6 +6,7 @@ import { SourceCard } from "@/features/ingestion/SourceCard"
 import {
   COMPANY_WEBSITE_SOURCE,
   CV_SOURCE,
+  LINKEDIN_SOURCE,
   WEBSITE_SOURCE,
 } from "@/features/ingestion/sourceDefs"
 import type { SourceDraft } from "@/features/ingestion/types"
@@ -117,5 +118,17 @@ describe("SourceCard", () => {
 
     expect(screen.getByRole("alert").textContent).toContain("maximal 20 MB")
     expect(onAdd).not.toHaveBeenCalled()
+  })
+
+  it("shows the web-only LinkedIn PDF export path", async () => {
+    const user = userEvent.setup()
+    render(<SourceCard def={LINKEDIN_SOURCE} onAdd={vi.fn()} />)
+
+    await user.click(screen.getByRole("button", { name: /LinkedIn/i }))
+
+    expect(
+      screen.getByText(/LinkedIn im Webbrowser öffnen/i)
+    ).toBeTruthy()
+    expect(screen.getByText(/"Ressourcen" \/ "Resources"/i)).toBeTruthy()
   })
 })

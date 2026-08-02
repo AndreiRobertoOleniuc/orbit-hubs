@@ -69,8 +69,9 @@ refine wording during implementation):
   registrieren/einloggen; die 16-stellige iD steht links im Profil (Form
   `0000-0002-1825-0097`). link: `{ label: "orcid.org öffnen", href: "https://orcid.org" }`.
 - **LINKEDIN_SOURCE** — intro: "So exportierst du dein LinkedIn-Profil als PDF:";
-  steps: eigenes Profil öffnen; auf "Mehr" / "More" klicken; "Als PDF speichern" /
-  "Save to PDF" wählen; die heruntergeladene PDF hier hochladen. link:
+  steps: LinkedIn im Webbrowser öffnen und eigenes Profil aufrufen; auf "Ressourcen" /
+  "Resources" klicken; "Als PDF speichern" / "Save to PDF" wählen; die
+  heruntergeladene PDF hier hochladen. link:
   `{ label: "LinkedIn öffnen", href: "https://www.linkedin.com/in/" }`. (Most valuable
   guide — the export flow is non-obvious.)
 - **WEBSITE_SOURCE** — intro: "Welche Website?"; steps: deine persönliche Seite,

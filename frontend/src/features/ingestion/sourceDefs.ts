@@ -45,8 +45,8 @@ export const LINKEDIN_SOURCE: SourceDef = {
   guide: {
     intro: "So exportierst du dein LinkedIn-Profil als PDF:",
     steps: [
-      "Eigenes Profil öffnen",
-      'Auf "Mehr" / "More" klicken',
+      "LinkedIn im Webbrowser öffnen und dein eigenes Profil aufrufen",
+      'Auf "Ressourcen" / "Resources" klicken',
       '"Als PDF speichern" / "Save to PDF" wählen',
       "Die heruntergeladene PDF hier hochladen",
     ],
