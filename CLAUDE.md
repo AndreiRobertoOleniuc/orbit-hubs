@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Supply side** — profiles auto-generated from linked sources (GitHub, OpenAlex, LinkedIn PDF, Zefix, websites, manual text). Users set availability ("Offen für Anfragen"), subscribe to topics, join hubs.
 - **Demand side** — free-text semantic search returning ranked people/companies with a German rationale and cited evidence. When search finds nothing sufficient, the seeker creates an **Anfrage** (request) that lands on the public board and is pushed to matching profiles.
 
-**Canonical spec:** `docs/Specs/Orbit_Specv2.md`. The `§` references in Javadoc throughout the backend point at `docs/DiscoveryEnginePlan/orbit-discovery-engine-reference.md`.
+**Canonical spec:** `../TechnicalImplementationDocs/Specs/Orbit_Specv2.md`. The `§` references in Javadoc throughout the backend point at `../TechnicalImplementationDocs/DiscoveryEnginePlan/orbit-discovery-engine-reference.md`.
 
 Both surfaces are **built and functional end-to-end** — supply onboarding/profile, search, Anfrage lifecycle (create → distribute → escalate → contact → Postfach), and admin hub management.
 
@@ -89,7 +89,7 @@ Query
 
 **The LLM never decides who gets in** — it only explains. If nothing clears the thresholds, `sufficient = false` and the frontend prompts the user to widen scope or create an Anfrage.
 
-Scope resolution (`ScopeResolver`) is a **hard filter** here, walking Hub → Region → CH. Regression queries live in `docs/Search_Regression_Queries.md`.
+Scope resolution (`ScopeResolver`) is a **hard filter** here, walking Hub → Region → CH. Regression queries live in `../TechnicalImplementationDocs/Search_Regression_Queries.md`.
 
 ## Data model
 
@@ -236,5 +236,5 @@ Tailwind v4 via `@tailwindcss/vite` — config lives in `src/index.css`, there i
 
 ## Other notes
 
-- `prototyping/` and `docs/` are outside the build. `docs/DiscoveryEnginePlan/` holds the design references the backend Javadoc cites by `§`.
+- `../Prototyping/` and `../TechnicalImplementationDocs/` are outside the build. `../TechnicalImplementationDocs/DiscoveryEnginePlan/` holds the design references the backend Javadoc cites by `§`.
 - `.llm-wiki/`, `data/`, `claude-design/`, and `k8s/orbit.yml` + `k8s/deploy.sh` are gitignored.

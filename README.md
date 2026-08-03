@@ -10,6 +10,12 @@
 
 ---
 
+## Handover / run locally
+
+Start with [RUNBOOK.md](RUNBOOK.md) for the current local setup, test and deployment path. Technical evidence and design material are deliberately kept outside the runtime repository in [`../TechnicalImplementationDocs/`](../TechnicalImplementationDocs/); historical experiments are in [`../Prototyping/`](../Prototyping/).
+
+---
+
 ## The Problem
 
 In the Swiss innovation ecosystem, finding the right collaborator still relies almost entirely on **Vitamin B** — personal networks, Slack groups, and conference corridors. A firmware startup in Baden has no way to know that an FHNW researcher two streets away published exactly the work they need. A KMU looking for an Innosuisse co-applicant defaults to expensive consultants because the discovery mechanism simply doesn't exist.
