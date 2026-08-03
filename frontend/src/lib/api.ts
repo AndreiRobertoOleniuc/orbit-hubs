@@ -82,7 +82,9 @@ const rawBaseQuery = fetchBaseQuery({
  * boundary) forces Clerk to mint a new token and retries the request once,
  * instead of surfacing the error to the UI.
  */
-const baseQuery = async (
+// Exported for the focused offline contract test: it verifies the one-retry
+// authentication behaviour without requiring a browser or a real Clerk session.
+export const baseQuery = async (
   args: string | FetchArgs,
   api: BaseQueryApi,
   extraOptions: object

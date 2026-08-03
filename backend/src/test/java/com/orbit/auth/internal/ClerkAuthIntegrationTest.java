@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
 
+import com.orbit.testsupport.PostgresIntegrationTest;
 import javax.sql.DataSource;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -44,9 +45,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @TestPropertySource(properties = {
         "spring.security.oauth2.resourceserver.jwt.issuer-uri=http://localhost",
         "clerk.azp-origin=http://localhost:5173",
-        "orbit.admin.user-ids=user_test_admin"
+        "orbit.admin.user-ids=user_test_admin",
+        "HF_TOKEN=test-offline-token",
+        "GEMINI_API_KEY=test-offline-key"
 })
-class ClerkAuthIntegrationTest {
+class ClerkAuthIntegrationTest extends PostgresIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
