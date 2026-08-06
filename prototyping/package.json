@@ -1,0 +1,19 @@
+{
+  "type": "module",
+  "scripts": {
+    "schema": "node -e \"import('pg').then(async({default:p})=>{const fs=await import('node:fs');const d=await import('dotenv');d.config();const c=new p.Client({host:process.env.DB_HOST,port:process.env.DB_PORT,database:process.env.DB_NAME,user:process.env.DB_USER,password:process.env.DB_PASSWORD});await c.connect();await c.query(fs.readFileSync('10_schema.sql','utf8'));await c.end();console.log('schema applied');})\"",
+    "ingest": "node 10_ingest.js",
+    "ingest:reset": "node 10_ingest.js --reset",
+    "search": "node 10_search_cli.js"
+  },
+  "dependencies": {
+    "@faker-js/faker": "10.4.0",
+    "@langchain/textsplitters": "1.0.1",
+    "@mozilla/readability": "0.6.0",
+    "dotenv": "17.4.2",
+    "jsdom": "29.1.1",
+    "pdf-parse": "2.4.5",
+    "pg": "8.20.0",
+    "random-name": "0.1.2"
+  }
+}
