@@ -14,6 +14,8 @@ import java.time.LocalDate;
  * @param wantFrom      requested availability window start (optional)
  * @param wantTo        requested availability window end (optional)
  * @param wantPensumPct requested Pensum % (optional)
+ * @param debug         ask for the per-stage {@link SearchTrace}; honoured only for
+ *                      admins or when {@code orbit.search.trace-open} is set (optional)
  */
 public record SearchRequest(
         String query,
@@ -21,5 +23,6 @@ public record SearchRequest(
         ScopeSelection scope,
         LocalDate wantFrom,
         LocalDate wantTo,
-        Integer wantPensumPct) {
+        Integer wantPensumPct,
+        Boolean debug) {
 }

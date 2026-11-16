@@ -1,5 +1,7 @@
 package com.orbit.app.search;
 
+import com.orbit.app.search.dto.SearchRationale;
+import com.orbit.app.search.dto.SearchRationaleRequest;
 import com.orbit.app.search.dto.SearchRequest;
 import com.orbit.app.search.dto.SearchResponse;
 import org.slf4j.Logger;
@@ -20,6 +22,8 @@ import java.util.List;
  * POST /api/v1/search with body:
  * <pre>{"query": "embedded firmware", "scope": {"kind": "hub", "hubId": 1},
  * "wantFrom": "2026-08-01", "wantTo": "2026-10-31", "wantPensumPct": 60}</pre>
+ * POST /api/v1/search/rationale with {@code {"query": "…", "entityId": 42}}
+ * returns the grounded rationale of one result; each result card asks for its own.
  */
 @RestController
 @RequestMapping("/api/v1/search")
@@ -40,5 +44,11 @@ public class SearchController {
         }
         log.info("Search request: query=\"{}\"", request.query());
         return ResponseEntity.ok(searchService.search(request));
+    }
+
+    @PostMapping("/rationale")
+    public ResponseEntity<SearchRationale> rationale(@RequestBody SearchRationaleRequest request) {
+        SearchRationale rationale = searchService.explain(request);
+        return rationale != null ? ResponseEntity.ok(rationale) : ResponseEntity.notFound().build();
     }
 }

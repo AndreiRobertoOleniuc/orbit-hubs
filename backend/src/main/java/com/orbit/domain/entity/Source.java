@@ -121,6 +121,23 @@ public class Source {
         this.contentHash = contentHash;
     }
 
+    /**
+     * Take over a re-fetched version of this source in place. The row keeps its
+     * id, creation time and {@code active} flag, so citations and the user's
+     * curation choice survive a re-ingestion.
+     */
+    public void refresh(Long entityId, String label, String provenance, String consentBasis,
+                        String rawContent, String contentHash, String fetchStatus, Instant fetchedAt) {
+        this.entityId = entityId;
+        this.label = label;
+        this.provenance = provenance;
+        this.consentBasis = consentBasis;
+        this.rawContent = rawContent;
+        this.contentHash = contentHash;
+        this.fetchStatus = fetchStatus;
+        this.fetchedAt = fetchedAt;
+    }
+
     public String getFetchStatus() {
         return fetchStatus;
     }

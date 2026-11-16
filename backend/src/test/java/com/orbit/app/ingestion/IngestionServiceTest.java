@@ -6,8 +6,11 @@ import java.util.Map;
 import java.util.Optional;
 
 import com.orbit.app.auth.CurrentUser;
+import com.orbit.app.controllers.dto.IngestionJobDto;
 import com.orbit.app.controllers.dto.IngestionRequest;
 import com.orbit.app.ingestion.dto.IngestionResult;
+import com.orbit.app.ingestion.dto.IngestionSummary;
+import com.orbit.app.ingestion.job.IngestionJobService;
 import com.orbit.app.ingestion.dto.SourceRef;
 import com.orbit.domain.entity.User;
 import com.orbit.domain.repository.UserRepository;
@@ -18,23 +21,30 @@ import org.springframework.mock.web.MockMultipartFile;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class IngestionServiceTest {
 
-    private IngestionOrchestrator orchestrator;
+    private static final IngestionJobDto QUEUED =
+            new IngestionJobDto(1L, "source", "manual_text", "queued", 0, null, null, null, null, null);
+
+    private IngestionJobService jobs;
     private CurrentUser currentUser;
     private UserRepository users;
     private IngestionService service;
 
     @BeforeEach
     void setUp() {
-        orchestrator = mock(IngestionOrchestrator.class);
+        jobs = mock(IngestionJobService.class);
+        when(jobs.enqueueSource(any(), any())).thenReturn(QUEUED);
         currentUser = mock(CurrentUser.class);
         users = mock(UserRepository.class);
-        service = new IngestionService(orchestrator, currentUser, users);
+        service = new IngestionService(jobs, currentUser, users);
     }
 
     @Test
@@ -61,46 +71,66 @@ class IngestionServiceTest {
     }
 
     @Test
-    void manualIngestionAddsAuthenticatedDisplayNameAndSummarizesResults() {
+    void manualIngestionAddsAuthenticatedDisplayNameAndQueuesAJob() {
         when(currentUser.userId()).thenReturn(Optional.of("user-1"));
         User user = new User("user-1", "ada@example.org", "Ada Lovelace");
         when(users.findById("user-1")).thenReturn(Optional.of(user));
-        when(orchestrator.ingestMulti(any())).thenReturn(List.of(
-                IngestionResult.ingested(7L, 8L, 3), IngestionResult.skipped(7L)));
 
-        Map<String, Object> result = service.ingest(new IngestionRequest(
+        IngestionJobDto job = service.ingest(new IngestionRequest(
                 "manual_text", Map.of("text", "Builds systems")));
 
-        assertThat(result).containsEntry("ingested", 1).containsEntry("skipped", 1)
-                .containsEntry("errors", 0).containsEntry("totalChunks", 3);
-        verify(orchestrator).ingestMulti(org.mockito.ArgumentMatchers.argThat(ref ->
-                ref.ownerId().equals("user-1") && ref.context().get("name").equals("Ada Lovelace")));
+        assertThat(job).isSameAs(QUEUED);
+        verify(jobs).enqueueSource(org.mockito.ArgumentMatchers.argThat(ref ->
+                ref.ownerId().equals("user-1") && ref.context().get("name").equals("Ada Lovelace")),
+                isNull());
+    }
+
+    @Test
+    void theSummaryCountsEveryOutcomeAndChunk() {
+        IngestionSummary summary = IngestionSummary.of("github", List.of(
+                IngestionResult.ingested(7L, 8L, 3), IngestionResult.skipped(7L), IngestionResult.error(null)));
+
+        assertThat(summary.sources()).isEqualTo(3);
+        assertThat(summary.ingested()).isEqualTo(1);
+        assertThat(summary.skipped()).isEqualTo(1);
+        assertThat(summary.errors()).isEqualTo(1);
+        assertThat(summary.totalChunks()).isEqualTo(3);
+    }
+
+    @Test
+    void pollingIsLimitedToTheCallersOwnJobs() {
+        assertThat(service.jobs(List.of(1L)).settled()).isTrue();   // signed out: nothing to report
+        verify(jobs, never()).jobs(any(), any());
+
+        when(currentUser.userId()).thenReturn(Optional.of("user-1"));
+        service.jobs(List.of(1L, 2L));
+        verify(jobs).jobs("user-1", List.of(1L, 2L));
+        assertThatThrownBy(() -> service.jobs(java.util.stream.LongStream.rangeClosed(1, 51).boxed().toList()))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void suppliedNameIsNotOverwritten() {
         when(currentUser.userId()).thenReturn(Optional.of("user-1"));
         when(users.findById("user-1")).thenReturn(Optional.of(new User("user-1", "x@y.ch", "Token Name")));
-        when(orchestrator.ingestMulti(any())).thenReturn(List.of());
 
         service.ingest(new IngestionRequest("manual_text", Map.of("text", "Text", "name", "Chosen Name")));
 
-        verify(orchestrator).ingestMulti(org.mockito.ArgumentMatchers.argThat(ref ->
-                ref.context().get("name").equals("Chosen Name")));
+        verify(jobs).enqueueSource(org.mockito.ArgumentMatchers.argThat(ref ->
+                ref.context().get("name").equals("Chosen Name")), isNull());
     }
 
     @Test
     void onboardingOptionsArePropagatedToTheSourceReference() {
         when(currentUser.userId()).thenReturn(Optional.of("user-1"));
-        when(orchestrator.ingestMulti(any())).thenReturn(List.of());
 
         service.ingest(new IngestionRequest(
                 "manual_text", Map.of("text", "Text"), true, "demand"));
 
-        verify(orchestrator).ingestMulti(org.mockito.ArgumentMatchers.argThat(ref ->
+        verify(jobs).enqueueSource(org.mockito.ArgumentMatchers.argThat(ref ->
                 ref.onboardingDraft()
                         && "demand".equals(ref.profileMode())
-                        && "user-1".equals(ref.ownerId())));
+                        && "user-1".equals(ref.ownerId())), isNull());
     }
 
     @Test
@@ -121,17 +151,16 @@ class IngestionServiceTest {
     }
 
     @Test
-    void pdfUsesHashedPseudoUrlAndDeletesTemporaryFile() {
+    void pdfUsesHashedPseudoUrlAndQueuesTheFileWithTheJob() {
         when(currentUser.userId()).thenReturn(Optional.of("user-1"));
-        when(orchestrator.ingestMulti(any())).thenReturn(List.of(IngestionResult.ingested(1L, 2L, 4)));
-        MockMultipartFile file = new MockMultipartFile("file", "profile.pdf", "application/pdf",
-                "pdf-content".getBytes(StandardCharsets.UTF_8));
+        byte[] pdf = "pdf-content".getBytes(StandardCharsets.UTF_8);
+        MockMultipartFile file = new MockMultipartFile("file", "profile.pdf", "application/pdf", pdf);
 
-        Map<String, Object> result = service.ingestLinkedInPdf(file);
+        assertThat(service.ingestLinkedInPdf(file)).isSameAs(QUEUED);
 
-        assertThat(result).containsEntry("ingested", 1).containsEntry("totalChunks", 4);
-        verify(orchestrator).ingestMulti(org.mockito.ArgumentMatchers.argThat((SourceRef ref) ->
-                ref.url().startsWith("linkedin:pdf:") && ref.ownerId().equals("user-1")));
+        verify(jobs).enqueueSource(org.mockito.ArgumentMatchers.argThat((SourceRef ref) ->
+                ref.url().startsWith("linkedin:pdf:") && ref.ownerId().equals("user-1")
+                        && !ref.context().containsKey("file_path")), eq(pdf));
     }
 
     @Test
@@ -139,20 +168,18 @@ class IngestionServiceTest {
         when(currentUser.userId()).thenReturn(Optional.of("user-1"));
         when(users.findById("user-1"))
                 .thenReturn(Optional.of(new User("user-1", "ada@example.org", "Ada Lovelace")));
-        when(orchestrator.ingestMulti(any())).thenReturn(List.of(IngestionResult.ingested(1L, 2L, 2)));
         MockMultipartFile file = new MockMultipartFile(
                 "file", "cv.pdf", "application/pdf", "pdf-content".getBytes(StandardCharsets.UTF_8));
 
-        Map<String, Object> result = service.ingestCvPdf(file, true, "demand", null);
+        service.ingestCvPdf(file, true, "demand", null);
 
-        assertThat(result).containsEntry("sourceType", "cv_pdf").containsEntry("ingested", 1);
-        verify(orchestrator).ingestMulti(org.mockito.ArgumentMatchers.argThat((SourceRef ref) ->
+        verify(jobs).enqueueSource(org.mockito.ArgumentMatchers.argThat((SourceRef ref) ->
                 ref.url().startsWith("cv:pdf:")
                         && "cv_pdf".equals(ref.sourceType())
                         && "Ada Lovelace".equals(ref.context().get("name"))
                         && "cv.pdf".equals(ref.context().get("filename"))
                         && ref.onboardingDraft()
-                        && "demand".equals(ref.profileMode())));
+                        && "demand".equals(ref.profileMode())), any());
     }
 
     @Test

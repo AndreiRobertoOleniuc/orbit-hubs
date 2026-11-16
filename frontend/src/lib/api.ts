@@ -13,14 +13,16 @@ import type {
   HubDto,
   InboxDto,
   IngestionRequestDto,
-  IngestionResponseDto,
+  IngestionJobDto,
+  IngestionJobsDto,
   MeDto,
   ProfileMode,
   RegionDto,
   RequestDto,
   RequestStatus,
   RequestSummaryDto,
-  ResyncResponseDto,
+  SearchRationaleDto,
+  SearchRationaleRequestBody,
   SearchRequestBody,
   SearchResponseDto,
   SubscriptionDto,
@@ -149,6 +151,15 @@ export const apiSlice = createApi({
       query: (body) => ({ url: "/search", method: "POST", body }),
     }),
 
+    // A query, not a mutation: it has no side effects, and caching per
+    // (query, entityId) keeps a re-rendered card from asking the LLM again.
+    getSearchRationale: builder.query<
+      SearchRationaleDto,
+      SearchRationaleRequestBody
+    >({
+      query: (body) => ({ url: "/search/rationale", method: "POST", body }),
+    }),
+
     // ─── Zefix (Handelsregister autocomplete) ───
 
     searchZefix: builder.query<ZefixCompanyDto[], string>({
@@ -157,17 +168,24 @@ export const apiSlice = createApi({
 
     // ─── Ingestion ───
 
-    ingestSource: builder.mutation<IngestionResponseDto, IngestionRequestDto>({
+    // Submitting only queues a job (202). Caches are invalidated once the job
+    // has settled — see useIngestionJobs — not on this response.
+    ingestSource: builder.mutation<IngestionJobDto, IngestionRequestDto>({
       query: (body) => ({
         url: "/ingestion",
         method: "POST",
         body,
       }),
-      invalidatesTags: ["MyEntities"],
+    }),
+
+    getIngestionJobs: builder.query<IngestionJobsDto, number[]>({
+      query: (ids) => `/ingestion/jobs?ids=${ids.join(",")}`,
+      keepUnusedDataFor: 0,
     }),
 
     uploadLinkedInPdf: builder.mutation<
-      IngestionResponseDto,
+      IngestionJobDto,
+      IngestionJobsDto,
       { file: File; onboardingDraft?: boolean; profileMode?: ProfileMode }
     >({
       query: ({ file, onboardingDraft, profileMode }) => {
@@ -181,11 +199,11 @@ export const apiSlice = createApi({
           body: formData,
         }
       },
-      invalidatesTags: ["MyEntities"],
     }),
 
     uploadCvPdf: builder.mutation<
-      IngestionResponseDto,
+      IngestionJobDto,
+      IngestionJobsDto,
       {
         file: File
         onboardingDraft?: boolean
@@ -205,7 +223,6 @@ export const apiSlice = createApi({
           body: formData,
         }
       },
-      invalidatesTags: ["MyEntities"],
     }),
 
     // ─── Entity tag & summary editing ───
@@ -240,17 +257,13 @@ export const apiSlice = createApi({
       ],
     }),
 
-    // ─── Entity resync (re-ingest all sources + re-enrich) ───
+    // ─── Entity resync (re-ingest all sources + re-enrich), queued as a job ───
 
-    resyncEntity: builder.mutation<ResyncResponseDto, number>({
+    resyncEntity: builder.mutation<IngestionJobDto, number>({
       query: (entityId) => ({
         url: `/entities/${entityId}/resync`,
         method: "POST",
       }),
-      invalidatesTags: (_result, _error, entityId) => [
-        { type: "Entity", id: entityId },
-        "MyEntities",
-      ],
     }),
 
     // ─── Supply-side profile editing ───
@@ -516,9 +529,11 @@ export const {
   useGetMyEntitiesQuery,
   useDeleteEntityMutation,
   useSearchMutation,
+  useGetSearchRationaleQuery,
   useGetRegionsQuery,
   useLazySearchZefixQuery,
   useIngestSourceMutation,
+  useLazyGetIngestionJobsQuery,
   useUploadLinkedInPdfMutation,
   useUploadCvPdfMutation,
   useUpdateEntityTagsMutation,

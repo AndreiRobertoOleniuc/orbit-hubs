@@ -26,6 +26,7 @@ import {
   PERSON_SOURCES,
 } from "@/features/ingestion/sourceDefs"
 import type { SourceKind } from "@/features/ingestion/types"
+import { useIngestionJobs } from "@/features/ingestion/useIngestionJobs"
 import { useSourceIngestion } from "@/features/ingestion/useSourceIngestion"
 import { AvailabilityEditor } from "@/features/profile/AvailabilityEditor"
 import { HubSelector } from "@/features/profile/HubSelector"
@@ -88,6 +89,7 @@ export function OwnProfileView({ entity }: { entity: EntityDto }) {
   const [resyncing, setResyncing] = useState(false)
   const [resyncMessage, setResyncMessage] = useState<string | null>(null)
   const [resyncEntity] = useResyncEntityMutation()
+  const { awaitJobs } = useIngestionJobs()
   const [deleteEntity, { isLoading: isDeleting }] = useDeleteEntityMutation()
   const [deleteConfirmation, setDeleteConfirmation] = useState("")
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -163,7 +165,11 @@ export function OwnProfileView({ entity }: { entity: EntityDto }) {
     setResyncing(true)
     setResyncMessage(null)
     try {
-      const result = await resyncEntity(entity.id).unwrap()
+      // Re-reading every source takes a while: the server queues it as a job.
+      const job = await resyncEntity(entity.id).unwrap()
+      const [done] = await awaitJobs([job.id])
+      const result = done?.status === "succeeded" ? done.result : null
+      if (!result) throw new Error(done?.error ?? "resync did not finish")
       const parts: string[] = []
       if (result.ingested > 0) parts.push(`${result.ingested} aktualisiert`)
       if (result.skipped > 0) parts.push(`${result.skipped} unverändert`)

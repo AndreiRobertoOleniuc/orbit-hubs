@@ -1,10 +1,13 @@
 package com.orbit.app.search;
 
+import java.net.http.HttpClient;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -16,8 +19,18 @@ class LocalCrossEncoderClient implements CrossEncoderClient {
 
     private final RestClient client;
 
-    LocalCrossEncoderClient(@Value("${orbit.search.reranker-url:http://localhost:8001}") String rerankerUrl) {
-        this.client = RestClient.builder().baseUrl(rerankerUrl).build();
+    /**
+     * @param timeout how long to wait for scores. Set explicitly: the HTTP
+     *                client's own default read timeout (10 s) is shorter than a
+     *                local model occasionally needs on a laptop — the first batch
+     *                of a new input size can take ~20 s on Apple silicon.
+     */
+    LocalCrossEncoderClient(@Value("${orbit.search.reranker-url:http://localhost:8001}") String rerankerUrl,
+                            @Value("${orbit.search.reranker-timeout:PT60S}") Duration timeout) {
+        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(
+                HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build());
+        requestFactory.setReadTimeout(timeout);
+        this.client = RestClient.builder().baseUrl(rerankerUrl).requestFactory(requestFactory).build();
     }
 
     @Override

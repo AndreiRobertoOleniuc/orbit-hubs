@@ -27,17 +27,12 @@ spring:
           issuer-uri: ${CLERK_ISSUER_URI:https://fair-clam-16.clerk.accounts.dev}
   ai:
     model:
-      chat: google-genai      # Use Google Gemini for chat (LLM summarization)
+      # The LLM is Orbit's own ChatModel on OpenRouter (orbit.openrouter.chat), so
+      # no Spring AI chat model is auto-configured.
+      chat: none
       # Spring AI's Ollama model remains available for local embedding development.
       # Orbit selects the active EmbeddingService with orbit.embedding.provider.
       embedding: ollama
-    google:
-      genai:
-        api-key: ${GEMINI_API_KEY}
-        chat:
-          model: gemini-2.5-flash-lite
-          temperature: 0.3
-          max-output-tokens: 500
 
 clerk:
   azp-origin: ${CLERK_AZP_ORIGIN:http://localhost:5173}
@@ -48,22 +43,84 @@ orbit:
     # management API. Empty = no admins. Override via ORBIT_ADMIN_USER_IDS.
     user-ids: ${ORBIT_ADMIN_USER_IDS:user_3FEZ7buK8HMqm9R34MuKFmnJ26z}
   search:
-    # Minimum best-evidence similarity for a result to count as "sufficient"
-    # (below this the frontend prompts to create an Anfrage). See SearchService.
-    similarity-threshold: ${ORBIT_SEARCH_SIMILARITY_THRESHOLD:0.80}
-    # How many top results get a grounded Gemini rationale (§6.4) — bounds cost.
-    rationale-top-n: ${ORBIT_SEARCH_RATIONALE_TOP_N:8}
+    # Per-stage search trace ({"debug": true} on POST /search). Admin-only unless
+    # this is true; open it only for local evaluation runs, never when deployed.
+    trace-open: ${ORBIT_SEARCH_TRACE_OPEN:false}
+    # Stage 1 retrieves this many entities, however few results are shown.
+    candidate-depth: ${ORBIT_SEARCH_CANDIDATE_DEPTH:50}
+    retrieval:
+      # RRF weights of the retrieval legs (V19 hybrid_search); 0 switches a leg off.
+      lexical-weight: ${ORBIT_SEARCH_LEXICAL_WEIGHT:1.0}
+      semantic-weight: ${ORBIT_SEARCH_SEMANTIC_WEIGHT:1.0}
+      # The query as typed, embedded as a second semantic leg (off when it is already English).
+      original-language-weight: ${ORBIT_SEARCH_ORIGINAL_LANGUAGE_WEIGHT:1.0}
+    # Stage 2 scores this many of the best-retrieved candidates, each on its
+    # profile card plus its best rerank-passages evidence chunks (one pair each),
+    # every passage cut to rerank-passage-chars. The reranker on OpenRouter scores
+    # 30 cards of 800 characters in about 0.35 s and 50 in about 0.4 s (measured
+    # 2026-11-16), so depth costs little time; it is billed per token read.
+    rerank-depth: ${ORBIT_SEARCH_RERANK_DEPTH:30}
+    rerank-passages: ${ORBIT_SEARCH_RERANK_PASSAGES:0}
+    rerank-passage-chars: ${ORBIT_SEARCH_RERANK_PASSAGE_CHARS:800}
+    # The hosted embedding and reranker calls of one search may take this long in
+    # all, retries included; then the search answers 503 instead of waiting out an
+    # overloaded or rate-limited model (orbit.openrouter.max-wait, for background work).
+    inference-budget: ${ORBIT_SEARCH_INFERENCE_BUDGET:PT30S}
+    rate-limit:
+      # Calls per minute and client address to the public search endpoints (no login,
+      # every call is paid for); 429 beyond that. 0 switches a limit off. A result
+      # list asks for one rationale per card, hence the higher second limit.
+      searches-per-minute: ${ORBIT_SEARCH_RATE_LIMIT_SEARCHES:60}
+      rationales-per-minute: ${ORBIT_SEARCH_RATE_LIMIT_RATIONALES:300}
+    profile-documents:
+      # Embed missing or changed profile documents in the background on start-up.
+      sync-on-startup: ${ORBIT_PROFILE_DOCUMENTS_SYNC:true}
     rerank:
       # Soft re-rank weights (§6.3) — additive boosts on the normalized base RRF.
       # Kept small so relevance dominates; A/B-able.
       availability-weight: ${ORBIT_SEARCH_RERANK_AVAIL:0.3}
       open-to-requests-weight: ${ORBIT_SEARCH_RERANK_OPEN:0.1}
     # Cross-encoder reranker (Stage 2) — deterministic relevance filtering.
-    # Cross-encoder provider. Local development uses the Python microservice;
-    # deployment can use Hugging Face without running a local GPU model.
-    reranker-provider: ${RERANKER_PROVIDER:huggingface}
+    # Provider: openrouter (orbit.openrouter.reranker), local (the Python
+    # microservice, for offline runs) or huggingface.
+    reranker-provider: ${RERANKER_PROVIDER:openrouter}
     reranker-url: ${ORBIT_SEARCH_RERANKER_URL:http://localhost:8001}
-    reranker-threshold: ${ORBIT_SEARCH_RERANKER_THRESHOLD:0.04}
+    # Read timeout for the local reranker (RERANKER_PROVIDER=local only). A laptop
+    # model can need ~20 s for the first batch of a new input size.
+    reranker-timeout: ${ORBIT_SEARCH_RERANKER_TIMEOUT:PT60S}
+    # Tied to the reranker model and its input: calibrated on evaluation-v3 for
+    # cohere/rerank-5-fast scoring the card alone at 800 characters (2026-11-16).
+    # Another model needs its own value (bge-reranker-v2-m3, local or Hugging Face:
+    # 0.02); see TechnicalImplementationDocs/evaluation-v3/README.md.
+    reranker-threshold: ${ORBIT_SEARCH_RERANKER_THRESHOLD:0.3}
+  ingestion:
+    jobs:
+      # Ingestion runs as background jobs (IngestionJobWorker); the API only queues them.
+      enabled: ${ORBIT_INGESTION_JOBS_ENABLED:true}
+      workers: ${ORBIT_INGESTION_JOBS_WORKERS:2}
+      # Bounds the parallel load on each provider (GitHub, OpenAlex, websites, …).
+      max-running-per-source-type: ${ORBIT_INGESTION_JOBS_PER_SOURCE_TYPE:2}
+      poll-interval: ${ORBIT_INGESTION_JOBS_POLL_INTERVAL:PT1S}
+      # A transient failure is retried after backoff × 4^(attempt-1), up to 3 attempts.
+      retry-backoff: ${ORBIT_INGESTION_JOBS_RETRY_BACKOFF:PT30S}
+      # Enrichment waits this long after the owner's last source finished, so the
+      # sources of one onboarding are enriched together, once.
+      enrich-delay: ${ORBIT_INGESTION_JOBS_ENRICH_DELAY:PT3S}
+      heartbeat-interval: PT20S
+      # A running job without a heartbeat for this long is queued again.
+      stale-after: PT2M
+      # Finished jobs (and nothing else: uploads are dropped when a job finishes) are kept this long.
+      retention: P7D
+  tags:
+    # A new tag label is mapped onto an existing tag before minting (TagVocabularyService):
+    # by spelling key, or by embedding similarity at least this high AND an LLM "same
+    # topic" check. Tied to the embedding model. With voyage-4-lite, translations and
+    # variants of one topic sit at 0.79 and above ("Data Analysis" / "Datenanalyse" 0.84)
+    # and about one label in six has a neighbour that close (snapshot 2026-11-16). With
+    # multilingual-e5-large labels crowd between 0.89 and 1.0: use 0.95.
+    canonical-similarity: ${ORBIT_TAGS_CANONICAL_SIMILARITY:0.78}
+    # Embed tags without a vector on start-up (they are also embedded after each enrichment).
+    sync-on-startup: ${ORBIT_TAGS_SYNC_ON_STARTUP:true}
   requests:
     # Urgency-driven escalation of distributed requests (§8.3). ISO-8601
     # durations; shrink via env for demos (e.g. ORBIT_REQUESTS_URGENT_ESCALATE_AFTER=PT2M).
@@ -72,13 +129,54 @@ orbit:
     soon-remind-after: ${ORBIT_REQUESTS_SOON_REMIND_AFTER:PT120H}
     deadline-wave-before: ${ORBIT_REQUESTS_DEADLINE_WAVE_BEFORE:PT24H}
   embedding:
-    # Provider-agnostic embedding config (see EmbeddingProperties). Defaults target a
-    # local Ollama serving multilingual-e5-large at 1024 dims; override via env in other
-    # environments. Ollama is NOT in compose.yaml — point this at a running instance.
-    provider: ${EMBEDDING_PROVIDER:huggingface}
+    # Provider: openrouter (orbit.openrouter.embedding), ollama (base-url and model
+    # below, for offline runs — Ollama is NOT in compose.yaml) or huggingface.
+    provider: ${EMBEDDING_PROVIDER:openrouter}
     base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
     model: ${EMBEDDING_MODEL:jeffh/intfloat-multilingual-e5-large:f16}
+    # The size every vector column stores; a model with a larger native size is asked for this one.
     dimensions: 1024
+    # Text put in front of a query or a passage, for models that tell them apart that
+    # way: multilingual-e5-large (ollama, huggingface) needs "query: " and "passage: ".
+    # Empty for the default model, which is told by input_type (orbit.openrouter.embedding).
+    query-prefix: "${EMBEDDING_QUERY_PREFIX:}"
+    passage-prefix: "${EMBEDDING_PASSAGE_PREFIX:}"
+    # Chunks without a vector, or with another embedding model's, are re-embedded in
+    # the background after every start. Set this ISO-8601 instant to also re-embed
+    # every chunk embedded before it (a change the model name does not show, such as
+    # a new prefix). Idempotent, so it can stay set. See ReembeddingService.
+    reembed-before: ${ORBIT_REEMBED_BEFORE:}
+  openrouter:
+    # One key and one bill for the LLM, the embedding model and the reranker.
+    api-key: ${OPENROUTER_API_KEY:}
+    base-url: ${OPENROUTER_BASE_URL:https://openrouter.ai/api/v1}
+    # deny = only providers that neither keep nor train on what is sent.
+    data-collection: ${OPENROUTER_DATA_COLLECTION:deny}
+    # Background calls (ingestion, re-embedding) wait this long for an overloaded
+    # or rate-limited model; a search is cut off by orbit.search.inference-budget.
+    max-wait: ${OPENROUTER_MAX_WAIT:PT2M}
+    connect-timeout: ${OPENROUTER_CONNECT_TIMEOUT:PT5S}
+    request-timeout: ${OPENROUTER_REQUEST_TIMEOUT:PT30S}
+    chat:
+      model: ${OPENROUTER_CHAT_MODEL:google/gemini-2.5-flash-lite}
+      # OpenRouter answers with these, in order, when the model is rate limited or
+      # down (comma-separated). Needed: gemini-2.5-flash-lite has one provider and a
+      # rate limit shared by all OpenRouter customers — 24 of 60 calls in bursts of
+      # 20 were refused, none with these fallbacks (2026-11-16).
+      fallback-models: ${OPENROUTER_CHAT_FALLBACK_MODELS:google/gemini-3.1-flash-lite,anthropic/claude-haiku-5.5}
+      temperature: 0.3
+      max-tokens: 500
+      max-wait: ${OPENROUTER_CHAT_MAX_WAIT:PT20S}
+    embedding:
+      # Changing the model re-embeds every chunk, tag and profile document in the
+      # background after the next start (see ReembeddingService).
+      model: ${OPENROUTER_EMBEDDING_MODEL:mongodb/voyage-4-lite}
+      # Sent as input_type, for models that tell a query from a passage that way;
+      # leave both empty for a model that uses the prefixes of orbit.embedding instead.
+      query-input-type: ${OPENROUTER_EMBEDDING_QUERY_INPUT_TYPE:search_query}
+      passage-input-type: ${OPENROUTER_EMBEDDING_PASSAGE_INPUT_TYPE:search_document}
+    reranker:
+      model: ${OPENROUTER_RERANKER_MODEL:cohere/rerank-5-fast}
   huggingface:
     token: ${HF_TOKEN:}
     base-url: ${HF_INFERENCE_BASE_URL:https://router.huggingface.co/hf-inference/models}

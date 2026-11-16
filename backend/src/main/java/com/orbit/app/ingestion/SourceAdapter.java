@@ -36,6 +36,20 @@ public interface SourceAdapter {
     String extractHighSignalCore(RawContent raw);
 
     /**
+     * The fetched input that decides the core text — what the content hash is
+     * computed over. It must be derived from {@code raw} alone, cheaply and
+     * deterministically: the orchestrator compares it BEFORE calling
+     * {@link #extractHighSignalCore}, so an unchanged source costs no LLM call
+     * and no embedding. Leave out fields that change without changing the
+     * evidence (star counts, citation counts, timestamps).
+     * <p>
+     * Default: the raw text. Override when the core is built from metadata too.
+     */
+    default String contentFingerprint(RawContent raw) {
+        return raw.text();
+    }
+
+    /**
      * Build the human-readable label for citation chips
      * (e.g. "github.com/{owner}/{repo}", "«{title}» ({year})").
      */

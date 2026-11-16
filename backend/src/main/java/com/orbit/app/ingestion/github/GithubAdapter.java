@@ -209,6 +209,42 @@ public class GithubAdapter implements SourceAdapter {
         return new RawContent(readme, metadata, Instant.now());
     }
 
+    // ─── contentFingerprint: what the summary is built from ───
+
+    /**
+     * Name, description, language, topics and README. Stars and the last-push
+     * timestamp move without the repo's evidence changing, so they are left out.
+     */
+    @Override
+    public String contentFingerprint(RawContent raw) {
+        Map<String, Object> meta = raw.metadata();
+        String fingerprint = String.join("\n",
+                String.valueOf(meta.get("repo_name")),
+                String.valueOf(meta.get("description")),
+                String.valueOf(meta.get("language")),
+                String.valueOf(meta.get("topics")),
+                String.valueOf(meta.get("readme")));
+        // Marks repos that now yield no chunk, so their old LLM-guessed chunk is
+        // replaced on the next resync instead of being kept as "unchanged".
+        return hasNoEvidence(meta) ? fingerprint + "\nno-evidence" : fingerprint;
+    }
+
+    /**
+     * A repo with no README, no description and no topics: its name and language
+     * say nothing a search can rely on. Summarising it only produced a guess
+     * ("this project's purpose is unclear …") that the cross-encoder scored above
+     * the threshold for unrelated queries.
+     */
+    @SuppressWarnings("unchecked")
+    static boolean hasNoEvidence(Map<String, Object> meta) {
+        String readme = (String) meta.get("readme");
+        String description = (String) meta.get("description");
+        List<String> topics = (List<String>) meta.get("topics");
+        return (readme == null || readme.isBlank())
+                && (description == null || description.isBlank())
+                && (topics == null || topics.isEmpty());
+    }
+
     // ─── extractHighSignalCore: LLM summarization with mechanical fallback ───
 
     @Override
@@ -231,6 +267,12 @@ public class GithubAdapter implements SourceAdapter {
             // LLM failed — fall back to mechanical stripping
             log.warn("LLM summarization failed for {}, falling back to mechanical stripping", repoName);
             return buildMechanicalCoreText(meta);
+        }
+
+        // Nothing but a name — no chunk (the source row still records the repo).
+        if (hasNoEvidence(meta)) {
+            log.debug("GitHub repo {} has no README, description or topics — no chunk", repoName);
+            return "";
         }
 
         // No README — ask Gemini to describe the repo from metadata only

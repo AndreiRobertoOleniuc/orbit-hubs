@@ -28,7 +28,8 @@ export interface IngestionResultDto {
   status: IngestionResultStatus
 }
 
-export interface IngestionResponseDto {
+/** What one submitted source produced (mirrors `IngestionSummary`). */
+export interface IngestionSummaryDto {
   sourceType: string
   sources: number
   ingested: number
@@ -36,7 +37,34 @@ export interface IngestionResponseDto {
   errors: number
   totalChunks: number
   results: IngestionResultDto[]
-  error?: string
+}
+
+export type IngestionJobKind = "source" | "resync" | "enrich"
+export type IngestionJobStatus = "queued" | "running" | "succeeded" | "failed"
+
+/**
+ * A queued ingestion. Submitting a source (or a resync) answers 202 with this;
+ * `GET /ingestion/jobs` reports its progress.
+ */
+export interface IngestionJobDto {
+  id: number
+  kind: IngestionJobKind
+  sourceType: string | null
+  status: IngestionJobStatus
+  /** Runs started so far; transient failures are retried with backoff. */
+  attempts: number
+  entityId: number | null
+  /** Per-source outcome, once a source or resync job has succeeded. */
+  result: IngestionSummaryDto | null
+  error: string | null
+  createdAt: string | null
+  finishedAt: string | null
+}
+
+export interface IngestionJobsDto {
+  jobs: IngestionJobDto[]
+  /** All of them finished, and so did the enrichment they triggered. */
+  settled: boolean
 }
 
 export interface ApiErrorDto {
@@ -65,13 +93,6 @@ export interface EntityTagDto {
   slug: string
   label: string
   origin: TagOrigin
-}
-
-export interface ResyncResponseDto {
-  entity: EntityDto
-  ingested: number
-  skipped: number
-  errors: number
 }
 
 /** Affiliation origin — Firma / Selbständig / Privatperson. */
@@ -174,6 +195,8 @@ export interface SearchRequestBody {
   wantFrom?: string | null
   wantTo?: string | null
   wantPensumPct?: number | null
+  /** Ask for the per-stage trace. Honoured for admins only (evaluation tooling). */
+  debug?: boolean
 }
 
 /** A validated citation chip on a result card (reference §6.5). */
@@ -184,19 +207,81 @@ export interface SearchCitationDto {
   sourceUrl: string | null
 }
 
-/** One search result — the full entity plus the search-specific signals. */
+/**
+ * One search result — the full entity plus the search-specific signals. The
+ * rationale is fetched per card (`SearchRationaleDto`); until then the card
+ * shows the summary and these matching evidence sources.
+ */
 export interface SearchResultDto {
   entity: EntityDto
   score: number
-  rationale: string | null
   citations: SearchCitationDto[]
   distance: string | null
+}
+
+export interface SearchRationaleRequestBody {
+  /** The search exactly as sent to `POST /search`. */
+  query: string
+  entityId: number
+}
+
+/** The grounded rationale of one result; `rationale` is null on fallback. */
+export interface SearchRationaleDto {
+  entityId: number
+  rationale: string | null
+  citations: SearchCitationDto[]
+}
+
+/** One stage-1 candidate's path through the search pipeline. */
+export interface SearchCandidateTraceDto {
+  entityId: number
+  displayName: string
+  retrievalRank: number
+  rrfScore: number
+  /** Entity rank in each retrieval leg; null when the leg did not return it. */
+  lexicalRank: number | null
+  semanticRank: number | null
+  altSemanticRank: number | null
+  bestSimilarity: number
+  rerankerScore: number | null
+  /** The passage the reranker score came from: a source label or "profile document". */
+  rerankedOn: string | null
+  boostFactor: number | null
+  finalScore: number | null
+  finalRank: number | null
+  /** "rerank-depth" | "reranker" | "result-limit", or null when the candidate was returned. */
+  droppedAt: string | null
+}
+
+/** An entity's rank when the semantic leg is collapsed per entity. */
+export interface SearchSemanticEntityRankDto {
+  entityId: number
+  displayName: string
+  bestChunkRank: number
+  bestSimilarity: number
+}
+
+/** Per-stage search diagnostics — present only on a permitted `debug` request. */
+export interface SearchTraceDto {
+  retrievalQuery: string
+  lexicalQuery: string
+  originalLanguageLeg: boolean
+  rerankQuery: string
+  matchCount: number
+  candidateDepth: number
+  rerankDepth: number
+  rerankPassages: number
+  rerankerThreshold: number
+  timingsMs: Record<string, number>
+  candidates: SearchCandidateTraceDto[]
+  semanticEntityRanking: SearchSemanticEntityRankDto[]
 }
 
 export interface SearchResponseDto {
   query: string
   sufficient: boolean
   results: SearchResultDto[]
+  trace?: SearchTraceDto | null
 }
 
 // ─── Zefix (Handelsregister autocomplete) ───

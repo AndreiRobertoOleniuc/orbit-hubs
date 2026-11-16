@@ -40,6 +40,15 @@ class OllamaEmbeddingServiceTest {
     }
 
     @Test
+    void embedAllPrefixesEveryTextInOneCall() {
+        when(embeddingModel.embed(java.util.List.of("passage: a", "passage: b")))
+                .thenReturn(java.util.List.of(new float[1024], new float[1024]));
+        var service = new OllamaEmbeddingService(embeddingModel, PROPS);
+
+        assertThat(service.embedAll(java.util.List.of("a", "b"), EmbeddingKind.PASSAGE)).hasSize(2);
+    }
+
+    @Test
     void returnsConfiguredDimension() {
         when(embeddingModel.embed("query: x")).thenReturn(new float[1024]);
         var service = new OllamaEmbeddingService(embeddingModel, PROPS);

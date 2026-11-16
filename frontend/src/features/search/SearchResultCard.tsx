@@ -16,7 +16,10 @@ import {
   useProfileMode,
 } from "@/features/profile/useProfileMode"
 import { cn } from "@/lib/utils"
-import { useGetContactedEntityIdsQuery } from "@/lib/api"
+import {
+  useGetContactedEntityIdsQuery,
+  useGetSearchRationaleQuery,
+} from "@/lib/api"
 import type { SearchCitationDto, SearchResultDto } from "@/types/api"
 
 /** Longer rationales are clamped to three lines with a "weiterlesen" toggle. */
@@ -97,7 +100,15 @@ export function SearchResultCard({
   const { data: contactedIds } = useGetContactedEntityIdsQuery(undefined, {
     skip: !isAuthenticated,
   })
-  const { entity, rationale, citations, distance } = result
+  const { entity, distance } = result
+  // The grounded "why" arrives after the list: the search returns as soon as it
+  // is ranked, and each entry asks for its own rationale. Until then (and when
+  // the LLM is unavailable) the entry shows the summary and every matching
+  // source; once a rationale is there, only the sources it cites.
+  const { data: explained, isFetching: explaining } =
+    useGetSearchRationaleQuery({ query: query.trim(), entityId: entity.id })
+  const rationale = explained?.rationale ?? null
+  const citations = rationale ? explained!.citations : result.citations
   const isTopMatch = rank === 0
   // Das eigene Profil kann in den eigenen Treffern auftauchen — dort führt
   // "Kontakt aufnehmen" sonst in ein 400 des Backends.
@@ -266,6 +277,14 @@ export function SearchResultCard({
                 </button>
               )}
             </>
+          )}
+          {explaining && !rationale && (
+            <p
+              role="status"
+              className="mt-1 animate-pulse text-[13px] text-muted-foreground"
+            >
+              Begründung wird erstellt …
+            </p>
           )}
 
           {/* One fact line, same position on every entry: where, when, how —

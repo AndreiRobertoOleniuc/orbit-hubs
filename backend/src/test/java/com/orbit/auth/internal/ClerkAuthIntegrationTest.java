@@ -46,8 +46,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.security.oauth2.resourceserver.jwt.issuer-uri=http://localhost",
         "clerk.azp-origin=http://localhost:5173",
         "orbit.admin.user-ids=user_test_admin",
-        "HF_TOKEN=test-offline-token",
-        "GEMINI_API_KEY=test-offline-key"
+        // Jobs stay queued: these tests check the HTTP contract, not ingestion.
+        "orbit.ingestion.jobs.enabled=false"
 })
 class ClerkAuthIntegrationTest extends PostgresIntegrationTest {
 
@@ -70,6 +70,7 @@ class ClerkAuthIntegrationTest extends PostgresIntegrationTest {
         jdbc.sql("DELETE FROM requests WHERE created_by LIKE 'user_test_%'").update();
         jdbc.sql("DELETE FROM entities WHERE owner_id LIKE 'user_test_%'").update();
         jdbc.sql("DELETE FROM entities WHERE display_name LIKE 'IT-Test %'").update();
+        jdbc.sql("DELETE FROM ingestion_jobs WHERE owner_id LIKE 'user_test_%'").update();
         jdbc.sql("DELETE FROM users WHERE id LIKE 'user_test_%'").update();
     }
 
@@ -78,6 +79,52 @@ class ClerkAuthIntegrationTest extends PostgresIntegrationTest {
         // /api/v1/board is a whitelisted public route — 200 (not 401) without a token
         mockMvc.perform(get("/api/v1/board"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void submittingASourceQueuesAJobThatOnlyItsOwnerCanSee() throws Exception {
+        String ownerToken = token("user_test_ingest_owner", "ingest@orbit.test", "Ingest Owner",
+                "http://localhost:5173");
+        String otherToken = token("user_test_ingest_other", "other-ingest@orbit.test", "Other",
+                "http://localhost:5173");
+        provision(ownerToken);
+        provision(otherToken);
+
+        String body = mockMvc.perform(post("/api/v1/ingestion")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sourceType\": \"manual_text\", \"context\": {\"text\": \"Builds robots\"}}"))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.status").value("queued"))
+                .andExpect(jsonPath("$.kind").value("source"))
+                .andReturn().getResponse().getContentAsString();
+        long jobId = Long.parseLong(body.replaceAll(".*\"id\":(\\d+).*", "$1"));
+
+        mockMvc.perform(get("/api/v1/ingestion/jobs").param("ids", String.valueOf(jobId))
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.jobs[0].id").value(jobId))
+                .andExpect(jsonPath("$.settled").value(false));
+        mockMvc.perform(get("/api/v1/ingestion/jobs").param("ids", String.valueOf(jobId))
+                        .header("Authorization", "Bearer " + otherToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.jobs").isEmpty());
+        mockMvc.perform(get("/api/v1/ingestion/jobs").param("ids", String.valueOf(jobId)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void aSearchResultRationaleCanBeRequestedWithoutToken() throws Exception {
+        // Search is public, so is the rationale of its results: 404 for an unknown
+        // entity, not 401.
+        mockMvc.perform(post("/api/v1/search/rationale")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"query\": \"Robotik\", \"entityId\": 999999}"))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(post("/api/v1/search/rationale")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"query\": \" \", \"entityId\": 1}"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

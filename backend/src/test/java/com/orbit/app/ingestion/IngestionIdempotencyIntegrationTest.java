@@ -26,10 +26,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /** Exercises the persisted source hash contract instead of only mocking repositories. */
-@SpringBootTest(properties = {
-        "HF_TOKEN=test-offline-token",
-        "GEMINI_API_KEY=test-offline-key"
-})
+@SpringBootTest
 class IngestionIdempotencyIntegrationTest extends PostgresIntegrationTest {
 
     @Autowired
@@ -64,7 +61,8 @@ class IngestionIdempotencyIntegrationTest extends PostgresIntegrationTest {
                 "person", "Ada Test", "Search specialist", null, null, null, Map.of()));
         when(adapter.extractHighSignalCore(any())).thenAnswer(invocation ->
                 invocation.getArgument(0, RawContent.class).text());
-        when(embeddingService.embed(any(), eq(EmbeddingKind.PASSAGE))).thenReturn(vector());
+        when(embeddingService.embedAll(any(), eq(EmbeddingKind.PASSAGE))).thenAnswer(invocation ->
+                invocation.<List<String>>getArgument(0).stream().map(text -> vector()).toList());
     }
 
     @Test
@@ -83,7 +81,11 @@ class IngestionIdempotencyIntegrationTest extends PostgresIntegrationTest {
         assertThat(sources.count()).isEqualTo(1);
         String persistedChunk = jdbc.queryForObject("SELECT content FROM chunks", String.class);
         assertThat(persistedChunk).isEqualTo("Changed cybersecurity evidence.");
-        verify(embeddingService, times(2)).embed(any(), eq(EmbeddingKind.PASSAGE));
+        verify(embeddingService, times(2)).embedAll(any(), eq(EmbeddingKind.PASSAGE));
+        // The unchanged run stops before the (LLM-backed) core extraction, and the
+        // changed run updates the same source row instead of replacing it.
+        verify(adapter, times(2)).extractHighSignalCore(any());
+        assertThat(updated.sourceId()).isEqualTo(initial.sourceId());
     }
 
     private static float[] vector() {

@@ -17,6 +17,7 @@ import com.orbit.domain.entity.DiscoveryEntity;
 import com.orbit.domain.entity.Hub;
 import com.orbit.domain.entity.Region;
 import com.orbit.domain.entity.Request;
+import com.orbit.app.tag.TagVocabularyService;
 import com.orbit.domain.entity.RequestTag;
 import com.orbit.domain.entity.Tag;
 import com.orbit.domain.repository.DiscoveryEntityRepository;
@@ -54,6 +55,7 @@ public class RequestService {
     private final RequestDistributionRepository distributionRepository;
     private final DistributionService distributionService;
     private final CurrentUser currentUser;
+    private final TagVocabularyService tagVocabulary;
 
     public RequestService(RequestRepository requestRepository,
                           RequestTagRepository requestTagRepository,
@@ -63,7 +65,8 @@ public class RequestService {
                           DiscoveryEntityRepository entityRepository,
                           RequestDistributionRepository distributionRepository,
                           DistributionService distributionService,
-                          CurrentUser currentUser) {
+                          CurrentUser currentUser,
+                          TagVocabularyService tagVocabulary) {
         this.requestRepository = requestRepository;
         this.requestTagRepository = requestTagRepository;
         this.tagRepository = tagRepository;
@@ -73,6 +76,7 @@ public class RequestService {
         this.distributionRepository = distributionRepository;
         this.distributionService = distributionService;
         this.currentUser = currentUser;
+        this.tagVocabulary = tagVocabulary;
     }
 
     // ─── Create ───
@@ -199,22 +203,12 @@ public class RequestService {
         List<Tag> result = new ArrayList<>();
         for (String label : labels) {
             if (label == null || label.isBlank()) continue;
-            String slug = slugify(label);
-            if (seen.contains(slug)) continue;
-            seen.add(slug);
-            Tag tag = tagRepository.findBySlug(slug).orElseGet(() -> {
-                Tag newTag = new Tag(slug, label.trim());
-                return tagRepository.save(newTag);
-            });
+            Tag tag = tagVocabulary.findOrMint(label).orElse(null);
+            if (tag == null || !seen.add(tag.getSlug())) continue;
             result.add(tag);
         }
+        tagVocabulary.embedMissingAsync();
         return result;
-    }
-
-    private static String slugify(String label) {
-        return label.trim().toLowerCase()
-                .replaceAll("[^a-z0-9]+", "-")
-                .replaceAll("^-+|-+$", "");
     }
 
     private List<Tag> loadTags(Long requestId) {

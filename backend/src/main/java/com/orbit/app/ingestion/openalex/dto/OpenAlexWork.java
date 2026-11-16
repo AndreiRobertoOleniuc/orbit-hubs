@@ -11,5 +11,7 @@ public record OpenAlexWork(
         String type,
         int citedByCount,
         String primaryTopic,
-        String reconstructedAbstract
+        String reconstructedAbstract,
+        /** The ingested author's position on the work: first, middle or last (null if unknown). */
+        String authorPosition
 ) {}

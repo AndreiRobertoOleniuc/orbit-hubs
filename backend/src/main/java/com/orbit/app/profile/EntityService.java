@@ -11,16 +11,16 @@ import java.util.Set;
 import com.orbit.app.auth.CurrentUser;
 import com.orbit.app.ingestion.EntityLinkResolver;
 import com.orbit.app.ingestion.EntityEnrichmentService;
-import com.orbit.app.ingestion.IngestionOrchestrator;
-import com.orbit.app.ingestion.dto.IngestionStatus;
+import com.orbit.app.ingestion.job.IngestionJobService;
+import com.orbit.app.search.ProfileDocumentService;
 import com.orbit.app.util.HubDtos;
-import com.orbit.app.util.SlugUtils;
+import com.orbit.app.tag.TagVocabularyService;
 import com.orbit.app.controllers.dto.AvailabilityDto;
 import com.orbit.app.controllers.dto.EntityDto;
 import com.orbit.app.controllers.dto.HubDto;
 import com.orbit.app.controllers.dto.OrgLinkDto;
 import com.orbit.app.controllers.dto.RegionDto;
-import com.orbit.app.controllers.dto.ResyncResponse;
+import com.orbit.app.controllers.dto.IngestionJobDto;
 import com.orbit.app.controllers.dto.SourceDto;
 import com.orbit.app.controllers.dto.SubscriptionDto;
 import com.orbit.app.controllers.dto.TagDto;
@@ -71,8 +71,10 @@ public class EntityService {
     private final EntityLinkRepository entityLinkRepo;
     private final EntityLinkResolver linkResolver;
     private final EntityEnrichmentService enrichmentService;
-    private final IngestionOrchestrator orchestrator;
+    private final IngestionJobService ingestionJobs;
     private final CurrentUser currentUser;
+    private final ProfileDocumentService profileDocuments;
+    private final TagVocabularyService tagVocabulary;
 
     public EntityService(DiscoveryEntityRepository entities, SourceRepository sources,
                          TagRepository tagRepo, EntityTagRepository entityTagRepo,
@@ -82,8 +84,10 @@ public class EntityService {
                          EntityLinkRepository entityLinkRepo,
                          EntityLinkResolver linkResolver,
                          EntityEnrichmentService enrichmentService,
-                         IngestionOrchestrator orchestrator,
-                         CurrentUser currentUser) {
+                         IngestionJobService ingestionJobs,
+                         CurrentUser currentUser,
+                         ProfileDocumentService profileDocuments,
+                         TagVocabularyService tagVocabulary) {
         this.entities = entities;
         this.sources = sources;
         this.tagRepo = tagRepo;
@@ -95,8 +99,10 @@ public class EntityService {
         this.entityLinkRepo = entityLinkRepo;
         this.linkResolver = linkResolver;
         this.enrichmentService = enrichmentService;
-        this.orchestrator = orchestrator;
+        this.ingestionJobs = ingestionJobs;
         this.currentUser = currentUser;
+        this.profileDocuments = profileDocuments;
+        this.tagVocabulary = tagVocabulary;
     }
 
     // ─── Reads ───
@@ -133,17 +139,14 @@ public class EntityService {
 
     // ─── Resync ───
 
-    public ResyncResponse resync(Long id) {
+    /**
+     * Queue a re-ingestion of every source of an owned entity. Returns the
+     * queued job; the caller polls it (re-fetching all sources takes minutes).
+     */
+    public IngestionJobDto resync(Long id) {
         DiscoveryEntity entity = loadOwnedEntity(id);
         if (entity == null) return null;
-
-        var results = orchestrator.resyncEntity(id);
-        int ingested = (int) results.stream().filter(r -> r.status() == IngestionStatus.INGESTED).count();
-        int skipped = (int) results.stream().filter(r -> r.status() == IngestionStatus.SKIPPED).count();
-        int errors = (int) results.stream().filter(r -> r.status() == IngestionStatus.ERROR).count();
-
-        DiscoveryEntity refreshed = entities.findById(id).orElse(entity);
-        return new ResyncResponse(toDto(refreshed), ingested, skipped, errors);
+        return ingestionJobs.enqueueResync(entity.getOwnerId(), id);
     }
 
     // ─── Tags ───
@@ -157,15 +160,15 @@ public class EntityService {
         entityTagRepo.flush();
 
         for (String label : labels) {
-            String slug = SlugUtils.slugify(label);
-            if (slug.isEmpty()) continue;
-            Tag tag = tagRepo.findBySlug(slug)
-                    .orElseGet(() -> tagRepo.save(new Tag(slug, label)));
+            Tag tag = tagVocabulary.findOrMint(label).orElse(null);
+            if (tag == null) continue;
             EntityTagId etId = new EntityTagId(id, tag.getId());
             if (entityTagRepo.findById(etId).isEmpty()) {
                 entityTagRepo.save(new EntityTag(id, tag.getId(), "manual"));
             }
         }
+        profileDocuments.refreshAfterCommit(id);
+        tagVocabulary.embedMissingAsync();
         return toDto(entity);
     }
 
@@ -177,6 +180,7 @@ public class EntityService {
         if (entity == null) return null;
         entity.setSummary(summary);
         entities.save(entity);
+        profileDocuments.refreshAfterCommit(id);
         return toDto(entity);
     }
 
@@ -226,6 +230,7 @@ public class EntityService {
         // name: links to a matching org entity, or clears a stale link. Never
         // creates an org entity.
         linkResolver.resolveForPerson(entity);
+        profileDocuments.refreshAfterCommit(id);
         return toDto(entity);
     }
 
@@ -257,8 +262,11 @@ public class EntityService {
     /**
      * Replace the selected GitHub repositories and ORCID works in one action,
      * then regenerate the derived profile from the resulting active evidence.
+     * <p>
+     * Not one transaction on purpose: the selection is written atomically by
+     * {@code saveAll}, then enrichment makes its LLM calls without holding a
+     * database connection (it writes its own results in a short transaction).
      */
-    @Transactional
     public EntityDto replaceSourceSelection(Long entityId, List<Long> activeSourceIds) {
         DiscoveryEntity entity = loadOwnedEntity(entityId);
         if (entity == null) return null;
@@ -350,10 +358,8 @@ public class EntityService {
         subscriptionRepo.deleteAll(subscriptionRepo.findByEntityId(id));
         subscriptionRepo.flush();
         for (String label : labels) {
-            String slug = SlugUtils.slugify(label);
-            if (slug.isEmpty()) continue;
-            Tag tag = tagRepo.findBySlug(slug)
-                    .orElseGet(() -> tagRepo.save(new Tag(slug, label)));
+            Tag tag = tagVocabulary.findOrMint(label).orElse(null);
+            if (tag == null) continue;
             if (subscriptionRepo.findById(new TagSubscriptionId(id, tag.getId())).isEmpty()) {
                 subscriptionRepo.save(new TagSubscription(id, tag.getId()));
             }

@@ -4,7 +4,11 @@ import type {
   SourceKind,
 } from "@/features/ingestion/types"
 import { externalHref } from "@/lib/utils"
-import type { IngestionRequestDto, IngestionResponseDto } from "@/types/api"
+import type {
+  IngestionJobDto,
+  IngestionRequestDto,
+  IngestionSummaryDto,
+} from "@/types/api"
 
 export const MAX_PDF_UPLOAD_BYTES = 20 * 1024 * 1024
 export const MAX_PDF_UPLOAD_LABEL = "20 MB"
@@ -115,10 +119,8 @@ export function buildManualTextRequest(
   }
 }
 
-/** Collapse the per-call ingestion response into one UI-facing outcome. */
-export function summarizeIngestion(
-  result: IngestionResponseDto
-): IngestOutcome {
+/** Collapse one source's ingestion summary into one UI-facing outcome. */
+export function summarizeIngestion(result: IngestionSummaryDto): IngestOutcome {
   if (result.ingested > 0) {
     return {
       status: "ok",
@@ -130,6 +132,17 @@ export function summarizeIngestion(
   }
   return {
     status: "error",
-    detail: result.error ?? "Quelle konnte nicht gelesen werden",
+    detail: "Quelle konnte nicht gelesen werden",
   }
+}
+
+/** The outcome of a finished job; null while it is still queued or running. */
+export function jobOutcome(job: IngestionJobDto): IngestOutcome | null {
+  if (job.status === "failed") {
+    return { status: "error", detail: "Quelle konnte nicht gelesen werden" }
+  }
+  if (job.status !== "succeeded") return null
+  return job.result
+    ? summarizeIngestion(job.result)
+    : { status: "ok", detail: "Profil aktualisiert" }
 }

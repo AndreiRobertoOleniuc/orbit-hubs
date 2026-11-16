@@ -52,7 +52,7 @@ pip install -r reranker/requirements.txt
 python reranker/server.py          # -> http://localhost:8001
 ```
 
-FastAPI wrapper around `BAAI/bge-reranker-v2-m3`. Only needed when `RERANKER_PROVIDER=local`; the default is `huggingface` (hosted inference), so you normally do **not** run this.
+FastAPI wrapper around `BAAI/bge-reranker-v2-m3`. Only needed when `RERANKER_PROVIDER=local`; the default is `openrouter` (hosted), so you normally do **not** run this. Its scores are not comparable with the default reranker's: run it with `ORBIT_SEARCH_RERANKER_THRESHOLD=0.02`.
 
 ### Deploy (`k8s/`)
 
@@ -64,40 +64,85 @@ Builds multi-arch images, pushes to Docker Hub, applies `k8s/orbit.yml` to k3s. 
 
 ## Inference providers — read before touching search or embeddings
 
-Embeddings and the cross-encoder are **provider-swappable** and both default to **Hugging Face hosted inference**, not local models:
+**Every model call goes through OpenRouter** — one key (`OPENROUTER_API_KEY`), one bill, three endpoints, all behind `app.inference.OpenRouterClient`:
 
-| Concern | Property | Default | Alternative |
+| Concern | Default model (`orbit.openrouter.*`) | Class | Offline alternative |
 |---|---|---|---|
-| Embeddings (1024-dim `multilingual-e5-large`) | `orbit.embedding.provider` | `huggingface` | `ollama` (needs local Ollama on 11434) |
-| Cross-encoder rerank | `orbit.search.reranker-provider` | `huggingface` | `local` (needs `reranker/server.py` on 8001) |
-| Chat / rationale | Spring AI `google-genai` | `gemini-2.5-flash-lite` | — |
+| LLM (summaries, tags, query rewrite, rationale) | `chat.model` `google/gemini-2.5-flash-lite`, then `chat.fallback-models` | `llm.OpenRouterChatModel` (a Spring AI `ChatModel`) | — |
+| Embeddings (1024-dim) | `embedding.model` `mongodb/voyage-4-lite` | `embedding.OpenRouterEmbeddingService` | `orbit.embedding.provider=ollama` or `huggingface` (multilingual-e5-large) |
+| Reranker | `reranker.model` `cohere/rerank-5-fast` | `search.OpenRouterCrossEncoderClient` | `orbit.search.reranker-provider=local` (`reranker/server.py`) or `huggingface` (bge-reranker-v2-m3) |
 
-`HF_TOKEN` and `GEMINI_API_KEY` are required for a fully working search. Search degrades gracefully to evidence-only cards without the LLM. All tunables live in `backend/src/main/resources/application.yaml` and are env-overridable.
+`OPENROUTER_API_KEY` is required to start. All tunables live in `backend/src/main/resources/application.yaml` and are env-overridable. Every request carries `provider.data_collection` (`orbit.openrouter.data-collection`, default `deny`), so profile text only goes to providers that do not keep it.
+
+**Three settings belong to a model and must change with it:**
+- **Reranker threshold** (`orbit.search.reranker-threshold`): scores of different rerankers are not comparable — 0.3 for cohere/rerank-5-fast, 0.02 for bge-reranker-v2-m3. A new reranker needs an `evaluation-v3` run with `EVAL_SWEEP_THRESHOLDS`.
+- **How the embedding model tells a query from a passage**: `input_type` (`orbit.openrouter.embedding.query-input-type` / `passage-input-type`, `search_query` / `search_document` for voyage) or a text prefix (`orbit.embedding.query-prefix` / `passage-prefix`, `query: ` / `passage: ` for e5 — empty by default).
+- **Tag similarity floor** (`orbit.tags.canonical-similarity`): 0.78 for voyage-4-lite, 0.95 for e5.
+
+**Changing the embedding model needs only a restart.** Every vector is stored with `EmbeddingService.modelName()`; after start-up, chunks, tags and profile documents carrying another name are re-embedded in the background (56 profiles: under a minute). Until that finishes, search compares new query vectors with old chunk vectors. multilingual-e5-large has one stored name whoever serves it, so Ollama ↔ Hugging Face re-embeds nothing.
+
+**The LLM needs its fallback models.** gemini-2.5-flash-lite has one provider on OpenRouter and a rate limit shared by all OpenRouter customers: 24 of 60 calls in bursts of 20 were refused with HTTP 429 (2026-11-16). With `chat.fallback-models` OpenRouter answers from the next model inside the same request; with them 198 evaluation searches ran without one retry. Do not remove them without a burst test. On the evaluation set Gemini 3.1 Flash-Lite and Claude Haiku 5.5 rewrote queries as well as 2.5 Flash-Lite.
+
+**Measure search latency against the hosted models, not local ones.** Deployment runs on small ARM machines with every model hosted. Measured on OpenRouter (2026-11-16, 198 searches): query rewrite 0.5 s, two query embeddings 0.2 s, reranker 0.36 s for 30 cards — a search takes about 1.1 s (p90 1.4 s), a repeated one 0.4 s (rewrite and vectors are cached). One search's embedding and reranker calls share `orbit.search.inference-budget` (30 s, `InferenceDeadline`), after which the search answers 503; an LLM call waits at most `orbit.openrouter.chat.max-wait` (20 s) and the search then uses the query as typed; background work waits `orbit.openrouter.max-wait` (2 min). `CrossEncoderReranker` logs passages, characters and time per call. Before OpenRouter the same search took 3–7 s on Hugging Face serverless and regularly ran into the 30 s budget.
 
 ## The search pipeline (`SearchService`)
 
 ```
 Query
- → LLM prep: full English translation (retrieval) + condensed search-style query (cross-encoder)
- → Stage 1 bi-encoder retrieval: scoped `hybrid_search` SQL function (FTS + pgvector fused by RRF),
-   hard-filtered by Hub/Region, then similarity-threshold filtered
- → Stage 2 cross-encoder rerank: BAAI/bge-reranker-v2-m3 scores (query, doc) pairs, drops irrelevant
+ → LLM prep (`SearchQueryRewriter`): full English translation (semantic leg) + condensed search-style
+   terms (keyword leg + cross-encoder) — two prompts run concurrently at temperature 0, cached per
+   normalized query; the query as typed is embedded in parallel
+ → Stage 1 candidate retrieval: scoped `hybrid_search` SQL function (V19), hard-filtered by Hub/Region.
+   Three legs, each ranking ENTITIES by their best chunk or profile document: keywords (OR, IDF-weighted),
+   embedding of the English query, embedding of the query as typed (off when already English). RRF-fused, a fixed
+   `candidate-depth` (50) independent of matchCount
+ → Stage 2 cross-encoder rerank: the reranker (cohere/rerank-5-fast) scores the top `rerank-depth` (30)
+   candidates, each on its profile card (800 characters), drops those below `reranker-threshold` (0.3) —
+   the only relevance gate
  → Soft re-rank: multiplicative boost `ceScore × (1 + W·availabilityOverlap + W·openToRequests)`
    — runs AFTER the cross-encoder so soft signals only fine-tune order, never decide who passes
- → Grounding: Gemini generates a German rationale + validated citations for the top N
+ → Response: ranked results with their evidence chips, no rationale
+ → Grounding, per result card on request (`POST /search/rationale`): the LLM writes a German
+   rationale + validated citations from the same evidence
 ```
 
-**The LLM never decides who gets in** — it only explains. If nothing clears the thresholds, `sufficient = false` and the frontend prompts the user to widen scope or create an Anfrage.
+**The LLM never decides who gets in** — it only explains. If nothing clears the reranker threshold, `sufficient = false` and the frontend prompts the user to widen scope or create an Anfrage.
 
 Scope resolution (`ScopeResolver`) is a **hard filter** here, walking Hub → Region → CH. Regression queries live in `../TechnicalImplementationDocs/Search_Regression_Queries.md`.
+
+**Don't reword the query prompts casually.** The cross-encoder's score moves by an order of magnitude with small phrasing changes in the condensed query (a dropped "expert", missing commas), and `reranker-threshold` was calibrated on what the current prompts produce. Merging both prompts into one combined call lost up to 5 of 46 positive queries in evaluation. Any prompt change needs a re-run of the `evaluation-v3` harness. The query rewrite must stay deterministic: identical searches must return identical orderings. The query translation has its own prompt (`translateSearchQuery`), not the ingestion one: that one left half the German queries untranslated.
+
+**Candidate retrieval (V19).** Stage 1 collapses to one row per entity *before* limiting — chunk-level limits let one researcher with 40 publication chunks fill every slot. Results are cut to `matchCount` only after reranking. Leg weights are `orbit.search.retrieval.*` (0 switches a leg off). The keyword leg gets the condensed terms minus role words ("expert", "researcher", …), so it never sees conversational filler. Pass vectors to native queries through a `WITH q AS MATERIALIZED (SELECT CAST(? AS vector) …)` CTE: a bound `CAST(? AS vector)` inside an inlined SQL function is re-parsed per row under a generic plan (116 ms vs 8 ms).
+
+**Reranking.** There is no bi-encoder similarity gate: embedding similarities shift with query length, and the old 0.80 cut removed relevant candidates the cross-encoder never saw. The cross-encoder scores each candidate on its profile card — name, headline, tags, first summary sentences, start of the best chunk — cut to `orbit.search.rerank-passage-chars` (800). `orbit.search.rerank-passages` (0) can add evidence chunks with a `Name — Headline / Source type: label` header, the candidate then taking its best passage; with bge-reranker-v2-m3 that found no more profiles than the card alone and more chunks let a negative control through (2026-11-16; not measured with the current reranker). `reranker-threshold` (0.3) is calibrated for cohere/rerank-5-fast on exactly the card-only input — changing the reranker, the passages, their length or the rerank query needs an `evaluation-v3` re-run, and a timing run against the hosted models.
+
+**Search holds no transaction and no connection across model calls.** `SearchService.search` and `explain` are not `@Transactional`: a transaction would keep a database connection through the LLM, embedding and reranker calls and a few concurrent searches would drain the pool. A query without two letters or digits (`x`, `?`) returns nothing without calling a model. `SearchRateLimitFilter` caps the two public search endpoints per client address (`orbit.search.rate-limit.*`, 429 beyond).
+
+**Lazy rationale.** `search()` never calls the LLM for a rationale. Each result card calls `POST /api/v1/search/rationale` (`{query, entityId}`, public) → `SearchService.explain`, which re-fetches the entity's evidence with the English query vector (cached from the search, so no new embedding) and grounds the rationale. Until it arrives the card shows the summary and every evidence chip; then only the cited chips.
+
+**Search trace.** `POST /search` with `"debug": true` returns a `trace` (`SearchTrace`): every stage-1 candidate with its rank in each retrieval leg, similarity, reranker score, the passage it came from (`rerankedOn`) and the stage that dropped it (`rerank-depth`, `reranker`, `result-limit`), per-stage timings, and an entity-collapsed semantic ranking for comparison. It is admin-only unless `orbit.search.trace-open` (`ORBIT_SEARCH_TRACE_OPEN`) is true — open it for local evaluation only. A traced search also scores the candidates below the rerank depth so depth and threshold can be swept offline (timed separately as `trace-rerank`); the returned results do not change. The harness that consumes it is `../TechnicalImplementationDocs/evaluation-v3/`.
 
 ## Data model
 
 - **Entity → Source → Chunk** is the core hierarchy. `DiscoveryEntity` carries display name, headline, org, LLM summary, tags, availability (open_to_requests, dates, pensum, collaboration types), affiliation, languages, location, hub memberships, tag subscriptions, profile mode, home region, `owner_id`.
-- `Source` has source_type, label, URL, fetch status, provenance, consent_basis, and a `content_hash` that makes re-ingestion idempotent.
-- `Chunk` has content, `vector(1024)` embedding, FTS tsvector, section label, token count.
+- `Source` has source_type, label, URL, fetch status, provenance, consent_basis, and a `content_hash` that makes re-ingestion idempotent. The hash is taken over the adapter's `contentFingerprint()` — the **fetched** input, never the LLM-generated core text — and is checked before any LLM or embedding call. Leave volatile counters (stars, citation counts) out of a fingerprint. A changed source is updated in place, keeping its id and `active` flag.
+- `Chunk` has content, `vector(1024)` embedding, FTS tsvector, section label, token count. Pass chunk text to `EmbeddingService` **without** a prefix — the service tells the model whether it is a query or a passage (`EmbeddingKind`), by `input_type` or by prefix, whichever the configured model uses. `Chunk.embedding` is a plain `float[]` that Hibernate can write but not read back; update vectors with a native query (`ChunkRepository.updateEmbedding`), never load + save.
+- `profile_documents` (V19): one row per entity — name, headline, org, summary, tags — embedded and full-text indexed (English + German stemming). A **search index only**: `hybrid_search` retrieves with it, but evidence and citations come from sources, never from it. `ProfileDocumentService.refreshAfterCommit(entityId)` re-embeds it in the background after enrichment and after summary, tag or profile-meta edits; call it from any new code path that changes those fields. On start-up it embeds missing, changed or other-model documents (`orbit.search.profile-documents.sync-on-startup`).
+- `ReembeddingService` runs in the background after every start-up and re-embeds chunks that have no vector or the vector of another embedding model than the configured one, 32 chunks per request — so a failed embedding is retried and a model change migrates itself. `orbit.embedding.reembed-before` (`ORBIT_REEMBED_BEFORE`, ISO-8601 instant) additionally re-embeds every chunk embedded before that instant, for a change the model name does not show (a new prefix). It changes vectors only; text that should be extracted anew needs a resync (see Ingestion).
 - **Requests:** `Request` → `RequestTag` → `RequestDistribution`; `ContactRequest` for the first-contact handoff.
-- 18 Flyway migrations (V1–V18) in `backend/src/main/resources/db/migration/`.
+- **Tags** (`app.tag.TagVocabularyService`): every path that writes a tag — derived tags, profile tag edits, subscriptions, request tags — goes through `findOrMint`, which reuses an existing tag with the same spelling key (case, umlauts/ß, trailing `(ACRONYM)`, hyphens, plural ending) before minting by slug. Enrichment additionally maps new labels by meaning (`canonicalLabels`): existing tags at embedding similarity ≥ `orbit.tags.canonical-similarity` (0.78 for voyage-4-lite) are offered to the LLM, which must confirm the same topic — similarity alone pairs Genomik with Genetik. Tag vectors live in `tags.embedding` (V21) with the name of the model that made them. Existing tags are never merged automatically.
+- 21 Flyway migrations (V1–V21) in `backend/src/main/resources/db/migration/`.
+
+## Ingestion (supply side)
+
+Ingestion runs as **background jobs** (V20 `ingestion_jobs`, package `app.ingestion.job`). `POST /api/v1/ingestion`, the two PDF uploads and `POST /entities/{id}/resync` only queue a job and answer `202` with an `IngestionJobDto`; the frontend polls `GET /api/v1/ingestion/jobs?ids=…` until `settled` (`useIngestionJobs` / `useSourceIngestion`). An uploaded PDF is stored on the job row until the job finishes, then dropped.
+
+- `IngestionJobWorker` polls every second and runs jobs on `orbit.ingestion.jobs.workers` threads. `IngestionJobStore.claimNext` serializes claims with an advisory lock and enforces: **one job at a time per owner, in submission order** (the first source of an onboarding creates the entity the later ones join), at most `max-running-per-source-type` jobs per source type, and an **enrichment only once the owner has no source job left** — one onboarding is enriched once, not per source. A finished source arms (or pushes back) the entity's single queued `enrich` job by `enrich-delay`.
+- Transient failures (provider outage, timeout, DB hiccup) are retried with backoff `retry-backoff × 4^(attempt-1)`, 3 attempts; `IllegalArgumentException`/`IllegalStateException` fail at once. A running job whose heartbeat stops for `stale-after` (the process died) is queued again.
+- `IngestionOrchestrator.ingest` makes every network call — fetch, LLM core extraction, one `embedAll` batch per source — **before** a single short persist transaction. A failed embedding throws instead of storing a chunk without a vector; the job retries, and the dedup step skips what already went in. `EntityEnrichmentService.enrich` likewise calls the LLM first and writes in one short transaction. Don't put network calls inside a transaction.
+- A GitHub repo with no README, description or topics yields no chunk: a summary of a bare name was a guess the cross-encoder scored above the threshold for unrelated queries.
+- OpenAlex takes the 15 most-cited works plus the most recent ones (25 in all), and each publication chunk states the year and the author's position (`Published 2024 · last author`).
+- **Re-evaluating stored profiles** after a pipeline change: `POST /api/v1/admin/reindex` (admin; optional body `{"entityIds": [...]}`, default every entity with a source; `GET` for progress) queues one `resync` job per entity (`ReindexService`). A resync re-fetches GitHub, OpenAlex, Zefix and website sources — a source whose fingerprint differs is extracted and embedded anew in place, an unchanged one is skipped — leaves uploads and manual text as they are, then enriches. Enrichment regenerates the summary, also one the owner edited by hand.
 
 ## Request lifecycle (demand side)
 
@@ -119,7 +164,7 @@ Scope resolution (`ScopeResolver`) is a **hard filter** here, walking Hub → Re
 
 ## Style Guide — Backend (MUST FOLLOW)
 
-**Group `com.orbit` · Spring Boot 4 · Java 21.** Packages: `domain.entity` / `domain.repository` (JPA), `app.controllers` (+ `dto/`), `app.profile`, `app.ingestion` (+ per-source subpackages), `app.search`, `app.request`, `app.contact`, `app.hub`, `app.llm`, `app.embedding`, `app.inference`, `app.admin`, `app.auth`, `app.util`, `security`.
+**Group `com.orbit` · Spring Boot 4 · Java 21.** Packages: `domain.entity` / `domain.repository` (JPA), `app.controllers` (+ `dto/`), `app.profile`, `app.ingestion` (+ per-source subpackages), `app.search`, `app.request`, `app.contact`, `app.hub`, `app.llm`, `app.tag`, `app.embedding`, `app.inference`, `app.admin`, `app.auth`, `app.util`, `security`.
 
 ### Thin controllers — controllers do NO business logic
 

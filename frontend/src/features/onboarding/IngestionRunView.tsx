@@ -88,7 +88,9 @@ export function IngestionRunView({
                 ? elapsedSeconds >= 8
                   ? "Inhalte werden ausgewertet"
                   : "Quelle wird eingelesen"
-                : "Nächste Quelle wird vorbereitet"}
+                : jobs.length > 0 && finished === jobs.length
+                  ? "Profil wird zusammengefasst"
+                  : "Nächste Quelle wird vorbereitet"}
           </span>
           <span className="shrink-0 text-muted-foreground tabular-nums">
             {finished} von {jobs.length}

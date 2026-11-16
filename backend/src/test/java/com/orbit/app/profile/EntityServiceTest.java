@@ -31,7 +31,7 @@ class EntityServiceTest {
         entityTags = mock(EntityTagRepository.class);
         service = new EntityService(
                 null, sources, null, entityTags, null, null, null,
-                null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null);
     }
 
     @Test

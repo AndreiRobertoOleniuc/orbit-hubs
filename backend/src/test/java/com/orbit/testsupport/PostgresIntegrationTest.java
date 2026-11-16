@@ -31,5 +31,10 @@ public abstract class PostgresIntegrationTest {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
+        // The model clients need a key to start, but no test may reach a real
+        // provider — not even a start-up job in the background. Port 9 refuses.
+        registry.add("orbit.openrouter.api-key", () -> "test-offline-key");
+        registry.add("orbit.openrouter.base-url", () -> "http://127.0.0.1:9/offline");
+        registry.add("orbit.openrouter.max-wait", () -> "PT1S");
     }
 }

@@ -1,15 +1,23 @@
 package com.orbit.app.llm;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.concurrent.CompletableFuture;
 
 import com.orbit.app.ingestion.dto.SourceContent;
 import com.orbit.app.llm.dto.MatchRationale;
 import com.orbit.app.llm.dto.RationaleClaim;
 import com.orbit.app.llm.dto.RationaleEvidence;
+import com.orbit.app.llm.dto.SearchQueryRewrite;
+import com.orbit.app.llm.dto.TopicPair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.stereotype.Service;
 
@@ -36,8 +44,26 @@ public class LlmSummaryService {
     private static final JsonMapper JSON = JsonMapper.builder().build();
 
     private static final int MAX_RETRIES = 3;
+
+    /**
+     * Runs the second query-rewrite prompt of a search. Virtual threads: the
+     * work is waiting on the LLM, and the common pool has only a few threads on
+     * a small machine.
+     */
+    private static final java.util.concurrent.Executor SEARCH_REWRITE_EXECUTOR =
+            java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
+
+    /** One answer line of {@link #sameTopics}: "3: yes". */
+    private static final Pattern SAME_TOPIC_LINE =
+            Pattern.compile("(?m)^\\s*(\\d+)\\s*[:.)-]\\s*(yes|no|ja|nein)\\b", Pattern.CASE_INSENSITIVE);
     private static final int README_MAX_CHARS = 6000;
     private static final int WEBSITE_MAX_CHARS = 8000;
+
+    /**
+     * Per-call override for prompts whose answer feeds ranking. Merged over the
+     * configured defaults (model, token limit), so only the temperature changes.
+     */
+    private static final ChatOptions DETERMINISTIC = ChatOptions.builder().temperature(0.0).build();
 
     private final ChatModel chatModel;
 
@@ -704,6 +730,69 @@ public class LlmSummaryService {
     }
 
     /**
+     * For each pair, whether both labels name the same topic: a translation, a
+     * spelling variant, singular/plural, an added acronym. Broader or narrower
+     * topics and related but distinct ones are not the same. Used to map a new
+     * tag onto an existing one (TagVocabularyService), so it errs towards "no":
+     * a missed match only leaves two tags, a wrong one mislabels a profile.
+     *
+     * @return one answer per pair, in order; every answer is {@code false} when the
+     *         LLM fails or leaves a pair unanswered
+     */
+    public List<Boolean> sameTopics(List<TopicPair> pairs) {
+        List<Boolean> answers = new ArrayList<>(Collections.nCopies(pairs.size(), Boolean.FALSE));
+        if (pairs.isEmpty()) return answers;
+
+        StringBuilder list = new StringBuilder();
+        for (int i = 0; i < pairs.size(); i++) {
+            list.append(i + 1).append(". \"").append(pairs.get(i).label()).append("\" | \"")
+                    .append(pairs.get(i).existing()).append("\"\n");
+        }
+        String prompt = """
+                You maintain the tag vocabulary of an expert-matching platform. Each tag names an area of expertise.
+
+                For each numbered pair, answer "yes" only if both labels name the same topic, so one could replace
+                the other on a profile without changing its meaning: a translation (German/English), a spelling
+                variant, singular/plural, or an added acronym.
+                Answer "no" for a broader or narrower topic, related but distinct topics, a different aspect of a
+                field, or when unsure. Examples: "Innovationsmanagement" | "Innovation Management" → yes;
+                "Genomik" | "Genetik" → no; "Datenschutz" | "Datensicherheit" → no; "Machine Learning" | "Deep Learning" → no.
+
+                Answer one line per pair, in the form "1: yes", nothing else.
+
+                %s""".formatted(list);
+
+        for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                String response = call(prompt, DETERMINISTIC);
+                if (response == null || response.isBlank()) continue;
+                Matcher line = SAME_TOPIC_LINE.matcher(response);
+                while (line.find()) {
+                    int index = Integer.parseInt(line.group(1)) - 1;
+                    if (index >= 0 && index < pairs.size()) {
+                        String verdict = line.group(2).toLowerCase(Locale.ROOT);
+                        answers.set(index, verdict.equals("yes") || verdict.equals("ja"));
+                    }
+                }
+                return answers;
+            } catch (Exception e) {
+                log.warn("Topic comparison attempt {}/{} failed ({}): {}",
+                        attempt, MAX_RETRIES, e.getClass().getSimpleName(), e.getMessage());
+                if (attempt < MAX_RETRIES) {
+                    try {
+                        Thread.sleep(2000L * attempt);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+        }
+        log.warn("Topic comparison failed — no tag mapped by meaning");
+        return answers;
+    }
+
+    /**
      * Parse the LLM's tag response into a clean list. Handles newline-separated,
      * comma-separated, and bulleted responses.
      */
@@ -880,6 +969,16 @@ public class LlmSummaryService {
         if (text == null || text.isBlank()) return text;
         if (text.length() < 10) return text;
 
+        String translated = translate(text, null);
+        if (translated == null) {
+            log.warn("Translation failed - using original text (semantic leg still works)");
+            return text;
+        }
+        return translated;
+    }
+
+    /** The translation, or {@code null} if the LLM fails. {@code options} null = configured defaults. */
+    private String translate(String text, ChatOptions options) {
         String truncated = truncateText(text, WEBSITE_MAX_CHARS);
 
         String prompt = """
@@ -893,7 +992,7 @@ public class LlmSummaryService {
         for (int attempt = 1; attempt <= 2; attempt++) {
             try {
                 long start = System.currentTimeMillis();
-                String response = chatModel.call(new Prompt(prompt)).getResult().getOutput().getText();
+                String response = call(prompt, options);
                 long elapsed = System.currentTimeMillis() - start;
 
                 if (response != null && !response.isBlank()) {
@@ -914,33 +1013,72 @@ public class LlmSummaryService {
                 }
             }
         }
-
-        log.warn("Translation failed - using original text (semantic leg still works)");
-        return text;
+        return null;
     }
 
     /**
-     * Translate a natural-language search request to English and condense it into
-     * a concise search query suitable for both bi-encoder retrieval and
-     * cross-encoder reranking.
+     * Prepare a natural-language search request for the pipeline: the full
+     * English translation (semantic retrieval) and the condensed English search
+     * terms (lexical retrieval and the cross-encoder).
      * <p>
      * The cross-encoder (bge-reranker-v2-m3) is trained on short search-style
      * queries, not conversational sentences. Feeding it "I need a Requirements
-     * Engineering Expert who can help us with our SaaS product" scores near-neutral
-     * (0.50) even for perfect matches. Condensing to "Requirements Engineering
-     * Expert SaaS product" lifts the score to ~0.63.
+     * Engineering Expert who can help us with our SaaS product" scores far lower
+     * than "Requirements Engineering Expert SaaS product", even for perfect
+     * matches. Retrieval keeps the full translation so project context ("SaaS")
+     * can still surface candidates.
      * <p>
-     * This replaces {@link #translateToEnglish} for search queries — the latter
-     * is still used for full-text translation (e.g. LinkedIn ingestion) where
-     * structure must be preserved.
+     * Both prompts run concurrently and at temperature 0: the same request must
+     * produce the same rewrite, or the ranking changes between identical
+     * searches. The condense prompt's wording is deliberately unchanged — the
+     * cross-encoder's score moves by an order of magnitude with small changes in
+     * how the terms are phrased (a missing "expert", a dropped comma), and the
+     * relevance threshold was calibrated on what it produces. Change it only
+     * together with a re-calibration. The translation prompt only feeds
+     * retrieval; see {@link #translateSearchQuery}.
      *
      * @param query the raw user query (any language, any length)
-     * @return condensed English search query, or the original if the LLM fails
+     * @return the rewrite, or {@code null} if either LLM call fails — the caller
+     *         then searches with the original text
      */
-    public String translateAndCondenseSearchQuery(String query) {
-        if (query == null || query.isBlank()) return query;
-        if (query.length() < 10) return query;
+    public SearchQueryRewrite rewriteSearchQuery(String query) {
+        if (query == null || query.isBlank()) return null;
 
+        CompletableFuture<String> translation = CompletableFuture.supplyAsync(
+                () -> translateSearchQuery(query), SEARCH_REWRITE_EXECUTOR);
+        String searchTerms = condenseSearchQuery(query);
+        String english = translation.join();
+
+        if (english == null || searchTerms == null) {
+            log.warn("Search query rewrite failed - caller falls back to the original query");
+            return null;
+        }
+        return new SearchQueryRewrite(collapseWhitespace(english), collapseWhitespace(searchTerms));
+    }
+
+    /**
+     * The English translation of a search query, or {@code null} if the LLM fails.
+     * <p>
+     * Not the ingestion prompt of {@link #translateToEnglish}: given a short German
+     * query full of English loanwords ("Smart City", "Supply Chain"), that prompt's
+     * "if it is already in English, return it unchanged" left about half of the
+     * German evaluation queries untranslated and turned one English query into
+     * French. This prompt translated all 51 evaluation queries.
+     */
+    private String translateSearchQuery(String query) {
+        String prompt = """
+                Translate the search query below into English.
+                The query may be German, Swiss German, French, Italian or English. Translate every non-English word, including German compound words.
+                Keep names, product names and established English technical terms as they are.
+                If the query is already completely in English, output it unchanged.
+                Output only the English query, nothing else.
+
+                Query: %s""".formatted(query);
+        return callWithRetry(prompt, "Search query translation", query);
+    }
+
+    /** The condensed English search terms, or {@code null} if the LLM fails. */
+    private String condenseSearchQuery(String query) {
         String prompt = """
                 Translate the following search request to English and extract the key search terms.
                 Focus on the expertise, skills, role titles, and technologies being sought.
@@ -953,21 +1091,25 @@ public class LlmSummaryService {
 
                 Search request:
                 %s""".formatted(query);
+        return callWithRetry(prompt, "Translate+condense search query", query);
+    }
 
+    /** One deterministic call, retried once; the trimmed answer or {@code null}. */
+    private String callWithRetry(String prompt, String purpose, String query) {
         for (int attempt = 1; attempt <= 2; attempt++) {
             try {
                 long start = System.currentTimeMillis();
-                String response = chatModel.call(new Prompt(prompt)).getResult().getOutput().getText();
+                String response = call(prompt, DETERMINISTIC);
                 long elapsed = System.currentTimeMillis() - start;
 
                 if (response != null && !response.isBlank()) {
-                    log.info("Translate+condense search query (attempt {}/{}, {}ms): \"{}\" -> \"{}\" ({} -> {} chars)",
-                            attempt, 2, elapsed, query, response.trim(), query.length(), response.length());
+                    log.info("{} (attempt {}/{}, {}ms): \"{}\" -> \"{}\"",
+                            purpose, attempt, 2, elapsed, query, response.trim());
                     return response.trim();
                 }
             } catch (Exception e) {
-                log.warn("Translate+condense attempt {}/{} failed ({}): {}",
-                        attempt, 2, e.getClass().getSimpleName(), e.getMessage());
+                log.warn("{} attempt {}/{} failed ({}): {}",
+                        purpose, attempt, 2, e.getClass().getSimpleName(), e.getMessage());
                 if (attempt < 2) {
                     try {
                         Thread.sleep(1000L * attempt);
@@ -978,8 +1120,16 @@ public class LlmSummaryService {
                 }
             }
         }
+        return null;
+    }
 
-        log.warn("Translate+condense failed - falling back to plain translation");
-        return translateToEnglish(query);
+    private String call(String prompt, ChatOptions options) {
+        Prompt request = options != null ? new Prompt(prompt, options) : new Prompt(prompt);
+        return chatModel.call(request).getResult().getOutput().getText();
+    }
+
+    /** One line, single spaces — a rewrite must not smuggle line breaks into a query. */
+    private static String collapseWhitespace(String value) {
+        return value.trim().replaceAll("\\s+", " ");
     }
 }

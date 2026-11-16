@@ -41,6 +41,27 @@ class HfEmbeddingServiceTest {
     }
 
     @Test
+    void embedAllSendsOneRequestPerBatchAndKeepsInputOrder() throws Exception {
+        when(client.post(eq("embed-model"), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(objectMapper.readTree("[[0.1,0.2,0.3],[0.4,0.5,0.6]]"));
+        HfEmbeddingService service = new HfEmbeddingService(client, hfProps, embeddingProps, objectMapper);
+
+        var vectors = service.embedAll(java.util.List.of("first", "second"), EmbeddingKind.PASSAGE);
+
+        assertThat(vectors).hasSize(2);
+        assertThat(vectors.get(1)).containsExactly(0.4f, 0.5f, 0.6f);
+        ArgumentCaptor<JsonNode> body = ArgumentCaptor.forClass(JsonNode.class);
+        verify(client).post(eq("embed-model"), body.capture());
+        assertThat(body.getValue().get("inputs").get(0).asText()).isEqualTo("passage: first");
+        assertThat(body.getValue().get("inputs").get(1).asText()).isEqualTo("passage: second");
+
+        when(client.post(eq("embed-model"), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(objectMapper.readTree("[[0.1,0.2,0.3]]"));
+        assertThatThrownBy(() -> service.embedAll(java.util.List.of("a", "b"), EmbeddingKind.PASSAGE))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("1 vectors for 2 inputs");
+    }
+
+    @Test
     void acceptsSingletonNestedVector() throws Exception {
         when(client.post(eq("embed-model"), org.mockito.ArgumentMatchers.any()))
                 .thenReturn(objectMapper.readTree("[[0.1,0.2,0.3]]"));

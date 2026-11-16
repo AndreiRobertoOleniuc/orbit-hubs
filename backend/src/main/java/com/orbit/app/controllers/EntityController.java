@@ -3,7 +3,7 @@ package com.orbit.app.controllers;
 import java.util.List;
 
 import com.orbit.app.controllers.dto.EntityDto;
-import com.orbit.app.controllers.dto.ResyncResponse;
+import com.orbit.app.controllers.dto.IngestionJobDto;
 import com.orbit.app.controllers.dto.SetSourceActiveRequest;
 import com.orbit.app.controllers.dto.SubscriptionDto;
 import com.orbit.app.controllers.dto.UpdateAvailabilityRequest;
@@ -53,9 +53,9 @@ class EntityController {
     }
 
     @PostMapping("/api/v1/entities/{id}/resync")
-    ResponseEntity<ResyncResponse> resync(@PathVariable Long id) {
-        ResyncResponse response = entityService.resync(id);
-        return response != null ? ResponseEntity.ok(response) : ResponseEntity.notFound().build();
+    ResponseEntity<IngestionJobDto> resync(@PathVariable Long id) {
+        IngestionJobDto job = entityService.resync(id);
+        return job != null ? ResponseEntity.accepted().body(job) : ResponseEntity.notFound().build();
     }
 
     @PutMapping("/api/v1/entities/{id}/tags")

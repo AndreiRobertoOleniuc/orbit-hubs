@@ -116,7 +116,7 @@ The matching pipeline:
 ```
 Post / Query
     ↓
-Embedding Retrieval  (multilingual-e5-large)
+Embedding Retrieval  (multilingual embedding model, hosted)
     ↓
 Hybrid Search  (BM25 + pgvector)
     ↓
@@ -130,7 +130,7 @@ LLM Rationale Generation  (top results + source evidence → plain-language expl
 1. **Inserat Primitive** — Ricardo-style post model. Touches all three scenarios. Load-bearing first deliverable.
 2. **Handelsregister Entity Index** — LINDAS SPARQL backbone. All discovery is anchored here.
 3. **Researcher Profile Aggregation** — ORCID + OpenAlex + ROR + IRF FHNW (OAI-PMH) + opt-in GitHub/LinkedIn.
-4. **Semantic Matching** — `multilingual-e5-large` embeddings + pgvector. Hybrid BM25 + vector search. RRF reranking with geographic scope weights.
+4. **Semantic Matching** — multilingual embeddings + pgvector. Hybrid BM25 + vector search. RRF reranking with geographic scope weights.
 5. **Rationale Generator** — Top ranked results passed to LLM with source evidence. Output: plain-language "why this match" with cited sources.
 6. **Lightweight Onboarding** — Integration links only. No manual profile forms.
 
@@ -144,7 +144,7 @@ LLM Rationale Generation  (top results + source evidence → plain-language expl
 | **Auth**       | Clerk                                  | Pre-built OAuth for GitHub + LinkedIn social login — the exact registration pattern the UX requires. Saves weeks of OAuth headache.                          |
 | **Backend**    | Spring Boot Modulith                   | Harvester, matching, and inserat logic in isolated modules. Start monolith, grow like microservices. JPA for CRUD, JDBC for raw pgvector queries.            |
 | **Database**   | PostgreSQL + pgvector                  | Single source of truth. Hybrid vector + relational filters in one query: "people like this AND in Aargau AND tagged Firmware." No separate vector DB sprawl. |
-| **Embeddings** | `multilingual-e5-large`                | Gold standard for DE/EN cross-lingual retrieval. Integrates via Spring AI with local inference (Ollama / TEI).                                               |
+| **Models**     | OpenRouter (embeddings, reranker, LLM) | One key and one bill for all three: `voyage-4-lite` embeddings, `cohere/rerank-5-fast`, `gemini-2.5-flash-lite` with fallbacks. Models are configuration; see `AGENTS.md`. |
 | **Data Layer** | LINDAS SPARQL · OAI-PMH · OpenAlex API | Swiss-specific open data infrastructure. LINDAS anchors to Handelsregister. OAI-PMH covers IRF FHNW repository outputs.                                      |
 
 > **Note on data residency:** Clerk is US-based SaaS. For an MVP this is a non-issue. For a government-funded FHNW production deployment, FADP compliance is a talking point worth raising early.

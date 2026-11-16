@@ -23,13 +23,15 @@ import com.orbit.app.ingestion.openalex.dto.OpenAlexAuthor;
 import com.orbit.app.ingestion.openalex.dto.OpenAlexWork;
 
 /**
- * OpenAlex adapter — ingests an author's top-cited publications as per-work sources.
+ * OpenAlex adapter — ingests an author's publications as per-work sources.
  * <p>
  * Flow:
  * <ol>
- *   <li>{@code discoverSources()} — fetch author profile + top-cited works (by citation count).
- *       Returns one SourceRef per work (up to 25). Author profile data is cached
- *       on the first work's context for entity creation.</li>
+ *   <li>{@code discoverSources()} — fetch author profile + works: the most-cited
+ *       ones and the most recent ones, up to 25 in all. Citations alone let old
+ *       highly cited work define the profile and hid what the person works on
+ *       now. Returns one SourceRef per work. Author profile data is cached on the
+ *       first work's context for entity creation.</li>
  *   <li>{@code fetch()} — returns the cached work data (no additional API call).</li>
  *   <li>{@code extractHighSignalCore()} — builds core text from primary_topic + title + abstract.
  *       The primary_topic is prepended as a {@code ##} heading so ChunkingService
@@ -48,6 +50,8 @@ public class OpenAlexAdapter implements SourceAdapter {
     private static final Logger log = LoggerFactory.getLogger(OpenAlexAdapter.class);
     private static final String API_BASE = "https://api.openalex.org";
     private static final int MAX_WORKS = 25;
+    /** Most-cited works taken first; the rest of {@link #MAX_WORKS} are the most recent. */
+    static final int MOST_CITED = 15;
 
     private final RestClient restClient;
 
@@ -109,6 +113,7 @@ public class OpenAlexAdapter implements SourceAdapter {
             context.put("work_abstract", work.reconstructedAbstract());
             context.put("work_cited_by", String.valueOf(work.citedByCount()));
             context.put("work_type", work.type());
+            context.put("work_author_position", work.authorPosition() != null ? work.authorPosition() : "");
 
             // Cache author profile on first work for entity creation
             if (i == 0) {
@@ -142,6 +147,23 @@ public class OpenAlexAdapter implements SourceAdapter {
         return new RawContent(abstractText, metadata, Instant.now());
     }
 
+    // ─── contentFingerprint: what the core text is built from ───
+
+    /**
+     * Primary topic, title, abstract, year and author position. The citation
+     * count is left out: it grows over time without the work itself changing.
+     */
+    @Override
+    public String contentFingerprint(RawContent raw) {
+        Map<String, Object> meta = raw.metadata();
+        return String.join("\n",
+                String.valueOf(meta.get("work_primary_topic")),
+                String.valueOf(meta.get("work_title")),
+                String.valueOf(meta.get("work_abstract")),
+                String.valueOf(meta.get("work_year")),
+                String.valueOf(meta.getOrDefault("work_author_position", "")));
+    }
+
     // ─── extractHighSignalCore: primary_topic (as ## heading) + title + abstract ───
 
     @Override
@@ -161,15 +183,16 @@ public class OpenAlexAdapter implements SourceAdapter {
         if (title != null && !title.isBlank()) {
             sb.append(stripHtml(title)).append("\n\n");
         }
+        String published = publishedLine(year, (String) meta.get("work_author_position"));
+        if (!published.isEmpty()) {
+            sb.append(published).append("\n\n");
+        }
         if (abstractText != null && !abstractText.isBlank()) {
             sb.append(stripHtml(abstractText));
         } else {
             // No abstract — enrich with metadata so the chunk isn't tiny
             // (a bare title + topic heading is only ~15 tokens)
             StringBuilder enrich = new StringBuilder();
-            if (year != null && !year.isBlank() && !"null".equals(year)) {
-                enrich.append("Published in ").append(year).append(".");
-            }
             if (!citedBy.isBlank() && !"null".equals(citedBy) && !"0".equals(citedBy)) {
                 enrich.append(" Cited by ").append(citedBy).append(".");
             }
@@ -177,10 +200,30 @@ public class OpenAlexAdapter implements SourceAdapter {
                 enrich.append(" Research area: ").append(primaryTopic).append(".");
             }
             if (!enrich.isEmpty()) {
-                sb.append(enrich);
+                sb.append(enrich.toString().trim());
             }
         }
         return sb.toString().trim();
+    }
+
+    /**
+     * "Published 2021 · first author": when the work appeared and what the person's
+     * part in it was. A first or last (usually senior) author led the work; a
+     * co-author on a 40-author paper may have contributed one measurement.
+     */
+    public static String publishedLine(String year, String authorPosition) {
+        List<String> parts = new ArrayList<>();
+        if (year != null && !year.isBlank() && !"null".equals(year) && !"0".equals(year)) {
+            parts.add("Published " + year);
+        }
+        String role = switch (authorPosition == null ? "" : authorPosition) {
+            case "first" -> "first author";
+            case "last" -> "last author";
+            case "middle" -> "co-author";
+            default -> null;
+        };
+        if (role != null) parts.add(role);
+        return String.join(" · ", parts);
     }
 
     @Override
@@ -309,32 +352,73 @@ public class OpenAlexAdapter implements SourceAdapter {
         }
     }
 
+    /**
+     * The author's {@link #MOST_CITED} most-cited works, then the most recent
+     * ones not already among them, {@link #MAX_WORKS} in all.
+     */
     private List<OpenAlexWork> fetchWorks(String authorOpenAlexId) throws IngestionException {
         try {
-            JsonNode node = fetchJson("/works?filter=author.id:" + authorOpenAlexId
-                    + "&sort=cited_by_count:desc&per_page=" + MAX_WORKS
-                    + "&select=id,title,publication_year,abstract_inverted_index,primary_topic,cited_by_count,doi,type");
-
-            List<OpenAlexWork> works = new ArrayList<>();
-            JsonNode results = node.path("results");
-            for (JsonNode workNode : results) {
-                String workId = extractShortId(workNode.path("id").asString(""));
-                String title = workNode.path("title").asString("");
-                int pubYear = workNode.path("publication_year").asInt(0);
-                String doi = workNode.path("doi").asString("");
-                String type = workNode.path("type").asString("");
-                int citedBy = workNode.path("cited_by_count").asInt(0);
-
-                String primaryTopic = workNode.path("primary_topic").path("display_name").asString("");
-
-                String abstractText = reconstructAbstract(workNode.path("abstract_inverted_index"));
-
-                works.add(new OpenAlexWork(workId, title, pubYear, doi, type, citedBy, primaryTopic, abstractText));
-            }
-            return works;
+            List<OpenAlexWork> cited = parseWorks(fetchJson(worksPath(authorOpenAlexId, "cited_by_count:desc", MOST_CITED)),
+                    authorOpenAlexId);
+            List<OpenAlexWork> recent = parseWorks(fetchJson(worksPath(authorOpenAlexId, "publication_date:desc", MAX_WORKS)),
+                    authorOpenAlexId);
+            List<OpenAlexWork> selected = selectWorks(cited, recent, MAX_WORKS);
+            log.info("OpenAlex author {}: {} most-cited + {} recent works", authorOpenAlexId,
+                    Math.min(cited.size(), MAX_WORKS), selected.size() - Math.min(cited.size(), MAX_WORKS));
+            return selected;
         } catch (Exception e) {
             throw new IngestionException("Failed to fetch works for author " + authorOpenAlexId, e);
         }
+    }
+
+    private static String worksPath(String authorOpenAlexId, String sort, int count) {
+        return "/works?filter=author.id:" + authorOpenAlexId + "&sort=" + sort + "&per_page=" + count
+                + "&select=id,title,publication_year,abstract_inverted_index,primary_topic,cited_by_count,doi,type,authorships";
+    }
+
+    /** {@code first} in order, then those of {@code more} not already taken, at most {@code max}. */
+    public static List<OpenAlexWork> selectWorks(List<OpenAlexWork> first, List<OpenAlexWork> more, int max) {
+        Map<String, OpenAlexWork> selected = new java.util.LinkedHashMap<>();
+        for (List<OpenAlexWork> works : List.of(first, more)) {
+            for (OpenAlexWork work : works) {
+                if (selected.size() >= max) break;
+                selected.putIfAbsent(work.openalexId(), work);
+            }
+        }
+        return List.copyOf(selected.values());
+    }
+
+    /** The works of a {@code /works} response, with the given author's position on each. */
+    public static List<OpenAlexWork> parseWorks(JsonNode node, String authorOpenAlexId) {
+        List<OpenAlexWork> works = new ArrayList<>();
+        JsonNode results = node.path("results");
+        for (JsonNode workNode : results) {
+            String workId = extractShortId(workNode.path("id").asString(""));
+            String title = workNode.path("title").asString("");
+            int pubYear = workNode.path("publication_year").asInt(0);
+            String doi = workNode.path("doi").asString("");
+            String type = workNode.path("type").asString("");
+            int citedBy = workNode.path("cited_by_count").asInt(0);
+
+            String primaryTopic = workNode.path("primary_topic").path("display_name").asString("");
+
+            String abstractText = reconstructAbstract(workNode.path("abstract_inverted_index"));
+
+            works.add(new OpenAlexWork(workId, title, pubYear, doi, type, citedBy, primaryTopic, abstractText,
+                    authorPosition(workNode.path("authorships"), authorOpenAlexId)));
+        }
+        return works;
+    }
+
+    /** {@code first}, {@code middle} or {@code last}; null when the author is not listed. */
+    private static String authorPosition(JsonNode authorships, String authorOpenAlexId) {
+        for (JsonNode authorship : authorships) {
+            if (authorOpenAlexId.equals(extractShortId(authorship.path("author").path("id").asString("")))) {
+                String position = authorship.path("author_position").asString("");
+                return position.isBlank() ? null : position;
+            }
+        }
+        return null;
     }
 
     private JsonNode fetchJson(String path) {

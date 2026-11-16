@@ -145,6 +145,20 @@ public class ZefixAdapter implements SourceAdapter {
         return new RawContent(purpose, metadata, Instant.now());
     }
 
+    // ─── contentFingerprint: what the core text is built from ───
+
+    /** Company name, legal form, seat, canton and the raw purpose text. */
+    @Override
+    public String contentFingerprint(RawContent raw) {
+        Map<String, Object> meta = raw.metadata();
+        return String.join("\n",
+                String.valueOf(meta.get("name")),
+                String.valueOf(meta.get("legal_form_short")),
+                String.valueOf(meta.get("legal_seat")),
+                String.valueOf(meta.get("canton")),
+                String.valueOf(meta.get("purpose_raw")));
+    }
+
     // ─── extractHighSignalCore: Gemini cleanup of legal boilerplate ───
 
     @Override

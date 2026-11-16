@@ -1,6 +1,7 @@
 package com.orbit.app.controllers;
 
 import com.orbit.app.profile.EntityAccessDeniedException;
+import com.orbit.app.admin.AdminAccessDeniedException;
 import com.orbit.app.controllers.dto.ApiErrorDto;
 import com.orbit.app.hub.HubAccessDeniedException;
 import com.orbit.app.inference.InferenceUnavailableException;
@@ -21,6 +22,7 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
  * <ul>
  *   <li>{@link EntityAccessDeniedException} → 403 (entity exists, wrong owner)</li>
  *   <li>{@link HubAccessDeniedException} → 403 (hub admin action, not admin)</li>
+ *   <li>{@link AdminAccessDeniedException} → 403 (admin action, not admin)</li>
  *   <li>{@link IllegalArgumentException} → 400 (bad request — invalid input)</li>
  *   <li>{@link MaxUploadSizeExceededException} → 413 (uploaded PDF too large)</li>
  *   <li>{@link InferenceUnavailableException} → 503 (required managed model unavailable)</li>
@@ -52,6 +54,11 @@ public class GlobalExceptionHandler {
         log.info("Rejected oversized PDF upload: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.CONTENT_TOO_LARGE)
                 .body(new ApiErrorDto("Die PDF ist zu gross. Bitte wähle eine Datei mit maximal 20 MB."));
+    }
+
+    @ExceptionHandler(AdminAccessDeniedException.class)
+    public ResponseEntity<Void> handleAdminAccessDenied(AdminAccessDeniedException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
     }
 
     @ExceptionHandler(InferenceUnavailableException.class)

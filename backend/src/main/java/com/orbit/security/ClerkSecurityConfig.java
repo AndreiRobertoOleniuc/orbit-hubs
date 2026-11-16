@@ -49,7 +49,7 @@ class ClerkSecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(CorsUtils::isPreFlightRequest).permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/search").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/search/rationale/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/search/rationale").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/board").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/entities/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/hubs").permitAll()

@@ -126,9 +126,7 @@ describe("SourceCard", () => {
 
     await user.click(screen.getByRole("button", { name: /LinkedIn/i }))
 
-    expect(
-      screen.getByText(/LinkedIn im Webbrowser öffnen/i)
-    ).toBeTruthy()
+    expect(screen.getByText(/LinkedIn im Webbrowser öffnen/i)).toBeTruthy()
     expect(screen.getByText(/"Ressourcen" \/ "Resources"/i)).toBeTruthy()
   })
 })

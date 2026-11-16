@@ -9,10 +9,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** Ensures an empty pgvector database can be migrated and validated by the application. */
-@SpringBootTest(properties = {
-        "HF_TOKEN=test-offline-token",
-        "GEMINI_API_KEY=test-offline-key"
-})
+@SpringBootTest
 class DatabaseSchemaIntegrationTest extends PostgresIntegrationTest {
 
     @Autowired
@@ -26,12 +23,15 @@ class DatabaseSchemaIntegrationTest extends PostgresIntegrationTest {
                 "SELECT COUNT(*) FROM flyway_schema_history WHERE success", Integer.class);
         String searchFunction = jdbc.queryForObject("""
                 SELECT to_regprocedure(
-                  'hybrid_search(text,vector,bigint[],bigint[],integer,double precision,double precision,integer)'
+                  'hybrid_search(text,vector,vector,bigint[],bigint[],integer,integer,double precision,double precision,double precision,integer)'
                 )::text
                 """, String.class);
 
+        String jobQueue = jdbc.queryForObject("SELECT to_regclass('ingestion_jobs')::text", String.class);
+
         assertThat(vectorExtension).isEqualTo("vector");
-        assertThat(appliedMigrations).isGreaterThanOrEqualTo(18);
+        assertThat(appliedMigrations).isGreaterThanOrEqualTo(20);
         assertThat(searchFunction).contains("hybrid_search");
+        assertThat(jobQueue).isEqualTo("ingestion_jobs");
     }
 }

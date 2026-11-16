@@ -67,6 +67,28 @@ class AdapterTransformationTest {
     }
 
     @Test
+    void githubRepoWithOnlyANameYieldsNoChunkTextAndNoLlmCall() {
+        GithubAdapter adapter = new GithubAdapter(llm);
+        java.util.Map<String, Object> meta = new java.util.HashMap<>();
+        meta.put("repo_name", "SE1920");
+        meta.put("repo_owner", "ada");
+        meta.put("description", null);
+        meta.put("language", "Java");
+        meta.put("topics", List.of());
+        meta.put("readme", "");
+        RawContent empty = raw(meta);
+
+        assertThat(adapter.extractHighSignalCore(empty)).isEmpty();
+        org.mockito.Mockito.verifyNoInteractions(llm);
+
+        // The marker changes the fingerprint, so an old guessed chunk is replaced on resync.
+        java.util.Map<String, Object> described = new java.util.HashMap<>(meta);
+        described.put("description", "Software engineering course project");
+        assertThat(adapter.contentFingerprint(empty)).endsWith("no-evidence");
+        assertThat(adapter.contentFingerprint(raw(described))).doesNotContain("no-evidence");
+    }
+
+    @Test
     void openAlexBuildsSearchablePublicationAndAllIdentifiers() {
         OpenAlexAdapter adapter = new OpenAlexAdapter();
         RawContent raw = raw(Map.of(
@@ -82,6 +104,50 @@ class AdapterTransformationTest {
         assertThat(adapter.extractExternalIds(raw)).extracting(id -> id.idType())
                 .containsExactly("orcid", "openalex_author_id", "doi");
         assertThat(adapter.deriveProfile(raw).orgName()).isEqualTo("FHNW");
+    }
+
+    @Test
+    void openAlexStatesWhenAWorkAppearedAndThePersonsPartInIt() {
+        OpenAlexAdapter adapter = new OpenAlexAdapter();
+        Map<String, Object> work = new java.util.HashMap<>(Map.of(
+                "work_primary_topic", "Robotics", "work_title", "Legged Robots",
+                "work_abstract", "We present a robot.", "work_year", "2024",
+                "work_cited_by", 3, "work_author_position", "last"));
+
+        assertThat(adapter.extractHighSignalCore(raw(work)))
+                .isEqualTo("## Robotics\n\nLegged Robots\n\nPublished 2024 · last author\n\nWe present a robot.");
+        String asLastAuthor = adapter.contentFingerprint(raw(work));
+        work.put("work_author_position", "middle");
+        assertThat(adapter.contentFingerprint(raw(work))).isNotEqualTo(asLastAuthor);
+
+        assertThat(OpenAlexAdapter.publishedLine("2024", "first")).isEqualTo("Published 2024 · first author");
+        assertThat(OpenAlexAdapter.publishedLine("2024", "middle")).isEqualTo("Published 2024 · co-author");
+        assertThat(OpenAlexAdapter.publishedLine("0", null)).isEmpty();
+        assertThat(OpenAlexAdapter.publishedLine(null, "last")).isEqualTo("last author");
+    }
+
+    @Test
+    void openAlexTakesTheMostCitedWorksThenTheMostRecentOnes() throws Exception {
+        var json = tools.jackson.databind.json.JsonMapper.builder().build();
+        var cited = OpenAlexAdapter.parseWorks(json.readTree("""
+                {"results": [
+                  {"id": "https://openalex.org/W1", "title": "Classic", "publication_year": 2009,
+                   "authorships": [{"author_position": "first", "author": {"id": "https://openalex.org/A7"}}]},
+                  {"id": "https://openalex.org/W2", "title": "Also classic", "publication_year": 2012,
+                   "authorships": [{"author_position": "middle", "author": {"id": "https://openalex.org/A9"}}]}
+                ]}"""), "A7");
+        var recent = OpenAlexAdapter.parseWorks(json.readTree("""
+                {"results": [
+                  {"id": "https://openalex.org/W3", "title": "New", "publication_year": 2026,
+                   "authorships": [{"author_position": "last", "author": {"id": "https://openalex.org/A7"}}]},
+                  {"id": "https://openalex.org/W1", "title": "Classic", "publication_year": 2009, "authorships": []},
+                  {"id": "https://openalex.org/W4", "title": "Newer than the cap", "publication_year": 2026,
+                   "authorships": []}
+                ]}"""), "A7");
+
+        assertThat(cited).extracting(w -> w.authorPosition()).containsExactly("first", null);
+        assertThat(OpenAlexAdapter.selectWorks(cited, recent, 3)).extracting(w -> w.openalexId())
+                .containsExactly("W1", "W2", "W3");
     }
 
     @Test
@@ -122,6 +188,49 @@ class AdapterTransformationTest {
         assertThat(personal.deriveProfile(raw).entityType()).isEqualTo("person");
         assertThat(company.deriveProfile(raw).entityType()).isEqualTo("organization");
         assertThat(company.extractExternalIds(raw)).hasSize(2);
+    }
+
+    @Test
+    void fingerprintsIgnoreCountersThatMoveWithoutTheEvidenceChanging() {
+        GithubAdapter github = new GithubAdapter(llm);
+        assertThat(github.contentFingerprint(githubRepo(4, "2026-07-01", "# Orbit\nUseful content")))
+                .isEqualTo(github.contentFingerprint(githubRepo(900, "2026-11-01", "# Orbit\nUseful content")));
+        assertThat(github.contentFingerprint(githubRepo(4, "2026-07-01", "# Orbit\nUseful content")))
+                .isNotEqualTo(github.contentFingerprint(githubRepo(4, "2026-07-01", "# Orbit\nRewritten content")));
+
+        OpenAlexAdapter openAlex = new OpenAlexAdapter();
+        assertThat(openAlex.contentFingerprint(openAlexWork(12, "Evidence based engineering.")))
+                .isEqualTo(openAlex.contentFingerprint(openAlexWork(480, "Evidence based engineering.")));
+        assertThat(openAlex.contentFingerprint(openAlexWork(12, "Evidence based engineering.")))
+                .isNotEqualTo(openAlex.contentFingerprint(openAlexWork(12, "A corrected abstract.")));
+
+        // No LLM call is needed to decide whether a source changed.
+        org.mockito.Mockito.verifyNoInteractions(llm);
+    }
+
+    @Test
+    void zefixFingerprintFollowsThePurposeTextAndWebsitesUseTheCrawledText() {
+        ZefixAdapter zefix = new ZefixAdapter(llm);
+        Map<String, Object> company = Map.of("name", "Orbit AG", "purpose_raw", "Entwicklung von Software",
+                "legal_form_short", "AG", "legal_seat", "Baden", "canton", "AG", "status", "active");
+        Map<String, Object> repurposed = new java.util.HashMap<>(company);
+        repurposed.put("purpose_raw", "Handel mit Waren aller Art");
+        assertThat(zefix.contentFingerprint(raw(company))).contains("Orbit AG", "Entwicklung von Software");
+        assertThat(zefix.contentFingerprint(raw(company))).isNotEqualTo(zefix.contentFingerprint(raw(repurposed)));
+
+        CompanyWebsiteAdapter site = new CompanyWebsiteAdapter(mock(WebsiteContentExtractor.class), llm);
+        assertThat(site.contentFingerprint(raw(Map.of("domain", "orbit.ch")))).isEqualTo("raw");
+    }
+
+    private static RawContent githubRepo(int stars, String pushedAt, String readme) {
+        return raw(Map.of("repo_name", "orbit", "repo_owner", "ada", "description", "Discovery",
+                "language", "Java", "topics", List.of("search"), "stars", stars,
+                "pushed_at", pushedAt, "readme", readme));
+    }
+
+    private static RawContent openAlexWork(int citedBy, String abstractText) {
+        return raw(Map.of("work_primary_topic", "Requirements Engineering", "work_title", "Reliable Systems",
+                "work_abstract", abstractText, "work_year", "2026", "work_cited_by", citedBy));
     }
 
     private static RawContent raw(Map<String, Object> metadata) {

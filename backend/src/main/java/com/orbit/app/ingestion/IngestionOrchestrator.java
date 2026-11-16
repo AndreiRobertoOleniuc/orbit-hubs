@@ -9,19 +9,19 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import com.orbit.app.ingestion.dto.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionOperations;
 
 import com.orbit.app.embedding.EmbeddingKind;
 import com.orbit.app.embedding.EmbeddingService;
+import com.orbit.app.inference.InferenceUnavailableException;
 import com.orbit.app.util.HashUtils;
 import com.orbit.domain.entity.Chunk;
 import com.orbit.domain.entity.DiscoveryEntity;
@@ -39,17 +39,22 @@ import com.orbit.domain.repository.SourceRepository;
  * Implements the algorithm from §4.2 of the reference doc:
  * <ol>
  *   <li>FETCH — adapter fetches raw content</li>
- *   <li>DEDUP — idempotent short-circuit on content hash</li>
- *   <li>RESOLVE IDENTITY — find existing entity by external IDs, or create new</li>
- *   <li>UPSERT SOURCE — create or update the source row</li>
- *   <li>RE-CHUNK — delete old chunks, rebuild from core text</li>
- *   <li>EMBED + PERSIST — embed each chunk with "passage: " prefix, store</li>
+ *   <li>DEDUP — idempotent short-circuit on the hash of the fetched content,
+ *       before any LLM or embedding call</li>
+ *   <li>PREPARE — core-text extraction (often an LLM call), chunking, and one
+ *       batch embedding call for all chunks</li>
+ *   <li>PERSIST — in one short transaction: resolve identity (find the entity by
+ *       external ids or owner, or create it), create the source row or update
+ *       it in place (same id), replace its chunks</li>
  * </ol>
+ * Steps 1–3 are network calls and run outside any transaction, so no database
+ * connection is held while a provider is slow. A failed embedding fails the
+ * source instead of storing a chunk without a vector: the caller (the
+ * ingestion job) retries, and the dedup step makes a retry cheap.
  * <p>
  * Multi-source ingestion (GitHub repos, OpenAlex publications) processes the
  * FIRST sub-source sequentially (creates the entity), then processes the
- * remaining sub-sources in PARALLEL using a thread pool. Each parallel
- * ingestion runs in its own transaction via the Spring proxy (self-injection).
+ * remaining sub-sources in PARALLEL using a thread pool.
  */
 @Service
 public class IngestionOrchestrator {
@@ -64,7 +69,7 @@ public class IngestionOrchestrator {
     private final EmbeddingService embeddingService;
     private final ChunkingService chunkingService;
     private final EntityEnrichmentService enrichmentService;
-    private final IngestionOrchestrator self; // for proxy-based @Transactional in parallel calls
+    private final TransactionOperations transactions;
 
     // Thread pool for parallel per-repo ingestion
     private final ExecutorService ingestionPool = Executors.newFixedThreadPool(5);
@@ -77,7 +82,7 @@ public class IngestionOrchestrator {
                                   EmbeddingService embeddingService,
                                   ChunkingService chunkingService,
                                   EntityEnrichmentService enrichmentService,
-                                  @Lazy IngestionOrchestrator self) {
+                                  TransactionOperations transactions) {
         this.adapterRegistry = adapterRegistry;
         this.entities = entities;
         this.identifiers = identifiers;
@@ -86,14 +91,17 @@ public class IngestionOrchestrator {
         this.embeddingService = embeddingService;
         this.chunkingService = chunkingService;
         this.enrichmentService = enrichmentService;
-        this.self = self;
+        this.transactions = transactions;
     }
 
     /**
      * Ingest a single source. This is the standard pipeline for sources that
-     * produce exactly one source row (LinkedIn, website).
+     * produce exactly one source row (LinkedIn, website). Not transactional
+     * itself: only the final write is (see the class comment).
+     *
+     * @throws com.orbit.app.inference.InferenceUnavailableException when the
+     *         embedding provider fails — retryable, nothing was written
      */
-    @Transactional
     public IngestionResult ingest(SourceRef ref) {
         SourceAdapter adapter = adapterRegistry.getAdapter(ref.sourceType());
 
@@ -106,23 +114,48 @@ public class IngestionOrchestrator {
             return IngestionResult.error(null);
         }
 
-        String coreText = adapter.extractHighSignalCore(raw);
-        String label = adapter.buildLabel(raw);
-        String hash = HashUtils.sha256Hex(normalize(coreText));
-
-        // 2. DEDUP — idempotent short-circuit
+        // 2. DEDUP — idempotent short-circuit, decided on what was FETCHED.
+        //    The hash must not depend on extractHighSignalCore(): for most adapters
+        //    that is an LLM call whose wording differs between runs, so hashing its
+        //    output re-ingested (and re-embedded) every unchanged source.
+        String hash = HashUtils.sha256Hex(normalize(fingerprint(adapter, raw)));
         Optional<Source> existing = sources.findBySourceUrl(ref.url());
         if (existing.isPresent() && hash.equals(existing.get().getContentHash())) {
-            prepareExistingSourceForOnboarding(existing.get(), ref);
+            if (ref.onboardingDraft()) {
+                transactions.executeWithoutResult(status -> prepareExistingSourceForOnboarding(existing.get(), ref));
+            }
             log.debug("Skipping unchanged source: {}", ref.url());
             return IngestionResult.skipped(existing.get().getEntityId());
         }
 
-        // 3. RESOLVE IDENTITY (before creating an entity)
+        // 3. PREPARE — every network call happens here, before the transaction.
+        String coreText = adapter.extractHighSignalCore(raw);
+        String label = adapter.buildLabel(raw);
+        List<ExternalId> extIds = adapter.extractExternalIds(raw);
+        List<ChunkSegment> segments = chunkingService.recursiveSplit(coreText, 400, 60);
+        List<float[]> vectors = segments.isEmpty() ? List.of()
+                : embeddingService.embedAll(segments.stream().map(ChunkSegment::text).toList(), EmbeddingKind.PASSAGE);
+        if (vectors.size() != segments.size()) {
+            throw new IllegalStateException("Embedding returned %d vectors for %d chunks"
+                    .formatted(vectors.size(), segments.size()));
+        }
+
+        // 4. PERSIST — one short transaction.
+        IngestionResult result = transactions.execute(status ->
+                persist(adapter, ref, raw, hash, label, extIds, segments, vectors));
+        log.info("Ingested source {} → entity #{}, {} chunks", ref.url(), result.entityId(), segments.size());
+        return result;
+    }
+
+    /** Identity, source row and chunks of one prepared source — the transactional part of {@link #ingest}. */
+    private IngestionResult persist(SourceAdapter adapter, SourceRef ref, RawContent raw, String hash, String label,
+                                    List<ExternalId> extIds, List<ChunkSegment> segments, List<float[]> vectors) {
+        // Re-read: another ingestion may have created the row since the dedup check.
+        Optional<Source> existing = sources.findBySourceUrl(ref.url());
+
         // Resolution order: external ids → the requesting user's own entity → create new.
         // The owner fallback makes all sources of one onboarding converge onto ONE
         // entity even when their external id types are disjoint (zefix_uid vs domain).
-        List<ExternalId> extIds = adapter.extractExternalIds(raw);
         Optional<Long> existingEntityId = findEntityByAnyId(extIds)
                 .or(() -> findEntityByOwner(ref.ownerId()));
 
@@ -160,44 +193,27 @@ public class IngestionOrchestrator {
             }
         }
 
-        // 4. UPSERT SOURCE
         Source source = upsertSource(entityId, ref, label, raw, hash, existing);
 
-        // 5. RE-CHUNK
         chunks.deleteBySourceId(source.getId());
         chunks.flush();
-
-        List<ChunkSegment> segments = chunkingService.recursiveSplit(coreText, 400, 60);
-        log.info("Source {} → {} chunks", ref.url(), segments.size());
-
-        // 6. EMBED + PERSIST CHUNKS
-        int embeddedCount = 0;
+        Instant embeddedAt = Instant.now();
         for (int i = 0; i < segments.size(); i++) {
             ChunkSegment seg = segments.get(i);
-            try {
-                float[] vec = embeddingService.embed("passage: " + seg.text(), EmbeddingKind.PASSAGE);
-                chunks.save(new Chunk(
-                        source.getId(), entityId, i, seg.text(), seg.section(),
-                        seg.tokenCount(), vec, "multilingual-e5-large", Instant.now()));
-                embeddedCount++;
-            } catch (Exception e) {
-                log.error("Embedding failed for chunk {} of source {}: {}", i, ref.url(), e.getMessage());
-                chunks.save(new Chunk(
-                        source.getId(), entityId, i, seg.text(), seg.section(),
-                        seg.tokenCount(), null, "multilingual-e5-large", null));
-            }
+            chunks.save(new Chunk(
+                    source.getId(), entityId, i, seg.text(), seg.section(),
+                    seg.tokenCount(), vectors.get(i), embeddingService.modelName(), embeddedAt));
         }
 
-        log.info("Ingested source {} → entity #{}, {} chunks ({} embedded)",
-                ref.url(), entityId, segments.size(), embeddedCount);
-
-        // NOTE: Enrichment (step 7) is NOT called here. It used to run inside
-        // this @Transactional method, but a PSQLException from the enrichment
-        // would mark the transaction as rollback-only — rolling back the entire
-        // ingestion. Enrichment now runs in a SEPARATE transaction via
-        // finalEnrichment() in ingestMulti(), after ingest() has committed.
-
+        // Enrichment is NOT run here: it needs every source of the entity, and an
+        // enrichment failure must not roll back the ingested source. The caller
+        // runs it once, after all sources are in (ingestMulti / the ingestion job).
         return IngestionResult.ingested(entityId, source.getId(), segments.size());
+    }
+
+    /** {@link #ingestMulti(SourceRef, boolean)} followed by enrichment. */
+    public List<IngestionResult> ingestMulti(SourceRef ref) {
+        return ingestMulti(ref, true);
     }
 
     /**
@@ -206,10 +222,15 @@ public class IngestionOrchestrator {
      * <p>
      * The FIRST sub-source is processed sequentially (creates the entity),
      * then remaining sub-sources are processed in PARALLEL via a thread pool.
-     * Each parallel call goes through the Spring proxy (self.ingest()) so
-     * @Transactional is properly applied per-thread.
+     * A sub-source whose embedding fails does not stop the others; once they are
+     * done, the failure is rethrown so the caller can retry the whole input
+     * (already ingested sub-sources are then skipped as unchanged).
+     *
+     * @param enrich whether to enrich the entity afterwards. The ingestion job
+     *               passes {@code false} and enriches once after the user's last
+     *               queued source, instead of once per source type.
      */
-    public List<IngestionResult> ingestMulti(SourceRef ref) {
+    public List<IngestionResult> ingestMulti(SourceRef ref, boolean enrich) {
         SourceAdapter adapter = adapterRegistry.getAdapter(ref.sourceType());
         List<SourceRef> subSources;
         try {
@@ -223,60 +244,58 @@ public class IngestionOrchestrator {
             return List.of();
         }
 
-        List<IngestionResult> results;
+        List<IngestionResult> results = new ArrayList<>();
+        RuntimeException retryable = null;
 
-        if (subSources.size() == 1) {
-            results = new ArrayList<>(List.of(self.ingest(subSources.getFirst())));
-        } else {
-            log.info("Multi-source ingestion: {} → {} sub-sources (1 sequential + {} parallel)", ref.url(), subSources.size(), subSources.size() - 1);
+        // 1. First sub-source SEQUENTIALLY — it creates the entity the others join.
+        long startTime = System.currentTimeMillis();
+        results.add(ingest(subSources.getFirst()));
 
-            results = new ArrayList<>();
+        if (subSources.size() > 1) {
+            log.info("Multi-source ingestion: {} → {} sub-sources (first took {}ms, {} in parallel)",
+                    ref.url(), subSources.size(), System.currentTimeMillis() - startTime, subSources.size() - 1);
 
-            // 1. Process first sub-source SEQUENTIALLY — creates the entity
-            long startTime = System.currentTimeMillis();
-            IngestionResult first = self.ingest(subSources.getFirst());
-            results.add(first);
-            log.info("First sub-source processed in {}ms (entity created)", System.currentTimeMillis() - startTime);
-
-            // 2. Process remaining sub-sources in PARALLEL
-            List<SourceRef> remaining = subSources.subList(1, subSources.size());
-            List<CompletableFuture<IngestionResult>> futures = remaining.stream()
-                    .map(sub -> CompletableFuture.supplyAsync(() -> self.ingest(sub), ingestionPool))
+            // 2. Remaining sub-sources in PARALLEL
+            List<CompletableFuture<IngestionResult>> futures = subSources.subList(1, subSources.size()).stream()
+                    .map(sub -> CompletableFuture.supplyAsync(() -> ingest(sub), ingestionPool))
                     .toList();
-
-            // Wait for all parallel ingestions to complete
-            long parallelStart = System.currentTimeMillis();
             for (CompletableFuture<IngestionResult> future : futures) {
                 try {
                     results.add(future.join());
-                } catch (Exception e) {
-                    log.error("Parallel ingestion failed: {}", e.getMessage());
-                    results.add(IngestionResult.error(null));
+                } catch (CompletionException e) {
+                    if (e.getCause() instanceof InferenceUnavailableException unavailable) {
+                        retryable = unavailable;
+                    } else {
+                        log.error("Parallel ingestion failed: {}", e.getMessage(), e);
+                        results.add(IngestionResult.error(null));
+                    }
                 }
             }
-            log.info("Parallel ingestion of {} sources completed in {}ms",
-                    remaining.size(), System.currentTimeMillis() - parallelStart);
         }
+        if (retryable != null) throw retryable;
 
-        // 3. FINAL ENRICHMENT — runs for BOTH single-source and multi-source.
-        //    Runs in a SEPARATE transaction (via self proxy) after all ingest()
-        //    calls have committed. This isolation is critical: if enrichment
-        //    fails (e.g. LLM error, DB constraint), the ingestion transactions
-        //    are already committed and not affected.
-        Long entityId = results.stream()
+        // 3. ENRICHMENT — after every sub-source has committed, so it sees all chunks.
+        //    An enrichment failure leaves the ingested sources in place.
+        if (enrich) {
+            Long entityId = firstEntityId(results);
+            if (entityId != null) {
+                try {
+                    enrichmentService.enrich(entityId);
+                } catch (Exception e) {
+                    log.warn("Enrichment failed for entity #{}: {}", entityId, e.getMessage());
+                }
+            }
+        }
+        return results;
+    }
+
+    /** The entity the results landed on, or {@code null} when none did. */
+    public static Long firstEntityId(List<IngestionResult> results) {
+        return results.stream()
                 .map(IngestionResult::entityId)
                 .filter(java.util.Objects::nonNull)
                 .findFirst()
                 .orElse(null);
-        if (entityId != null) {
-            try {
-                self.finalEnrichment(entityId);
-            } catch (Exception e) {
-                log.warn("Final enrichment pass failed for entity #{}: {}", entityId, e.getMessage());
-            }
-        }
-
-        return results;
     }
 
     /**
@@ -324,7 +343,7 @@ public class IngestionOrchestrator {
         if (grouped.isEmpty()) {
             log.info("Resync for entity #{}: no re-fetchable sources, running enrichment only", entityId);
             try {
-                self.finalEnrichment(entityId);
+                enrichmentService.enrich(entityId);
             } catch (Exception e) {
                 log.warn("Enrichment-only resync failed for entity #{}: {}", entityId, e.getMessage());
             }
@@ -351,17 +370,18 @@ public class IngestionOrchestrator {
                     sourceType, entityId, typeSources.size());
 
             try {
-                List<IngestionResult> results = self.ingestMulti(parentRef.get());
-                allResults.addAll(results);
+                allResults.addAll(ingestMulti(parentRef.get(), false));
+            } catch (InferenceUnavailableException e) {
+                throw e;   // retryable: the resync job runs again
             } catch (Exception e) {
                 log.error("Resync failed for sourceType={} on entity #{}: {}", sourceType, entityId, e.getMessage(), e);
                 allResults.add(IngestionResult.error(entityId));
             }
         }
 
-        // Final enrichment after all source types are re-synced
+        // One enrichment after all source types are re-synced
         try {
-            self.finalEnrichment(entityId);
+            enrichmentService.enrich(entityId);
         } catch (Exception e) {
             log.warn("Post-resync enrichment failed for entity #{}: {}", entityId, e.getMessage());
         }
@@ -472,16 +492,6 @@ public class IngestionOrchestrator {
 
     // ─── helpers ───
 
-    /**
-     * Final enrichment pass after all sub-sources of a multi-source ingestion
-     * are complete. Runs in its own transaction (separate from the parallel
-     * per-source transactions) so it sees ALL committed chunks.
-     */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void finalEnrichment(Long entityId) {
-        enrichmentService.enrich(entityId);
-    }
-
     private Optional<Long> findEntityByAnyId(List<ExternalId> extIds) {
         for (ExternalId id : extIds) {
             Optional<Long> entityId = identifiers.findEntityIdByIdTypeAndIdValue(id.idType(), id.idValue());
@@ -526,22 +536,29 @@ public class IngestionOrchestrator {
 
     private Source upsertSource(Long entityId, SourceRef ref, String label,
                                  RawContent raw, String hash, Optional<Source> existing) {
-        boolean active = existing.map(Source::isActive)
-                .orElse(!(ref.onboardingDraft() && isCuratable(ref.sourceType())));
         if (existing.isPresent()) {
-            sources.delete(existing.get());
-            sources.flush();
+            // Update in place: the row keeps its id and its active flag, so
+            // citations and the user's curation choice survive a re-ingestion.
+            Source source = existing.get();
+            source.refresh(entityId, label, ref.provenance(), ref.consentBasis(),
+                    raw.text(), hash, "ok", Instant.now());
+            return sources.save(source);
         }
         Source source = new Source(
                 entityId, ref.sourceType(), ref.url(), label,
                 ref.provenance(), ref.consentBasis(),
                 raw.text(), hash, "ok", Instant.now());
-        source.setActive(active);
+        source.setActive(!(ref.onboardingDraft() && isCuratable(ref.sourceType())));
         return sources.save(source);
     }
 
+    /** The adapter's content fingerprint; the raw text if an adapter supplies none. */
+    private static String fingerprint(SourceAdapter adapter, RawContent raw) {
+        String fingerprint = adapter.contentFingerprint(raw);
+        return fingerprint != null ? fingerprint : raw.text();
+    }
+
     private void prepareExistingSourceForOnboarding(Source source, SourceRef ref) {
-        if (!ref.onboardingDraft()) return;
         claimIfUnowned(source.getEntityId(), ref.ownerId());
         applyOnboardingState(source.getEntityId(), ref);
         if (isCuratable(source.getSourceType()) && isOwnedBy(source.getEntityId(), ref.ownerId())) {

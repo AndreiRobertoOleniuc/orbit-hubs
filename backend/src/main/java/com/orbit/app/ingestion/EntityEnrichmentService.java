@@ -2,18 +2,20 @@ package com.orbit.app.ingestion;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionOperations;
 
 import com.orbit.app.ingestion.dto.SourceContent;
 import com.orbit.app.llm.LlmSummaryService;
-import com.orbit.app.util.SlugUtils;
+import com.orbit.app.search.ProfileDocumentService;
+import com.orbit.app.tag.TagVocabularyService;
 import com.orbit.domain.entity.DiscoveryEntity;
 import com.orbit.domain.entity.EntityTag;
 import com.orbit.domain.entity.EntityTagId;
@@ -23,7 +25,6 @@ import com.orbit.domain.repository.ChunkRepository;
 import com.orbit.domain.repository.DiscoveryEntityRepository;
 import com.orbit.domain.repository.EntityTagRepository;
 import com.orbit.domain.repository.SourceRepository;
-import com.orbit.domain.repository.TagRepository;
 
 /**
  * Post-ingestion enrichment: re-generates the entity's competence summary and
@@ -55,37 +56,45 @@ public class EntityEnrichmentService {
     private final DiscoveryEntityRepository entities;
     private final SourceRepository sources;
     private final ChunkRepository chunks;
-    private final TagRepository tagRepo;
+    private final TagVocabularyService tagVocabulary;
     private final EntityTagRepository entityTagRepo;
     private final LlmSummaryService llm;
     private final EntityLinkResolver linkResolver;
+    private final ProfileDocumentService profileDocuments;
+    private final TransactionOperations transactions;
 
     public EntityEnrichmentService(DiscoveryEntityRepository entities,
                                     SourceRepository sources,
                                     ChunkRepository chunks,
-                                    TagRepository tagRepo,
+                                    TagVocabularyService tagVocabulary,
                                     EntityTagRepository entityTagRepo,
                                     LlmSummaryService llm,
-                                    EntityLinkResolver linkResolver) {
+                                    EntityLinkResolver linkResolver,
+                                    ProfileDocumentService profileDocuments,
+                                    TransactionOperations transactions) {
         this.entities = entities;
         this.sources = sources;
         this.chunks = chunks;
-        this.tagRepo = tagRepo;
+        this.tagVocabulary = tagVocabulary;
         this.entityTagRepo = entityTagRepo;
         this.llm = llm;
         this.linkResolver = linkResolver;
+        this.profileDocuments = profileDocuments;
+        this.transactions = transactions;
     }
 
     /**
-     * Enrich an entity after a source has been ingested: regenerate the
-     * competence summary from all sources and re-derive tags.
+     * Enrich an entity after its sources have been ingested: regenerate the
+     * competence summary from all active sources and re-derive tags.
      * <p>
-     * This is called by {@link IngestionOrchestrator} after step 6 (embed +
-     * persist chunks). It runs in the same transaction as the ingestion.
+     * Called once all of an ingestion's sources have committed. Not
+     * transactional itself: the LLM calls run first, outside any transaction,
+     * and their results are written in one short transaction afterwards, so no
+     * database connection is held while the LLM answers. A failed LLM call
+     * leaves that part of the profile as it was.
      *
      * @param entityId the entity to enrich
      */
-    @Transactional
     public void enrich(Long entityId) {
         DiscoveryEntity entity = entities.findById(entityId).orElse(null);
         if (entity == null) {
@@ -99,67 +108,68 @@ public class EntityEnrichmentService {
             log.warn("Enrichment skipped — entity #{} has no source content (no chunks and no raw_content)", entityId);
             return;
         }
+        log.info("Enriching entity #{} ({} content blocks)", entityId, sourceContents.size());
 
-        log.info("Enriching entity #{} ({} sources, {} content blocks)",
-                entityId, sourceContents.size(), sourceContents.size());
-
-        // 2. Generate competence summary
+        // 2. LLM calls — outside any transaction.
+        String summary = null;
+        String headline = null;
         try {
-            String summary = llm.generateCompetenceSummary(
-                    entity.getDisplayName(),
-                    entity.getEntityType(),
-                    entity.getHeadline(),
-                    sourceContents);
-            if (summary != null && !summary.isBlank()) {
-                entity.setSummary(summary);
-
-                // Fill a role-style headline ONLY when the entity has none yet.
-                // This gives harvested (esp. OpenAlex) profiles a real title
-                // instead of the duplicated institution name — and, because it
-                // only fills when blank, it never overwrites a user's manual edit
-                // (§2a) or re-derives on every re-harvest.
-                if (entity.getHeadline() == null || entity.getHeadline().isBlank()) {
-                    String headline = llm.generateRoleHeadline(
-                            entity.getDisplayName(), entity.getEntityType(), summary);
-                    if (headline != null && !headline.isBlank()) {
-                        entity.setHeadline(headline);
-                        log.info("Derived role headline for entity #{}: {}", entityId, headline);
-                    }
-                }
-
-                entities.save(entity);
-                entities.flush();
-                log.info("Updated summary for entity #{}: {} chars", entityId, summary.length());
-            } else {
-                log.warn("Competence summary LLM returned null/empty for entity #{}", entityId);
+            summary = llm.generateCompetenceSummary(
+                    entity.getDisplayName(), entity.getEntityType(), entity.getHeadline(), sourceContents);
+            // A role-style headline is derived ONLY when the entity has none yet,
+            // so harvested (esp. OpenAlex) profiles get a real title, and a user's
+            // manual edit (§2a) is never overwritten or re-derived.
+            if (summary != null && !summary.isBlank()
+                    && (entity.getHeadline() == null || entity.getHeadline().isBlank())) {
+                headline = llm.generateRoleHeadline(entity.getDisplayName(), entity.getEntityType(), summary);
             }
         } catch (Exception e) {
             log.warn("Competence summary generation failed for entity #{}: {}", entityId, e.getMessage());
         }
-
-        // 3. Derive tags
+        List<String> derivedLabels = List.of();
         try {
-            List<String> derivedLabels = llm.deriveTags(
-                    entity.getDisplayName(),
-                    entity.getEntityType(),
-                    sourceContents,
-                    MAX_TAGS);
-            if (!derivedLabels.isEmpty()) {
-                upsertDerivedTags(entityId, derivedLabels);
-                log.info("Upserted {} derived tags for entity #{}", derivedLabels.size(), entityId);
-            } else {
-                log.warn("Tag derivation LLM returned empty list for entity #{}", entityId);
-            }
+            derivedLabels = llm.deriveTags(entity.getDisplayName(), entity.getEntityType(), sourceContents, MAX_TAGS);
         } catch (Exception e) {
             log.warn("Tag derivation failed for entity #{}: {}", entityId, e.getMessage());
         }
+        // Map new labels onto existing tags that name the same topic (embedding + LLM).
+        derivedLabels = tagVocabulary.canonicalLabels(derivedLabels);
 
-        // 4. Resolve Person↔Org link (best-effort; links only to an existing org)
-        try {
-            linkResolver.resolveForPerson(entity);
-        } catch (Exception e) {
-            log.warn("Person↔Org link resolution failed for entity #{}: {}", entityId, e.getMessage());
-        }
+        // 3. Write the results — one short transaction.
+        String newSummary = summary;
+        String newHeadline = headline;
+        List<String> labels = derivedLabels;
+        transactions.executeWithoutResult(status -> {
+            DiscoveryEntity fresh = entities.findById(entityId).orElse(null);
+            if (fresh == null) return;   // deleted meanwhile
+            if (newSummary != null && !newSummary.isBlank()) {
+                fresh.setSummary(newSummary);
+                if (newHeadline != null && !newHeadline.isBlank()
+                        && (fresh.getHeadline() == null || fresh.getHeadline().isBlank())) {
+                    fresh.setHeadline(newHeadline);
+                    log.info("Derived role headline for entity #{}: {}", entityId, newHeadline);
+                }
+                entities.save(fresh);
+                log.info("Updated summary for entity #{}: {} chars", entityId, newSummary.length());
+            } else {
+                log.warn("Competence summary LLM returned null/empty for entity #{}", entityId);
+            }
+            if (!labels.isEmpty()) {
+                upsertDerivedTags(entityId, labels);
+                log.info("Upserted {} derived tags for entity #{}", labels.size(), entityId);
+            } else {
+                log.warn("Tag derivation LLM returned empty list for entity #{}", entityId);
+            }
+            // Person↔Org link (best-effort; links only to an existing org)
+            try {
+                linkResolver.resolveForPerson(fresh);
+            } catch (Exception e) {
+                log.warn("Person↔Org link resolution failed for entity #{}: {}", entityId, e.getMessage());
+            }
+            // Re-index the profile document once this commits (summary, headline and tags may have changed)
+            profileDocuments.refreshAfterCommit(entityId);
+        });
+        tagVocabulary.embedMissingAsync();
     }
 
     // ─── helpers ───
@@ -231,56 +241,26 @@ public class EntityEnrichmentService {
     }
 
     /**
-     * Upsert derived tags: delete old derived tags, mint new tag vocabulary
-     * entries, and insert fresh derived entity_tags. Manual tags are untouched.
+     * Upsert derived tags: delete old derived tags and insert the fresh ones,
+     * reusing or minting vocabulary entries through {@link TagVocabularyService}.
+     * Manual tags are untouched — a label that is already a manual tag stays manual.
      */
     private void upsertDerivedTags(Long entityId, List<String> tagLabels) {
-        // 1. Remove old derived tags (manual tags stay)
         List<EntityTag> oldDerived = entityTagRepo.findByEntityIdAndOrigin(entityId, "derived");
         if (!oldDerived.isEmpty()) {
             entityTagRepo.deleteAll(oldDerived);
             entityTagRepo.flush();
         }
 
-        // 2. Mint or find tags in the controlled vocabulary
-        //    Deduplicate by slug, preserving insertion order (first occurrence wins)
-        Map<String, Tag> slugToTag = new LinkedHashMap<>();
-        List<String> slugsToLookup = new ArrayList<>();
+        Set<Long> seen = new HashSet<>();
         for (String label : tagLabels) {
-            String slug = SlugUtils.slugify(label);
-            if (slug.isEmpty() || slugToTag.containsKey(slug)) continue;
-            slugsToLookup.add(slug);
-            // Placeholder — will be replaced with the actual Tag after lookup/mint
-            slugToTag.put(slug, null);
-        }
-
-        // 3. Batch-lookup existing tags by slug
-        if (!slugsToLookup.isEmpty()) {
-            List<Tag> existing = tagRepo.findBySlugIn(slugsToLookup);
-            for (Tag t : existing) {
-                slugToTag.put(t.getSlug(), t);
-            }
-        }
-
-        // 4. Mint missing tags and build entity_tags
-        for (String label : tagLabels) {
-            String slug = SlugUtils.slugify(label);
-            Tag tag = slugToTag.get(slug);
-            if (tag == null) {
-                // Mint new tag
-                tag = tagRepo.save(new Tag(slug, label));
-                slugToTag.put(slug, tag);
-                log.debug("Minted new tag: {} (slug={})", label, slug);
-            }
-            // Insert derived entity_tag (skip if already manual — manual wins)
+            Tag tag = tagVocabulary.findOrMint(label).orElse(null);
+            if (tag == null || !seen.add(tag.getId())) continue;
             EntityTagId id = new EntityTagId(entityId, tag.getId());
-            EntityTag existing = entityTagRepo.findById(id).orElse(null);
-            if (existing == null) {
+            if (entityTagRepo.findById(id).isEmpty()) {
                 entityTagRepo.save(new EntityTag(entityId, tag.getId(), "derived"));
             }
-            // If a manual tag already exists for this (entity, tag), leave it — manual is sticky
         }
     }
-
 
 }

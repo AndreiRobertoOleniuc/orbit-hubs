@@ -5,9 +5,38 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { SearchResultCard } from "@/features/search/SearchResultCard"
 import { entityFixture } from "@/test/entityFixture"
-import type { SearchResultDto } from "@/types/api"
+import type {
+  SearchCitationDto,
+  SearchRationaleDto,
+  SearchResultDto,
+} from "@/types/api"
+
+const RATIONALE =
+  "Ada hat mehrfach Firmware für sicherheitskritische Steuerungen auditiert."
+
+const CITED: SearchCitationDto = {
+  sourceId: 1,
+  label: "Firmware audit report",
+  sourceType: "company_site",
+  sourceUrl: null,
+}
+const UNCITED: SearchCitationDto = {
+  sourceId: 2,
+  label: "Unrelated repository",
+  sourceType: "github",
+  sourceUrl: null,
+}
+
+const rationaleQuery = vi.fn(
+  (): { data?: SearchRationaleDto; isFetching: boolean } => ({
+    data: { entityId: 1, rationale: RATIONALE, citations: [CITED] },
+    isFetching: false,
+  })
+)
 
 vi.mock("@/lib/api", () => ({
+  useGetSearchRationaleQuery: (...args: unknown[]) =>
+    rationaleQuery(...(args as [])),
   useGetContactedEntityIdsQuery: () => ({ data: [] }),
   useGetContactGatingQuery: () => ({
     data: { allowed: true, missing: [] },
@@ -34,20 +63,75 @@ vi.mock("@/features/auth/useAuth", () => ({
   useAuth: () => ({ isAuthenticated: true }),
 }))
 
-afterEach(cleanup)
-
-const RATIONALE =
-  "Ada hat mehrfach Firmware für sicherheitskritische Steuerungen auditiert."
+afterEach(() => {
+  cleanup()
+  rationaleQuery.mockClear()
+})
 
 function resultFixture(): SearchResultDto {
   return {
     entity: entityFixture({ claimed: true }),
     score: 0.9,
-    rationale: RATIONALE,
-    citations: [],
+    citations: [CITED, UNCITED],
     distance: null,
   }
 }
+
+function renderCard(query = "embedded firmware security review") {
+  return render(
+    <MemoryRouter>
+      <SearchResultCard
+        result={resultFixture()}
+        rank={0}
+        query={query}
+        selected={false}
+        onSelect={() => {}}
+      />
+    </MemoryRouter>
+  )
+}
+
+describe("SearchResultCard → rationale", () => {
+  it("asks for the rationale of this result with the search as sent", () => {
+    renderCard("  embedded firmware  ")
+    expect(rationaleQuery).toHaveBeenCalledWith({
+      query: "embedded firmware",
+      entityId: resultFixture().entity.id,
+    })
+  })
+
+  it("shows the summary and every matching source until the rationale is there", () => {
+    rationaleQuery.mockReturnValueOnce({ isFetching: true })
+    renderCard()
+
+    expect(screen.queryByText(RATIONALE)).toBeNull()
+    expect(screen.getByRole("status").textContent).toContain(
+      "Begründung wird erstellt"
+    )
+    expect(screen.getByText("Firmware audit report")).not.toBeNull()
+    expect(screen.getByText("Unrelated repository")).not.toBeNull()
+  })
+
+  it("then shows the rationale with only the sources it cites", () => {
+    renderCard()
+
+    expect(screen.getByText(RATIONALE)).not.toBeNull()
+    expect(screen.queryByRole("status")).toBeNull()
+    expect(screen.getByText("Firmware audit report")).not.toBeNull()
+    expect(screen.queryByText("Unrelated repository")).toBeNull()
+  })
+
+  it("keeps every matching source when no rationale could be grounded", () => {
+    rationaleQuery.mockReturnValueOnce({
+      data: { entityId: 1, rationale: null, citations: [CITED, UNCITED] },
+      isFetching: false,
+    })
+    renderCard()
+
+    expect(screen.queryByText(RATIONALE)).toBeNull()
+    expect(screen.getByText("Unrelated repository")).not.toBeNull()
+  })
+})
 
 describe("SearchResultCard → ContactModal", () => {
   it("hands the search to the dialog without repeating the rationale", async () => {

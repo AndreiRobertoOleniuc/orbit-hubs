@@ -1,7 +1,9 @@
 package com.orbit.app.controllers;
 
-import java.util.Map;
+import java.util.List;
 
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -9,13 +11,16 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.orbit.app.controllers.dto.IngestionJobDto;
+import com.orbit.app.controllers.dto.IngestionJobsDto;
 import com.orbit.app.controllers.dto.IngestionRequest;
 import com.orbit.app.ingestion.IngestionService;
 
 /**
  * Thin REST controller for ingestion. All business logic (URL building,
- * provenance mapping, LinkedIn PDF lifecycle, result aggregation) lives in
- * {@link IngestionService}.
+ * provenance mapping, upload validation, queueing) lives in
+ * {@link IngestionService}. Submitting a source answers {@code 202 Accepted}
+ * with the queued job; {@code GET /jobs?ids=…} reports its progress.
  */
 @RestController
 @RequestMapping("/api/v1/ingestion")
@@ -28,24 +33,30 @@ public class IngestionController {
     }
 
     @PostMapping
-    public Map<String, Object> ingest(@RequestBody IngestionRequest request) {
-        return ingestionService.ingest(request);
+    public ResponseEntity<IngestionJobDto> ingest(@RequestBody IngestionRequest request) {
+        return ResponseEntity.accepted().body(ingestionService.ingest(request));
+    }
+
+    @GetMapping("/jobs")
+    public IngestionJobsDto jobs(@RequestParam("ids") List<Long> ids) {
+        return ingestionService.jobs(ids);
     }
 
     @PostMapping("/linkedin-pdf")
-    public Map<String, Object> uploadLinkedInPdf(
+    public ResponseEntity<IngestionJobDto> uploadLinkedInPdf(
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "onboardingDraft", defaultValue = "false") boolean onboardingDraft,
             @RequestParam(value = "profileMode", required = false) String profileMode) {
-        return ingestionService.ingestLinkedInPdf(file, onboardingDraft, profileMode);
+        return ResponseEntity.accepted().body(ingestionService.ingestLinkedInPdf(file, onboardingDraft, profileMode));
     }
 
     @PostMapping("/cv-pdf")
-    public Map<String, Object> uploadCvPdf(
+    public ResponseEntity<IngestionJobDto> uploadCvPdf(
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "onboardingDraft", defaultValue = "false") boolean onboardingDraft,
             @RequestParam(value = "profileMode", required = false) String profileMode,
             @RequestParam(value = "displayName", required = false) String displayName) {
-        return ingestionService.ingestCvPdf(file, onboardingDraft, profileMode, displayName);
+        return ResponseEntity.accepted()
+                .body(ingestionService.ingestCvPdf(file, onboardingDraft, profileMode, displayName));
     }
 }
