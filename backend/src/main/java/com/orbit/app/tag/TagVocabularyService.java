@@ -103,7 +103,7 @@ public class TagVocabularyService {
                                 JdbcTemplate jdbc,
                                 EmbeddingService embeddingService,
                                 LlmSummaryService llm,
-                                @Value("${orbit.tags.canonical-similarity:0.78}") double similarityFloor,
+                                @Value("${orbit.tags.canonical-similarity}") double similarityFloor,
                                 @Value("${orbit.tags.sync-on-startup:true}") boolean syncOnStartup) {
         this(tags, jdbc, embeddingService, llm, similarityFloor, syncOnStartup, Executors.newSingleThreadExecutor(runnable -> {
             Thread thread = new Thread(runnable, "tag-vocabulary");

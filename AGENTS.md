@@ -57,7 +57,7 @@ Builds multi-arch images, pushes to Docker Hub, applies `k8s/orbit.yml` to k3s. 
 
 **Every model call goes through OpenRouter** — one key (`OPENROUTER_API_KEY`), one bill, three endpoints, all behind `app.inference.OpenRouterClient`:
 
-| Concern | Model (`orbit.openrouter.*`) | Class |
+| Concern | Model (`orbit.openrouter.*` in `application.yaml`) | Class |
 |---|---|---|
 | LLM (summaries, tags, query rewrite, rationale) | `chat.model` `google/gemini-2.5-flash-lite`, then `chat.fallback-models` | `llm.OpenRouterChatModel` (a Spring AI `ChatModel`) |
 | Embeddings (1024-dim) | `embedding.model` `mongodb/voyage-4-lite` | `embedding.OpenRouterEmbeddingService` |
@@ -65,7 +65,7 @@ Builds multi-arch images, pushes to Docker Hub, applies `k8s/orbit.yml` to k3s. 
 
 There is no other provider and no local model. `OPENROUTER_API_KEY` is required to start. Spring AI is used only for its `ChatModel`/`Prompt` types (`spring-ai-model`); nothing is auto-configured.
 
-**Configuration.** `backend/src/main/resources/application.yaml` holds only what differs from the defaults in code and the credentials the deployment passes in under its own names (`ApplicationYamlTest` fails on any other key). Every default sits next to the code that reads it — `@Value` defaults and the `*Properties` records (`OpenRouterProperties`, `RerankProperties`, `RequestsProperties`) — and any setting can be overridden by environment variable under Spring's naming (`orbit.search.rerank-depth` → `ORBIT_SEARCH_RERANK_DEPTH`). Don't add a key to the YAML only to repeat its default. Every request carries `provider.data_collection` (`orbit.openrouter.data-collection`, default `deny`), so profile text only goes to providers that do not keep it.
+**Configuration.** `backend/src/main/resources/application.yaml` holds three things: the **model choices and the values tied to them** (models, LLM fallbacks, temperature and token limit, embedding size and input types, data-collection policy, `orbit.search.reranker-threshold`, `orbit.tags.canonical-similarity`), the credentials the deployment passes in under its own names, and what differs from Spring's defaults. The model settings have **no default in code** — the YAML is their only source, and `OpenRouterProperties` stops the start when one is missing; `OpenRouterPropertiesTest` pins the production models. Every other tunable (depths, budgets, retries, rate limits) has its default next to the code that reads it (`@Value` defaults, `RerankProperties`, `RequestsProperties`). `ApplicationYamlTest` fails on any other YAML key: don't add one only to repeat a code default. Any setting can be overridden by environment variable under Spring's naming (`orbit.search.reranker-threshold` → `ORBIT_SEARCH_RERANKER_THRESHOLD`). Every request carries `provider.data_collection` (`orbit.openrouter.data-collection`, default `deny`), so profile text only goes to providers that do not keep it.
 
 **Three settings belong to a model and must change with it:**
 - **Reranker threshold** (`orbit.search.reranker-threshold`): scores of different rerankers are not comparable — 0.3 for cohere/rerank-5-fast. A new reranker needs an `evaluation-v3` run with `EVAL_SWEEP_THRESHOLDS`.

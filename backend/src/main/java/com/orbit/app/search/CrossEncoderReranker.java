@@ -58,7 +58,7 @@ public class CrossEncoderReranker {
 
     public CrossEncoderReranker(
             CrossEncoderClient rerankerClient,
-            @Value("${orbit.search.reranker-threshold:0.3}") double relevanceThreshold) {
+            @Value("${orbit.search.reranker-threshold}") double relevanceThreshold) {
         this.rerankerClient = rerankerClient;
         this.relevanceThreshold = relevanceThreshold;
         log.info("Cross-encoder reranker: provider={}, threshold={}",

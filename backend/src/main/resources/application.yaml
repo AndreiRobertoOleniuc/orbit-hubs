@@ -1,7 +1,8 @@
-# Only what differs from the defaults in code, plus the credentials the deployment
-# passes in under its own names. Every other setting has its default next to the
-# code that reads it and can be overridden by environment variable without being
-# listed here: orbit.search.rerank-depth → ORBIT_SEARCH_RERANK_DEPTH.
+# The model choices and the values tied to them, the credentials, and what differs
+# from Spring's defaults. The model settings are written only here (the backend does
+# not start without them); every other tunable has its default next to the code that
+# reads it. Any key can be overridden by environment variable:
+# orbit.search.reranker-threshold → ORBIT_SEARCH_RERANKER_THRESHOLD.
 spring:
   application:
     name: backend
@@ -38,9 +39,42 @@ orbit:
     # Clerk user ids (sub claim) with admin access, comma-separated.
     user-ids: ${ORBIT_ADMIN_USER_IDS:user_3FEZ7buK8HMqm9R34MuKFmnJ26z}
   openrouter:
-    # Serves the LLM, the embedding model and the reranker (models and their settings:
-    # OpenRouterProperties).
+    # One key and one bill for the LLM, the embedding model and the reranker.
     api-key: ${OPENROUTER_API_KEY:}
+    # deny: only providers that neither keep nor train on what is sent (profiles, CVs, queries).
+    data-collection: deny
+    chat:
+      model: google/gemini-2.5-flash-lite
+      # OpenRouter answers from these, in order, inside the same request when the model
+      # is rate limited: 2.5 Flash-Lite has one provider and a quota shared by all
+      # OpenRouter customers (24 of 60 burst calls refused without them, 2026-11-16).
+      fallback-models:
+        - google/gemini-3.1-flash-lite
+        - anthropic/claude-haiku-5.5
+      temperature: 0.3
+      max-tokens: 500
+    embedding:
+      # Changing the model re-embeds every chunk, tag and profile document after the
+      # next start, and needs a new orbit.tags.canonical-similarity.
+      model: mongodb/voyage-4-lite
+      dimensions: 1024
+      # How voyage tells a query from a passage. A model told by a text prefix instead
+      # (e5: "query: " / "passage: ") sets query-prefix / passage-prefix and leaves these empty.
+      query-input-type: search_query
+      passage-input-type: search_document
+    reranker:
+      # Changing the model needs a new orbit.search.reranker-threshold.
+      model: cohere/rerank-5-fast
+  search:
+    # Results scoring below this are dropped: the only relevance gate. Belongs to the
+    # reranker model and its input (profile card, 800 characters): calibrated for
+    # cohere/rerank-5-fast on evaluation-v3, 2026-11-16.
+    reranker-threshold: 0.3
+  tags:
+    # A new tag label is mapped onto an existing tag at this embedding similarity or
+    # above, once the LLM confirms it names the same topic. Belongs to the embedding
+    # model: 0.78 for voyage-4-lite (translations and variants sit at 0.79 and above).
+    canonical-similarity: 0.78
   github:
     token: ${GITHUB_TOKEN:}
   openalex:

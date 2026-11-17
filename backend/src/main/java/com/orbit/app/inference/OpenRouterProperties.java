@@ -10,6 +10,10 @@ import org.springframework.util.StringUtils;
 /**
  * OpenRouter serves every model Orbit calls — the LLM, the embedding model and
  * the reranker — behind one key and one bill ({@code orbit.openrouter.*}).
+ * <p>
+ * The model choices have no default here: application.yaml is the one place
+ * they are written, and the application does not start when one is missing.
+ * Connection settings keep their defaults.
  *
  * @param dataCollection {@code deny} routes only to providers that do not keep
  *                       or train on what is sent (profiles, CVs, queries);
@@ -21,13 +25,17 @@ import org.springframework.util.StringUtils;
 public record OpenRouterProperties(
         @DefaultValue("") String apiKey,
         @DefaultValue("https://openrouter.ai/api/v1") String baseUrl,
-        @DefaultValue("deny") String dataCollection,
+        String dataCollection,
         @DefaultValue("PT2M") Duration maxWait,
         @DefaultValue("PT5S") Duration connectTimeout,
         @DefaultValue("PT30S") Duration requestTimeout,
         @DefaultValue Chat chat,
         @DefaultValue Embedding embedding,
         @DefaultValue Reranker reranker) {
+
+    public OpenRouterProperties {
+        if (dataCollection == null) throw missing("data-collection");
+    }
 
     /**
      * @param fallbackModels models OpenRouter answers with, in this order, when
@@ -42,11 +50,19 @@ public record OpenRouterProperties(
      *                       typed, the existing summary) or retries later.
      */
     public record Chat(
-            @DefaultValue("google/gemini-2.5-flash-lite") String model,
-            @DefaultValue({"google/gemini-3.1-flash-lite", "anthropic/claude-haiku-5.5"}) List<String> fallbackModels,
-            @DefaultValue("0.3") double temperature,
-            @DefaultValue("500") int maxTokens,
+            String model,
+            List<String> fallbackModels,
+            Double temperature,
+            Integer maxTokens,
             @DefaultValue("PT20S") Duration maxWait) {
+
+        public Chat {
+            if (!StringUtils.hasText(model)) throw missing("chat.model");
+            if (fallbackModels == null) throw missing("chat.fallback-models");
+            if (temperature == null) throw missing("chat.temperature");
+            if (maxTokens == null) throw missing("chat.max-tokens");
+            fallbackModels = List.copyOf(fallbackModels);
+        }
     }
 
     /**
@@ -61,15 +77,28 @@ public record OpenRouterProperties(
      * @param passagePrefix    the same for passages ({@code "passage: "} for e5)
      */
     public record Embedding(
-            @DefaultValue("mongodb/voyage-4-lite") String model,
-            @DefaultValue("1024") int dimensions,
-            @DefaultValue("search_query") String queryInputType,
-            @DefaultValue("search_document") String passageInputType,
+            String model,
+            Integer dimensions,
+            @DefaultValue("") String queryInputType,
+            @DefaultValue("") String passageInputType,
             @DefaultValue("") String queryPrefix,
             @DefaultValue("") String passagePrefix) {
+
+        public Embedding {
+            if (!StringUtils.hasText(model)) throw missing("embedding.model");
+            if (dimensions == null) throw missing("embedding.dimensions");
+        }
     }
 
-    public record Reranker(@DefaultValue("cohere/rerank-5-fast") String model) {
+    public record Reranker(String model) {
+
+        public Reranker {
+            if (!StringUtils.hasText(model)) throw missing("reranker.model");
+        }
+    }
+
+    private static IllegalStateException missing(String key) {
+        return new IllegalStateException("orbit.openrouter." + key + " must be set in application.yaml");
     }
 
     public String requiredApiKey() {
