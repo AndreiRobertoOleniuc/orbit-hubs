@@ -46,8 +46,8 @@ import com.orbit.domain.repository.TagRepository;
  *       existing tags by embedding, at least {@code orbit.tags.canonical-similarity},
  *       are offered to the LLM, which accepts a pair only when both labels name
  *       the same topic (a translation, a variant). Embedding similarity alone is
- *       not enough: "Genomik" and "Genetik" are as close as many translations
- *       (0.76 with voyage-4-lite, 0.96 with multilingual-e5-large).</li>
+ *       not enough: "Genomik" and "Genetik" (0.76 with voyage-4-lite) are as close
+ *       as many translations.</li>
  * </ol>
  * A label is only ever mapped onto one existing tag, never merged transitively,
  * and existing tags are never merged. When the embedding or the LLM is

@@ -31,7 +31,7 @@ class OpenRouterChatModelTest {
             new OpenRouterProperties("sk-test", "https://openrouter.test/api/v1", "deny",
                     Duration.ofMinutes(2), Duration.ofSeconds(5), Duration.ofSeconds(30),
                     new OpenRouterProperties.Chat("google/gemini-test", List.of(), 0.3, 500, CHAT_WAIT),
-                    new OpenRouterProperties.Embedding("embed/model", "", ""),
+                    new OpenRouterProperties.Embedding("embed/model", 1024, "", "", "", ""),
                     new OpenRouterProperties.Reranker("rerank/model")),
             objectMapper);
 
@@ -70,7 +70,7 @@ class OpenRouterChatModelTest {
                         Duration.ofMinutes(2), Duration.ofSeconds(5), Duration.ofSeconds(30),
                         new OpenRouterProperties.Chat("first/model", List.of("second/model", "third/model"),
                                 0.3, 500, CHAT_WAIT),
-                        new OpenRouterProperties.Embedding("embed/model", "", ""),
+                        new OpenRouterProperties.Embedding("embed/model", 1024, "", "", "", ""),
                         new OpenRouterProperties.Reranker("rerank/model")),
                 objectMapper);
         answer("{\"choices\":[{\"message\":{\"content\":\"ok\"}}]}");

@@ -44,7 +44,7 @@ public class ProfileDocumentService {
 
     private static final Logger log = LoggerFactory.getLogger(ProfileDocumentService.class);
 
-    /** A summary plus tags fits well within this, and within the 512 tokens the smallest supported model (e5) reads. */
+    /** A summary plus tags fits well within this. */
     static final int MAX_CONTENT_CHARS = 2000;
 
     private static final String TAGS_SQL = """

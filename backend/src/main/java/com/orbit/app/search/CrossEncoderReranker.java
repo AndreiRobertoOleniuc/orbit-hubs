@@ -24,8 +24,8 @@ import com.orbit.domain.entity.DiscoveryEntity;
  * scored ({@code orbit.search.rerank-passages=0}).
  * Candidates below {@link #relevanceThreshold} are dropped. Scores of
  * different reranker models are not comparable, so the threshold belongs to
- * the model: 0.3 for cohere/rerank-5-fast, 0.02 for bge-reranker-v2-m3
- * (evaluation-v3, 2026-11-16).
+ * the model: 0.3 for cohere/rerank-5-fast (evaluation-v3, 2026-11-16); another
+ * model needs its own run.
  * <p>
  * Two-stage retrieval:
  * <ol>
@@ -40,7 +40,7 @@ public class CrossEncoderReranker {
 
     private static final Logger log = LoggerFactory.getLogger(CrossEncoderReranker.class);
 
-    /** Longest passage when the caller sets no limit; bge-reranker-v2-m3 reads no more than 512 tokens per pair. */
+    /** Longest passage when the caller sets no limit. */
     static final int MAX_PASSAGE_CHARS = 2000;
 
     /** How a source type is named in a passage header. */

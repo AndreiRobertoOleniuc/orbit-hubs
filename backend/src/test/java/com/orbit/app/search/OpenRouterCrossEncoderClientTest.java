@@ -27,7 +27,7 @@ class OpenRouterCrossEncoderClientTest {
             new OpenRouterProperties("sk-test", "https://openrouter.test/api/v1", "deny",
                     Duration.ofMinutes(2), Duration.ofSeconds(5), Duration.ofSeconds(30),
                     new OpenRouterProperties.Chat("chat/model", List.of(), 0.3, 500, Duration.ofSeconds(20)),
-                    new OpenRouterProperties.Embedding("embed/model", "", ""),
+                    new OpenRouterProperties.Embedding("embed/model", 1024, "", "", "", ""),
                     new OpenRouterProperties.Reranker("cohere/rerank-test")),
             objectMapper);
 

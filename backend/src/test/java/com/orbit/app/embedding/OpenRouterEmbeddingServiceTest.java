@@ -103,12 +103,8 @@ class OpenRouterEmbeddingServiceTest {
     }
 
     @Test
-    void theSameModelHasOneStoredNameWhoeverServesIt() {
-        assertThat(service("intfloat/multilingual-e5-large", "", "", "", "").modelName())
-                .isEqualTo("multilingual-e5-large");
-        assertThat(EmbeddingService.canonicalModelName("jeffh/intfloat-multilingual-e5-large:f16"))
-                .isEqualTo("multilingual-e5-large");
-        assertThat(service("mongodb/voyage-4", "", "", "", "").modelName()).isEqualTo("mongodb/voyage-4");
+    void vectorsAreStoredUnderTheConfiguredModelId() {
+        assertThat(service("mongodb/voyage-4-lite", "", "", "", "").modelName()).isEqualTo("mongodb/voyage-4-lite");
     }
 
     private void answer(String json) {
@@ -126,9 +122,8 @@ class OpenRouterEmbeddingServiceTest {
         OpenRouterProperties props = new OpenRouterProperties("sk-test", "https://openrouter.test/api/v1", "deny",
                 Duration.ofMinutes(2), Duration.ofSeconds(5), Duration.ofSeconds(30),
                 new OpenRouterProperties.Chat("chat/model", List.of(), 0.3, 500, Duration.ofSeconds(20)),
-                new OpenRouterProperties.Embedding(model, queryInputType, passageInputType),
+                new OpenRouterProperties.Embedding(model, 3, queryInputType, passageInputType, queryPrefix, passagePrefix),
                 new OpenRouterProperties.Reranker("rerank/model"));
-        return new OpenRouterEmbeddingService(client, props,
-                new EmbeddingProperties("http://localhost:11434", "local", 3, queryPrefix, passagePrefix), objectMapper);
+        return new OpenRouterEmbeddingService(client, props, objectMapper);
     }
 }

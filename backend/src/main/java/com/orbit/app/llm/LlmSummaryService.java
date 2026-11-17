@@ -34,7 +34,7 @@ import tools.jackson.databind.json.JsonMapper;
  * that captures what the project does and what expertise it demonstrates.
  * <p>
  * Includes retry logic (3 attempts with exponential backoff) to handle
- * intermittent timeouts and rate limiting from the Ollama cloud model.
+ * intermittent timeouts and rate limiting from the hosted LLM.
  */
 @Service
 public class LlmSummaryService {
@@ -1021,8 +1021,8 @@ public class LlmSummaryService {
      * English translation (semantic retrieval) and the condensed English search
      * terms (lexical retrieval and the cross-encoder).
      * <p>
-     * The cross-encoder (bge-reranker-v2-m3) is trained on short search-style
-     * queries, not conversational sentences. Feeding it "I need a Requirements
+     * Cross-encoders are trained on short search-style queries, not
+     * conversational sentences. Feeding it "I need a Requirements
      * Engineering Expert who can help us with our SaaS product" scores far lower
      * than "Requirements Engineering Expert SaaS product", even for perfect
      * matches. Retrieval keeps the full translation so project context ("SaaS")

@@ -90,9 +90,8 @@ public class SearchService {
      * rest cannot be shown. Bounds the cost of stage 2: each costs
      * {@link #rerankPassages} + 1 scored pairs. The reranker on OpenRouter
      * scores 30 cards in about 0.35 s and 50 in about 0.4 s (2026-11-16), so
-     * depth costs little time there; a model that scores pairs one after
-     * another (bge-reranker-v2-m3 on Hugging Face: 0.15 s per pair) needs a
-     * smaller one. With today's 56 profiles 20, 30 and 50 found the same
+     * depth costs little time; it is billed per token read. With today's 56
+     * profiles 20, 30 and 50 found the same
      * expected profiles; the margin is for a larger corpus.
      */
     @Value("${orbit.search.rerank-depth:30}")
@@ -102,7 +101,7 @@ public class SearchService {
      * Evidence chunks per candidate the cross-encoder scores, besides the
      * profile card. None by default: the card already carries the start of the
      * best chunk, and the relevance threshold is calibrated for the card alone.
-     * With bge-reranker-v2-m3 (2026-11-16) the card alone found as many
+     * With the previous reranker (2026-11-16) the card alone found as many
      * expected profiles as card + chunk, with fewer irrelevant results, and
      * 2 or 3 chunks let a negative control through: more passages give an
      * irrelevant candidate more chances to score high by luck. Not measured
@@ -144,7 +143,7 @@ public class SearchService {
     private double semanticWeight = 1.0;
 
     /**
-     * RRF weight of the semantic leg on the query as typed (multilingual e5);
+     * RRF weight of the semantic leg on the query as typed (multilingual embedding);
      * 0 switches it off. Unused when the query is already English.
      */
     @Value("${orbit.search.retrieval.original-language-weight:1.0}")
@@ -392,9 +391,8 @@ public class SearchService {
         //      terms — including project context like "SaaS" — so retrieval can
         //      surface candidates with relevant domain experience;
         //    - the condensed search terms, for the keyword leg and for Stage 2.
-        //      Introduced for bge-reranker-v2-m3, which is trained on short
-        //      search-style queries; the threshold of the current reranker is
-        //      calibrated on these terms too.
+        //      Cross-encoders are trained on short search-style queries, and
+        //      the reranker threshold is calibrated on these terms.
         SearchQueryRewrite rewrite = queryRewriter.rewrite(queryText);
         String fullEnglishQuery = rewrite.english();
         String condensedQuery = rewrite.searchTerms();
@@ -484,7 +482,7 @@ public class SearchService {
         // 5. The cross-encoder scores the best-retrieved candidates on their own
         //    passages — their profile card and their best evidence chunk — and
         //    drops those whose best passage is irrelevant. There is no
-        //    bi-encoder similarity gate in front of it: e5 similarities sit in a
+        //    bi-encoder similarity gate in front of it: embedding similarities sit in a
         //    narrow band that shifts with query length, so a fixed cut removed
         //    relevant candidates the cross-encoder never saw.
         //    A provider outage propagates as HTTP 503; never display un-reranked results.

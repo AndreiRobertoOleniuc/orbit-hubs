@@ -7,8 +7,8 @@ import java.util.function.Supplier;
  * A per-thread deadline for hosted inference calls made on behalf of someone
  * who is waiting — a search request.
  * <p>
- * A hosted model that is loading or rate-limited is retried for up to
- * {@code orbit.huggingface.max-wait} (2 minutes). That suits a background job;
+ * A hosted model that is overloaded or rate-limited is retried for up to
+ * {@code orbit.openrouter.max-wait} (2 minutes). That suits a background job;
  * nobody waits that long for search results. Work wrapped in {@link #within}
  * gives up at the deadline instead, with an
  * {@link InferenceUnavailableException} (HTTP 503), and the client can retry

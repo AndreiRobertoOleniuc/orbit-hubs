@@ -185,7 +185,6 @@ export const apiSlice = createApi({
 
     uploadLinkedInPdf: builder.mutation<
       IngestionJobDto,
-      IngestionJobsDto,
       { file: File; onboardingDraft?: boolean; profileMode?: ProfileMode }
     >({
       query: ({ file, onboardingDraft, profileMode }) => {
@@ -203,7 +202,6 @@ export const apiSlice = createApi({
 
     uploadCvPdf: builder.mutation<
       IngestionJobDto,
-      IngestionJobsDto,
       {
         file: File
         onboardingDraft?: boolean

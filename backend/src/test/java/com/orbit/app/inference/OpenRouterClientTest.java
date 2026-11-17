@@ -96,6 +96,40 @@ class OpenRouterClientTest {
     }
 
     @Test
+    void aCallersDeadlineCutsTheWaitShort() {
+        responses.add(new InferenceResponse(429, Map.of("Retry-After", List.of("30")), "{}"));
+        responses.add(response(200, "{}"));
+
+        long deadline = nanos.get() + Duration.ofSeconds(5).toNanos();
+        assertThatThrownBy(() -> InferenceDeadline.within(deadline, () -> client("deny").post("rerank", request())))
+                .isInstanceOf(InferenceUnavailableException.class)
+                .hasMessageContaining("deadline");
+        assertThat(sleptMillis.get()).isEqualTo(5_000);     // not the 30 s OpenRouter asked for
+        assertThat(InferenceDeadline.current()).isEmpty();
+    }
+
+    @Test
+    void aCallersDeadlineNeverExtendsTheCallsOwnWait() {
+        responses.add(new InferenceResponse(429, Map.of("Retry-After", List.of("30")), "{}"));
+
+        long deadline = nanos.get() + Duration.ofMinutes(10).toNanos();
+        assertThatThrownBy(() -> InferenceDeadline.within(deadline,
+                () -> client("deny").post("rerank", request(), Duration.ofSeconds(1))))
+                .isInstanceOf(InferenceUnavailableException.class);
+        assertThat(nanos.get()).isEqualTo(Duration.ofSeconds(1).toNanos());
+    }
+
+    @Test
+    void aBadKeyIsNotRetried() {
+        responses.add(response(401, "{\"error\":{\"code\":401,\"message\":\"No auth credentials found\"}}"));
+
+        assertThatThrownBy(() -> client("deny").post("embeddings", request()))
+                .isInstanceOf(InferenceUnavailableException.class)
+                .hasMessageContaining("401");
+        assertThat(sleptMillis.get()).isZero();
+    }
+
+    @Test
     void refusesToStartWithoutAKey() {
         assertThatThrownBy(() -> new OpenRouterClient(props("", "deny"), objectMapper))
                 .isInstanceOf(IllegalStateException.class)
@@ -119,7 +153,7 @@ class OpenRouterClientTest {
         return new OpenRouterProperties(apiKey, "https://openrouter.test/api/v1/", dataCollection,
                 Duration.ofMinutes(2), Duration.ofSeconds(5), Duration.ofSeconds(30),
                 new OpenRouterProperties.Chat("chat/model", List.of(), 0.3, 500, Duration.ofSeconds(20)),
-                new OpenRouterProperties.Embedding("embed/model", "", ""),
+                new OpenRouterProperties.Embedding("embed/model", 1024, "", "", "", ""),
                 new OpenRouterProperties.Reranker("rerank/model"));
     }
 

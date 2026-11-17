@@ -3,7 +3,6 @@ package com.orbit.app.search;
 import java.util.Arrays;
 import java.util.List;
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import com.orbit.app.inference.OpenRouterClient;
@@ -20,7 +19,6 @@ import tools.jackson.databind.node.ObjectNode;
  * ({@code orbit.search.reranker-threshold}) belongs to the configured model.
  */
 @Component
-@ConditionalOnProperty(name = "orbit.search.reranker-provider", havingValue = "openrouter")
 class OpenRouterCrossEncoderClient implements CrossEncoderClient {
 
     private final OpenRouterClient client;

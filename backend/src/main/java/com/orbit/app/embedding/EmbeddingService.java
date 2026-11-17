@@ -18,18 +18,6 @@ public interface EmbeddingService {
     String modelName();
 
     /**
-     * One name for one model, whoever serves it: multilingual-e5-large gives the
-     * same vectors from Ollama, Hugging Face and OpenRouter (cosine 1.000,
-     * measured 2026-11-16), so its provider-specific ids share a stored name and
-     * a change of provider re-embeds nothing. Any other id is its own name.
-     */
-    static String canonicalModelName(String providerModelId) {
-        return providerModelId.toLowerCase(java.util.Locale.ROOT).contains("multilingual-e5-large")
-                ? "multilingual-e5-large"
-                : providerModelId;
-    }
-
-    /**
      * Embed several texts of the same kind, in input order. Fails as a whole:
      * either every text gets a vector or the call throws. Providers override
      * this with one request per batch; the default embeds one text at a time.

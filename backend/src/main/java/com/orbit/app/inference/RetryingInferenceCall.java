@@ -22,10 +22,8 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * One JSON POST to a hosted model API, repeated while the provider says the
- * model is loading, overloaded or rate limited — until a deadline. Shared by
- * the provider clients ({@link OpenRouterClient}, {@link HfInferenceClient}),
- * which differ only in address, credentials and which statuses are worth a retry.
+ * One JSON POST to a hosted model API ({@link OpenRouterClient}), repeated while
+ * the provider says the model is overloaded or rate limited — until a deadline.
  * <p>
  * The deadline is the earlier of the call's own maximum wait and the caller's
  * {@link InferenceDeadline}; the wait between attempts follows the provider's
@@ -126,8 +124,7 @@ final class RetryingInferenceCall {
 
     private void waitBeforeRetry(String model, InferenceResponse response, int retry, long deadline, Duration maxWait)
             throws InterruptedException {
-        Duration delay = retryAfter(response).orElseGet(() -> estimatedLoadingTime(response)
-                .orElseGet(() -> fallbackDelay(retry)));
+        Duration delay = retryAfter(response).orElseGet(() -> fallbackDelay(retry));
         waitFor(model, delay, deadline, maxWait, "HTTP " + response.statusCode());
     }
 
@@ -144,23 +141,6 @@ final class RetryingInferenceCall {
         if (nanoTime.getAsLong() - deadline >= 0) {
             throw outOfTime(model, maxWait);
         }
-    }
-
-    /** Hugging Face says how long a cold model still needs to load: {@code {"estimated_time": 12.5}}. */
-    private Optional<Duration> estimatedLoadingTime(InferenceResponse response) {
-        if (response.statusCode() != 503 || response.body() == null || response.body().isBlank()) {
-            return Optional.empty();
-        }
-        try {
-            JsonNode value = objectMapper.readTree(response.body()).get("estimated_time");
-            if (value != null && value.isNumber()) {
-                long millis = Math.max(0L, Math.round(value.doubleValue() * 1000.0) + 250L);
-                return Optional.of(Duration.ofMillis(millis));
-            }
-        } catch (RuntimeException ignored) {
-            // A 503 body is provider-controlled; fall back when it is not JSON.
-        }
-        return Optional.empty();
     }
 
     private Optional<Duration> retryAfter(InferenceResponse response) {

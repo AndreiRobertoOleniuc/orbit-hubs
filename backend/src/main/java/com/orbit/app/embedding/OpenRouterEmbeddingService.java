@@ -5,7 +5,6 @@ import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
@@ -21,15 +20,13 @@ import tools.jackson.databind.node.ObjectNode;
  * Embeddings from OpenRouter's {@code /embeddings} endpoint.
  * <p>
  * A model learns the difference between a query and a passage in one of two
- * ways, and both are configuration: a text prefix
- * ({@code orbit.embedding.query-prefix} / {@code passage-prefix}, e.g. e5's
- * {@code "query: "}) or the request's {@code input_type}
- * ({@code orbit.openrouter.embedding.*-input-type}, e.g. {@code search_query}).
+ * ways, and both are configuration ({@code orbit.openrouter.embedding.*}): the
+ * request's {@code input_type} ({@code search_query} for voyage) or a text
+ * prefix ({@code "query: "} for e5).
  * The vector size is always asked for explicitly, so a model with a larger
  * native size is cut to the 1024 the schema stores.
  */
 @Service
-@ConditionalOnProperty(name = "orbit.embedding.provider", havingValue = "openrouter")
 class OpenRouterEmbeddingService implements EmbeddingService {
 
     private static final Logger log = LoggerFactory.getLogger(OpenRouterEmbeddingService.class);
@@ -39,24 +36,21 @@ class OpenRouterEmbeddingService implements EmbeddingService {
 
     private final OpenRouterClient client;
     private final OpenRouterProperties.Embedding model;
-    private final EmbeddingProperties embeddingProps;
     private final JsonMapper objectMapper;
 
-    OpenRouterEmbeddingService(OpenRouterClient client, OpenRouterProperties openRouterProps,
-            EmbeddingProperties embeddingProps, JsonMapper objectMapper) {
+    OpenRouterEmbeddingService(OpenRouterClient client, OpenRouterProperties openRouterProps, JsonMapper objectMapper) {
         this.client = client;
         this.model = openRouterProps.embedding();
-        this.embeddingProps = embeddingProps;
         this.objectMapper = objectMapper;
         log.info("OpenRouter embeddings: model {}, {} dimensions, query prefix \"{}\", passage prefix \"{}\","
                         + " input types \"{}\" / \"{}\"",
-                model.model(), embeddingProps.dimensions(), embeddingProps.queryPrefix(),
-                embeddingProps.passagePrefix(), model.queryInputType(), model.passageInputType());
+                model.model(), model.dimensions(), model.queryPrefix(),
+                model.passagePrefix(), model.queryInputType(), model.passageInputType());
     }
 
     @Override
     public String modelName() {
-        return EmbeddingService.canonicalModelName(model.model());
+        return model.model();
     }
 
     @Override
@@ -79,12 +73,12 @@ class OpenRouterEmbeddingService implements EmbeddingService {
         ObjectNode request = objectMapper.createObjectNode();
         request.put("model", model.model());
         ArrayNode input = request.putArray("input");
-        String prefix = kind == EmbeddingKind.QUERY ? embeddingProps.queryPrefix() : embeddingProps.passagePrefix();
+        String prefix = kind == EmbeddingKind.QUERY ? model.queryPrefix() : model.passagePrefix();
         for (String text : batch) {
             Assert.hasText(text, "text to embed must not be blank");
             input.add(prefix + text);
         }
-        request.put("dimensions", embeddingProps.dimensions());
+        request.put("dimensions", model.dimensions());
         String inputType = kind == EmbeddingKind.QUERY ? model.queryInputType() : model.passageInputType();
         if (StringUtils.hasText(inputType)) {
             request.put("input_type", inputType);
@@ -108,10 +102,10 @@ class OpenRouterEmbeddingService implements EmbeddingService {
     }
 
     private float[] toVector(JsonNode vector) {
-        if (vector == null || !vector.isArray() || vector.size() != embeddingProps.dimensions()) {
+        if (vector == null || !vector.isArray() || vector.size() != model.dimensions()) {
             throw new IllegalStateException("OpenRouter embedding model '%s' returned %d dimensions, expected %d"
                     .formatted(model.model(), vector != null && vector.isArray() ? vector.size() : 0,
-                            embeddingProps.dimensions()));
+                            model.dimensions()));
         }
         float[] result = new float[vector.size()];
         for (int i = 0; i < result.length; i++) {

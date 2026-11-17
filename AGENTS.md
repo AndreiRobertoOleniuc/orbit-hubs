@@ -38,21 +38,12 @@ npm run test                      # vitest run
 npx vitest run src/lib/utils.test.ts   # Single test file
 npx vitest                        # Watch mode
 npm run build                     # tsc -b && vite build
-npm run typecheck                 # tsc --noEmit
+npm run typecheck                 # tsc -b (type-checks the app and node projects)
 npm run lint                      # ESLint
 npm run format                    # Prettier write (no semicolons, double quotes)
 ```
 
 Required env: `VITE_CLERK_PUBLISHABLE_KEY`; optional `VITE_API_BASE_URL` (default `http://localhost:8080`).
-
-### Reranker microservice (`reranker/`) — optional, local only
-
-```bash
-pip install -r reranker/requirements.txt
-python reranker/server.py          # -> http://localhost:8001
-```
-
-FastAPI wrapper around `BAAI/bge-reranker-v2-m3`. Only needed when `RERANKER_PROVIDER=local`; the default is `openrouter` (hosted), so you normally do **not** run this. Its scores are not comparable with the default reranker's: run it with `ORBIT_SEARCH_RERANKER_THRESHOLD=0.02`.
 
 ### Deploy (`k8s/`)
 
@@ -66,24 +57,26 @@ Builds multi-arch images, pushes to Docker Hub, applies `k8s/orbit.yml` to k3s. 
 
 **Every model call goes through OpenRouter** — one key (`OPENROUTER_API_KEY`), one bill, three endpoints, all behind `app.inference.OpenRouterClient`:
 
-| Concern | Default model (`orbit.openrouter.*`) | Class | Offline alternative |
-|---|---|---|---|
-| LLM (summaries, tags, query rewrite, rationale) | `chat.model` `google/gemini-2.5-flash-lite`, then `chat.fallback-models` | `llm.OpenRouterChatModel` (a Spring AI `ChatModel`) | — |
-| Embeddings (1024-dim) | `embedding.model` `mongodb/voyage-4-lite` | `embedding.OpenRouterEmbeddingService` | `orbit.embedding.provider=ollama` or `huggingface` (multilingual-e5-large) |
-| Reranker | `reranker.model` `cohere/rerank-5-fast` | `search.OpenRouterCrossEncoderClient` | `orbit.search.reranker-provider=local` (`reranker/server.py`) or `huggingface` (bge-reranker-v2-m3) |
+| Concern | Model (`orbit.openrouter.*`) | Class |
+|---|---|---|
+| LLM (summaries, tags, query rewrite, rationale) | `chat.model` `google/gemini-2.5-flash-lite`, then `chat.fallback-models` | `llm.OpenRouterChatModel` (a Spring AI `ChatModel`) |
+| Embeddings (1024-dim) | `embedding.model` `mongodb/voyage-4-lite` | `embedding.OpenRouterEmbeddingService` |
+| Reranker | `reranker.model` `cohere/rerank-5-fast` | `search.OpenRouterCrossEncoderClient` |
 
-`OPENROUTER_API_KEY` is required to start. All tunables live in `backend/src/main/resources/application.yaml` and are env-overridable. Every request carries `provider.data_collection` (`orbit.openrouter.data-collection`, default `deny`), so profile text only goes to providers that do not keep it.
+There is no other provider and no local model. `OPENROUTER_API_KEY` is required to start. Spring AI is used only for its `ChatModel`/`Prompt` types (`spring-ai-model`); nothing is auto-configured.
+
+**Configuration.** `backend/src/main/resources/application.yaml` holds only what differs from the defaults in code and the credentials the deployment passes in under its own names (`ApplicationYamlTest` fails on any other key). Every default sits next to the code that reads it — `@Value` defaults and the `*Properties` records (`OpenRouterProperties`, `RerankProperties`, `RequestsProperties`) — and any setting can be overridden by environment variable under Spring's naming (`orbit.search.rerank-depth` → `ORBIT_SEARCH_RERANK_DEPTH`). Don't add a key to the YAML only to repeat its default. Every request carries `provider.data_collection` (`orbit.openrouter.data-collection`, default `deny`), so profile text only goes to providers that do not keep it.
 
 **Three settings belong to a model and must change with it:**
-- **Reranker threshold** (`orbit.search.reranker-threshold`): scores of different rerankers are not comparable — 0.3 for cohere/rerank-5-fast, 0.02 for bge-reranker-v2-m3. A new reranker needs an `evaluation-v3` run with `EVAL_SWEEP_THRESHOLDS`.
-- **How the embedding model tells a query from a passage**: `input_type` (`orbit.openrouter.embedding.query-input-type` / `passage-input-type`, `search_query` / `search_document` for voyage) or a text prefix (`orbit.embedding.query-prefix` / `passage-prefix`, `query: ` / `passage: ` for e5 — empty by default).
-- **Tag similarity floor** (`orbit.tags.canonical-similarity`): 0.78 for voyage-4-lite, 0.95 for e5.
+- **Reranker threshold** (`orbit.search.reranker-threshold`): scores of different rerankers are not comparable — 0.3 for cohere/rerank-5-fast. A new reranker needs an `evaluation-v3` run with `EVAL_SWEEP_THRESHOLDS`.
+- **How the embedding model tells a query from a passage**: `input_type` (`orbit.openrouter.embedding.query-input-type` / `passage-input-type`, `search_query` / `search_document` for voyage) or a text prefix (`orbit.openrouter.embedding.query-prefix` / `passage-prefix`, `query: ` / `passage: ` for e5 — empty by default).
+- **Tag similarity floor** (`orbit.tags.canonical-similarity`): 0.78 for voyage-4-lite (0.95 was right for e5).
 
-**Changing the embedding model needs only a restart.** Every vector is stored with `EmbeddingService.modelName()`; after start-up, chunks, tags and profile documents carrying another name are re-embedded in the background (56 profiles: under a minute). Until that finishes, search compares new query vectors with old chunk vectors. multilingual-e5-large has one stored name whoever serves it, so Ollama ↔ Hugging Face re-embeds nothing.
+**Changing the embedding model needs only a restart.** Every vector is stored with `EmbeddingService.modelName()`; after start-up, chunks, tags and profile documents carrying another name are re-embedded in the background (56 profiles: under a minute). Until that finishes, search compares new query vectors with old chunk vectors.
 
 **The LLM needs its fallback models.** gemini-2.5-flash-lite has one provider on OpenRouter and a rate limit shared by all OpenRouter customers: 24 of 60 calls in bursts of 20 were refused with HTTP 429 (2026-11-16). With `chat.fallback-models` OpenRouter answers from the next model inside the same request; with them 198 evaluation searches ran without one retry. Do not remove them without a burst test. On the evaluation set Gemini 3.1 Flash-Lite and Claude Haiku 5.5 rewrote queries as well as 2.5 Flash-Lite.
 
-**Measure search latency against the hosted models, not local ones.** Deployment runs on small ARM machines with every model hosted. Measured on OpenRouter (2026-11-16, 198 searches): query rewrite 0.5 s, two query embeddings 0.2 s, reranker 0.36 s for 30 cards — a search takes about 1.1 s (p90 1.4 s), a repeated one 0.4 s (rewrite and vectors are cached). One search's embedding and reranker calls share `orbit.search.inference-budget` (30 s, `InferenceDeadline`), after which the search answers 503; an LLM call waits at most `orbit.openrouter.chat.max-wait` (20 s) and the search then uses the query as typed; background work waits `orbit.openrouter.max-wait` (2 min). `CrossEncoderReranker` logs passages, characters and time per call. Before OpenRouter the same search took 3–7 s on Hugging Face serverless and regularly ran into the 30 s budget.
+**Measure search latency against OpenRouter.** Deployment runs on small ARM machines with every model hosted. Measured on OpenRouter (2026-11-16, 198 searches): query rewrite 0.5 s, two query embeddings 0.2 s, reranker 0.36 s for 30 cards — a search takes about 1.1 s (p90 1.4 s), a repeated one 0.4 s (rewrite and vectors are cached). One search's embedding and reranker calls share `orbit.search.inference-budget` (30 s, `InferenceDeadline`), after which the search answers 503; an LLM call waits at most `orbit.openrouter.chat.max-wait` (20 s) and the search then uses the query as typed; background work waits `orbit.openrouter.max-wait` (2 min). `CrossEncoderReranker` logs passages, characters and time per call. Before OpenRouter the same search took 3–7 s on Hugging Face serverless and regularly ran into the 30 s budget.
 
 ## The search pipeline (`SearchService`)
 
@@ -114,7 +107,7 @@ Scope resolution (`ScopeResolver`) is a **hard filter** here, walking Hub → Re
 
 **Candidate retrieval (V19).** Stage 1 collapses to one row per entity *before* limiting — chunk-level limits let one researcher with 40 publication chunks fill every slot. Results are cut to `matchCount` only after reranking. Leg weights are `orbit.search.retrieval.*` (0 switches a leg off). The keyword leg gets the condensed terms minus role words ("expert", "researcher", …), so it never sees conversational filler. Pass vectors to native queries through a `WITH q AS MATERIALIZED (SELECT CAST(? AS vector) …)` CTE: a bound `CAST(? AS vector)` inside an inlined SQL function is re-parsed per row under a generic plan (116 ms vs 8 ms).
 
-**Reranking.** There is no bi-encoder similarity gate: embedding similarities shift with query length, and the old 0.80 cut removed relevant candidates the cross-encoder never saw. The cross-encoder scores each candidate on its profile card — name, headline, tags, first summary sentences, start of the best chunk — cut to `orbit.search.rerank-passage-chars` (800). `orbit.search.rerank-passages` (0) can add evidence chunks with a `Name — Headline / Source type: label` header, the candidate then taking its best passage; with bge-reranker-v2-m3 that found no more profiles than the card alone and more chunks let a negative control through (2026-11-16; not measured with the current reranker). `reranker-threshold` (0.3) is calibrated for cohere/rerank-5-fast on exactly the card-only input — changing the reranker, the passages, their length or the rerank query needs an `evaluation-v3` re-run, and a timing run against the hosted models.
+**Reranking.** There is no bi-encoder similarity gate: embedding similarities shift with query length, and the old 0.80 cut removed relevant candidates the cross-encoder never saw. The cross-encoder scores each candidate on its profile card — name, headline, tags, first summary sentences, start of the best chunk — cut to `orbit.search.rerank-passage-chars` (800). `orbit.search.rerank-passages` (0) can add evidence chunks with a `Name — Headline / Source type: label` header, the candidate then taking its best passage; with the previous reranker that found no more profiles than the card alone and more chunks let a negative control through (2026-11-16; not measured with the current reranker). `reranker-threshold` (0.3) is calibrated for cohere/rerank-5-fast on exactly the card-only input — changing the reranker, the passages, their length or the rerank query needs an `evaluation-v3` re-run, and a timing run against the hosted models.
 
 **Search holds no transaction and no connection across model calls.** `SearchService.search` and `explain` are not `@Transactional`: a transaction would keep a database connection through the LLM, embedding and reranker calls and a few concurrent searches would drain the pool. A query without two letters or digits (`x`, `?`) returns nothing without calling a model. `SearchRateLimitFilter` caps the two public search endpoints per client address (`orbit.search.rate-limit.*`, 429 beyond).
 
@@ -128,7 +121,7 @@ Scope resolution (`ScopeResolver`) is a **hard filter** here, walking Hub → Re
 - `Source` has source_type, label, URL, fetch status, provenance, consent_basis, and a `content_hash` that makes re-ingestion idempotent. The hash is taken over the adapter's `contentFingerprint()` — the **fetched** input, never the LLM-generated core text — and is checked before any LLM or embedding call. Leave volatile counters (stars, citation counts) out of a fingerprint. A changed source is updated in place, keeping its id and `active` flag.
 - `Chunk` has content, `vector(1024)` embedding, FTS tsvector, section label, token count. Pass chunk text to `EmbeddingService` **without** a prefix — the service tells the model whether it is a query or a passage (`EmbeddingKind`), by `input_type` or by prefix, whichever the configured model uses. `Chunk.embedding` is a plain `float[]` that Hibernate can write but not read back; update vectors with a native query (`ChunkRepository.updateEmbedding`), never load + save.
 - `profile_documents` (V19): one row per entity — name, headline, org, summary, tags — embedded and full-text indexed (English + German stemming). A **search index only**: `hybrid_search` retrieves with it, but evidence and citations come from sources, never from it. `ProfileDocumentService.refreshAfterCommit(entityId)` re-embeds it in the background after enrichment and after summary, tag or profile-meta edits; call it from any new code path that changes those fields. On start-up it embeds missing, changed or other-model documents (`orbit.search.profile-documents.sync-on-startup`).
-- `ReembeddingService` runs in the background after every start-up and re-embeds chunks that have no vector or the vector of another embedding model than the configured one, 32 chunks per request — so a failed embedding is retried and a model change migrates itself. `orbit.embedding.reembed-before` (`ORBIT_REEMBED_BEFORE`, ISO-8601 instant) additionally re-embeds every chunk embedded before that instant, for a change the model name does not show (a new prefix). It changes vectors only; text that should be extracted anew needs a resync (see Ingestion).
+- `ReembeddingService` runs in the background after every start-up and re-embeds chunks that have no vector or the vector of another embedding model than the configured one, 32 chunks per request — so a failed embedding is retried and a model change migrates itself. `orbit.embedding.reembed-before` (`ORBIT_EMBEDDING_REEMBED_BEFORE`, ISO-8601 instant) additionally re-embeds every chunk embedded before that instant, for a change the model name does not show (a new prefix). It changes vectors only; text that should be extracted anew needs a resync (see Ingestion).
 - **Requests:** `Request` → `RequestTag` → `RequestDistribution`; `ContactRequest` for the first-contact handoff.
 - **Tags** (`app.tag.TagVocabularyService`): every path that writes a tag — derived tags, profile tag edits, subscriptions, request tags — goes through `findOrMint`, which reuses an existing tag with the same spelling key (case, umlauts/ß, trailing `(ACRONYM)`, hyphens, plural ending) before minting by slug. Enrichment additionally maps new labels by meaning (`canonicalLabels`): existing tags at embedding similarity ≥ `orbit.tags.canonical-similarity` (0.78 for voyage-4-lite) are offered to the LLM, which must confirm the same topic — similarity alone pairs Genomik with Genetik. Tag vectors live in `tags.embedding` (V21) with the name of the model that made them. Existing tags are never merged automatically.
 - 21 Flyway migrations (V1–V21) in `backend/src/main/resources/db/migration/`.

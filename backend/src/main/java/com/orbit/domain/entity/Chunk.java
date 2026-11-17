@@ -46,7 +46,7 @@ public class Chunk {
     private float[] embedding;
 
     @Column(name = "embedding_model")
-    private String embeddingModel = "multilingual-e5-large";
+    private String embeddingModel;
 
     @Column(name = "embedded_at")
     private Instant embeddedAt;
