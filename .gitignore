@@ -5,3 +5,4 @@ claude-design/
 k8s/orbit.yml
 k8s/deploy.sh
 .idea/
+*.iml
