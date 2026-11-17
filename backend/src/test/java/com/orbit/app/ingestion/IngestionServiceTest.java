@@ -31,7 +31,7 @@ import static org.mockito.Mockito.when;
 class IngestionServiceTest {
 
     private static final IngestionJobDto QUEUED =
-            new IngestionJobDto(1L, "source", "manual_text", "queued", 0, null, null, null, null, null);
+            new IngestionJobDto(1L, "source", "manual_text", "queued", 0, null, null, null, null, null, null);
 
     private IngestionJobService jobs;
     private CurrentUser currentUser;

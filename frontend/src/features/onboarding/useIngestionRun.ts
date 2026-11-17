@@ -23,6 +23,7 @@ export interface JobState {
   glyph: string
   status: "pending" | "running" | "ok" | "skipped" | "error"
   detail?: string
+  retryable?: boolean
 }
 
 export interface WizardIngestInput {
@@ -180,7 +181,7 @@ export function useIngestionRun() {
     async (id: string) => {
       const spec = specsRef.current.find((s) => s.id === id)
       if (!spec) return
-      setJob(id, { status: "pending", detail: undefined })
+      setJob(id, { status: "pending", detail: undefined, retryable: undefined })
       await runSpecs([spec])
     },
     [runSpecs, setJob]
@@ -190,5 +191,9 @@ export function useIngestionRun() {
 }
 
 function outcomePatch(outcome: IngestOutcome): Partial<JobState> {
-  return { status: outcome.status, detail: outcome.detail }
+  return {
+    status: outcome.status,
+    detail: outcome.detail,
+    retryable: outcome.retryable,
+  }
 }

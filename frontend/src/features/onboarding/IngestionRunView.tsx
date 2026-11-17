@@ -115,7 +115,13 @@ export function IngestionRunView({
                 {job.label}
               </span>
               {job.detail && (
-                <span className="block text-xs text-muted-foreground">
+                <span
+                  className={
+                    job.status === "error"
+                      ? "block text-xs text-destructive"
+                      : "block text-xs text-muted-foreground"
+                  }
+                >
                   {job.detail}
                 </span>
               )}
@@ -132,14 +138,16 @@ export function IngestionRunView({
             {job.status === "error" && (
               <div className="flex items-center gap-2">
                 <CircleX className="size-5 text-destructive" />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onRetry(job.id)}
-                >
-                  <RotateCcw className="size-3.5" />
-                  Erneut versuchen
-                </Button>
+                {job.retryable !== false && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onRetry(job.id)}
+                  >
+                    <RotateCcw className="size-3.5" />
+                    Erneut versuchen
+                  </Button>
+                )}
               </div>
             )}
           </div>

@@ -14,6 +14,7 @@ import com.orbit.app.ingestion.dto.IngestionStatus;
 import com.orbit.app.ingestion.dto.RawContent;
 import com.orbit.app.ingestion.dto.SourceRef;
 import com.orbit.app.util.HashUtils;
+import com.orbit.domain.entity.DiscoveryEntity;
 import com.orbit.domain.entity.Source;
 import com.orbit.domain.repository.ChunkRepository;
 import com.orbit.domain.repository.DiscoveryEntityRepository;
@@ -42,9 +43,13 @@ class IngestionOrchestratorTest {
     private ChunkRepository chunks;
     private EmbeddingService embeddings;
     private EntityIdentifierRepository identifiers;
+    private DiscoveryEntityRepository entities;
     private IngestionOrchestrator orchestrator;
 
     private final SourceRef ref = new SourceRef(URL, "github", "harvested", "public_data", Map.of(), null);
+    /** The same source, submitted by a signed-in user during onboarding. */
+    private final SourceRef ownedRef = new SourceRef(URL, "github", "self_declared", "consent", Map.of(),
+            "user_new", true, "supply");
     private final RawContent raw = new RawContent("readme text", Map.of(), Instant.parse("2026-11-15T10:00:00Z"));
 
     @BeforeEach
@@ -54,13 +59,15 @@ class IngestionOrchestratorTest {
         chunks = mock(ChunkRepository.class);
         embeddings = mock(EmbeddingService.class);
         identifiers = mock(EntityIdentifierRepository.class);
+        entities = mock(DiscoveryEntityRepository.class);
         SourceAdapterRegistry registry = mock(SourceAdapterRegistry.class);
         when(registry.getAdapter("github")).thenReturn(adapter);
         when(adapter.fetch(ref)).thenReturn(raw);
+        when(adapter.fetch(ownedRef)).thenReturn(raw);
         when(adapter.contentFingerprint(raw)).thenReturn("orbit readme v2");
         when(sources.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        orchestrator = new IngestionOrchestrator(registry, mock(DiscoveryEntityRepository.class), identifiers,
+        orchestrator = new IngestionOrchestrator(registry, entities, identifiers,
                 sources, chunks, embeddings, new ChunkingService(), mock(EntityEnrichmentService.class),
                 TransactionOperations.withoutTransaction());
     }
@@ -127,6 +134,64 @@ class IngestionOrchestratorTest {
         when(sources.findBySourceUrl(URL)).thenReturn(Optional.of(stored));
 
         assertThat(orchestrator.ingest(ref).status()).isEqualTo(IngestionStatus.SKIPPED);
+    }
+
+    @Test
+    void aSourceWhoseIdBelongsToAnotherAccountsProfileIsRejectedBeforeAnyLlmCall() {
+        // The production case: a second account uploads the LinkedIn PDF already on the first account's profile.
+        when(sources.findBySourceUrl(URL)).thenReturn(Optional.empty());
+        when(adapter.extractExternalIds(raw)).thenReturn(List.of(new ExternalId("github_login", "ada")));
+        when(identifiers.findEntityIdByIdTypeAndIdValue("github_login", "ada")).thenReturn(Optional.of(7L));
+        when(entities.findById(7L)).thenReturn(Optional.of(entityOwnedBy("user_old")));
+
+        assertThatThrownBy(() -> orchestrator.ingest(ownedRef))
+                .isInstanceOf(IngestionRejectedException.class)
+                .hasMessageContaining("anderen Orbit-Kontos");
+
+        verify(adapter, never()).extractHighSignalCore(any());
+        verify(embeddings, never()).embedAll(anyList(), any());
+        verify(sources, never()).save(any());
+        verify(entities, never()).save(any());
+    }
+
+    @Test
+    void anUnchangedSourceOnAnotherAccountsProfileIsRejectedInsteadOfSkipped() {
+        // Skipping returned the other profile's id, and the job then enriched that profile.
+        when(sources.findBySourceUrl(URL)).thenReturn(Optional.of(source("orbit readme v2")));
+        when(adapter.extractExternalIds(raw)).thenReturn(List.of());
+        when(entities.findById(7L)).thenReturn(Optional.of(entityOwnedBy("user_old")));
+
+        assertThatThrownBy(() -> orchestrator.ingest(ownedRef)).isInstanceOf(IngestionRejectedException.class);
+        verify(sources, never()).save(any());
+    }
+
+    @Test
+    void theOwnersOwnUnchangedSourceIsStillSkipped() {
+        when(sources.findBySourceUrl(URL)).thenReturn(Optional.of(source("orbit readme v2")));
+        when(adapter.extractExternalIds(raw)).thenReturn(List.of());
+        when(entities.findById(7L)).thenReturn(Optional.of(entityOwnedBy("user_new")));
+
+        assertThat(orchestrator.ingest(ownedRef).status()).isEqualTo(IngestionStatus.SKIPPED);
+    }
+
+    @Test
+    void anUnownedHarvestedProfileIsStillClaimed() {
+        DiscoveryEntity harvested = entityOwnedBy(null);
+        when(sources.findBySourceUrl(URL)).thenReturn(Optional.empty());
+        when(adapter.extractHighSignalCore(raw)).thenReturn("Semantic search summary");
+        when(adapter.extractExternalIds(raw)).thenReturn(List.of(new ExternalId("github_login", "ada")));
+        when(identifiers.findEntityIdByIdTypeAndIdValue("github_login", "ada")).thenReturn(Optional.of(7L));
+        when(entities.findById(7L)).thenReturn(Optional.of(harvested));
+        when(embeddings.embedAll(anyList(), any())).thenReturn(List.of(new float[1024]));
+
+        assertThat(orchestrator.ingest(ownedRef).status()).isEqualTo(IngestionStatus.INGESTED);
+        assertThat(harvested.getOwnerId()).isEqualTo("user_new");
+    }
+
+    private static DiscoveryEntity entityOwnedBy(String ownerId) {
+        DiscoveryEntity entity = new DiscoveryEntity("person", "Ada", null, null);
+        entity.setOwnerId(ownerId);
+        return entity;
     }
 
     /** A stored source row (id 42) whose hash was computed over {@code fingerprint}. */

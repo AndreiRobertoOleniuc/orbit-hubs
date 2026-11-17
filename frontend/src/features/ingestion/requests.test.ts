@@ -12,6 +12,7 @@ const base: IngestionJobDto = {
   entityId: null,
   result: null,
   error: null,
+  message: null,
   createdAt: null,
   finishedAt: null,
 }
@@ -52,5 +53,18 @@ describe("jobOutcome", () => {
         error: "IllegalStateException: x",
       })
     ).toEqual({ status: "error", detail: "Quelle konnte nicht gelesen werden" })
+  })
+
+  it("shows why the server refused a source, without offering a retry", () => {
+    const message =
+      "Diese Quelle gehört bereits zu einem Profil eines anderen Orbit-Kontos."
+    expect(
+      jobOutcome({
+        ...base,
+        status: "failed",
+        error: `IngestionRejectedException: ${message}`,
+        message,
+      })
+    ).toEqual({ status: "error", detail: message, retryable: false })
   })
 })

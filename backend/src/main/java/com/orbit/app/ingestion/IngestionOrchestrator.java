@@ -120,6 +120,8 @@ public class IngestionOrchestrator {
         //    output re-ingested (and re-embedded) every unchanged source.
         String hash = HashUtils.sha256Hex(normalize(fingerprint(adapter, raw)));
         Optional<Source> existing = sources.findBySourceUrl(ref.url());
+        List<ExternalId> extIds = adapter.extractExternalIds(raw);   // from fetched metadata, no network
+        rejectIfOwnedByAnotherAccount(existing, extIds, ref.ownerId());
         if (existing.isPresent() && hash.equals(existing.get().getContentHash())) {
             if (ref.onboardingDraft()) {
                 transactions.executeWithoutResult(status -> prepareExistingSourceForOnboarding(existing.get(), ref));
@@ -131,7 +133,6 @@ public class IngestionOrchestrator {
         // 3. PREPARE — every network call happens here, before the transaction.
         String coreText = adapter.extractHighSignalCore(raw);
         String label = adapter.buildLabel(raw);
-        List<ExternalId> extIds = adapter.extractExternalIds(raw);
         List<ChunkSegment> segments = chunkingService.recursiveSplit(coreText, 400, 60);
         List<float[]> vectors = segments.isEmpty() ? List.of()
                 : embeddingService.embedAll(segments.stream().map(ChunkSegment::text).toList(), EmbeddingKind.PASSAGE);
@@ -152,6 +153,7 @@ public class IngestionOrchestrator {
                                     List<ExternalId> extIds, List<ChunkSegment> segments, List<float[]> vectors) {
         // Re-read: another ingestion may have created the row since the dedup check.
         Optional<Source> existing = sources.findBySourceUrl(ref.url());
+        rejectIfOwnedByAnotherAccount(existing, extIds, ref.ownerId());
 
         // Resolution order: external ids → the requesting user's own entity → create new.
         // The owner fallback makes all sources of one onboarding converge onto ONE
@@ -265,6 +267,8 @@ public class IngestionOrchestrator {
                 } catch (CompletionException e) {
                     if (e.getCause() instanceof InferenceUnavailableException unavailable) {
                         retryable = unavailable;
+                    } else if (e.getCause() instanceof IngestionRejectedException rejected) {
+                        throw rejected;
                     } else {
                         log.error("Parallel ingestion failed: {}", e.getMessage(), e);
                         results.add(IngestionResult.error(null));
@@ -500,6 +504,33 @@ public class IngestionOrchestrator {
             }
         }
         return Optional.empty();
+    }
+
+    /**
+     * A signed-in user's source must never land on, or be moved off, a profile
+     * another account owns. Without this, a LinkedIn PDF, GitHub login or
+     * company id already stored on someone else's profile attached the user's
+     * upload to that profile and re-enriched it, and the user was left with no
+     * profile of their own. Unowned (harvested) profiles stay claimable.
+     * Ingestion without an owner (system jobs) is not restricted.
+     */
+    private void rejectIfOwnedByAnotherAccount(Optional<Source> existing, List<ExternalId> extIds, String ownerId) {
+        if (ownerId == null) return;
+        boolean conflict = existing.map(source -> ownedByAnother(source.getEntityId(), ownerId)).orElse(false)
+                || findEntityByAnyId(extIds).map(entityId -> ownedByAnother(entityId, ownerId)).orElse(false);
+        if (conflict) {
+            log.warn("Ingestion rejected for user {}: source belongs to a profile owned by another account", ownerId);
+            throw new IngestionRejectedException(
+                    "Diese Quelle gehört bereits zu einem Profil eines anderen Orbit-Kontos. "
+                            + "Melde dich mit jenem Konto an oder kontaktiere uns.");
+        }
+    }
+
+    private boolean ownedByAnother(Long entityId, String ownerId) {
+        return entities.findById(entityId)
+                .map(DiscoveryEntity::getOwnerId)
+                .map(owner -> !owner.equals(ownerId))
+                .orElse(false);
     }
 
     /**

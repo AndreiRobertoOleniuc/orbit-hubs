@@ -96,7 +96,9 @@ export function OnboardingWizard() {
       const draft = result.data?.find((item) => item.status === "draft")
       if (!draft) {
         setDraftError(
-          "Der Profilentwurf ist noch nicht verfügbar. Versuche fehlgeschlagene Quellen erneut oder klicke nochmals auf Weiter."
+          jobs.some((job) => job.status === "error")
+            ? "Aus deinen Quellen konnte kein Profilentwurf erstellt werden. Den Grund siehst du bei der Quelle oben."
+            : "Der Profilentwurf ist noch nicht verfügbar. Klicke in einem Moment nochmals auf Weiter."
         )
         return
       }
@@ -108,7 +110,7 @@ export function OnboardingWizard() {
     } finally {
       setDraftLoading(false)
     }
-  }, [openDraft, refetch])
+  }, [jobs, openDraft, refetch])
 
   useEffect(() => {
     if (

@@ -57,6 +57,8 @@ export interface IngestionJobDto {
   /** Per-source outcome, once a source or resync job has succeeded. */
   result: IngestionSummaryDto | null
   error: string | null
+  /** Why the source was refused, in German for the user (e.g. it belongs to another account). */
+  message: string | null
   createdAt: string | null
   finishedAt: string | null
 }

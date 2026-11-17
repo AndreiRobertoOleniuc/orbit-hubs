@@ -139,7 +139,9 @@ export function summarizeIngestion(result: IngestionSummaryDto): IngestOutcome {
 /** The outcome of a finished job; null while it is still queued or running. */
 export function jobOutcome(job: IngestionJobDto): IngestOutcome | null {
   if (job.status === "failed") {
-    return { status: "error", detail: "Quelle konnte nicht gelesen werden" }
+    return job.message
+      ? { status: "error", detail: job.message, retryable: false }
+      : { status: "error", detail: "Quelle konnte nicht gelesen werden" }
   }
   if (job.status !== "succeeded") return null
   return job.result

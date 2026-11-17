@@ -43,4 +43,6 @@ export interface PlannedSourceDef {
 export interface IngestOutcome {
   status: "ok" | "skipped" | "error"
   detail?: string
+  /** False when trying again cannot help: the server refused the source and said why. */
+  retryable?: boolean
 }

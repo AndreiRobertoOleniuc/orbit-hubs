@@ -18,6 +18,7 @@ const job = (
   entityId: 7,
   result: null,
   error: null,
+  message: null,
   createdAt: null,
   finishedAt: null,
 })

@@ -9,13 +9,16 @@ import java.util.Map;
 import tools.jackson.databind.JsonNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 
 import com.orbit.app.ingestion.dto.EntityProfile;
 import com.orbit.app.ingestion.dto.ExternalId;
 import com.orbit.app.ingestion.IngestionException;
+import com.orbit.app.ingestion.IngestionRejectedException;
 import com.orbit.app.ingestion.dto.RawContent;
 import com.orbit.app.ingestion.SourceAdapter;
 import com.orbit.app.ingestion.dto.SourceRef;
@@ -56,10 +59,16 @@ public class GithubAdapter implements SourceAdapter {
     @Value("${orbit.github.token:}")
     private String githubToken;
 
+    @Autowired
     public GithubAdapter(LlmSummaryService llmSummaryService) {
+        this(llmSummaryService, API_BASE);
+    }
+
+    /** With another API address — tests point it at a local server. */
+    GithubAdapter(LlmSummaryService llmSummaryService, String apiBase) {
         this.llmSummaryService = llmSummaryService;
         this.restClient = RestClient.builder()
-                .baseUrl(API_BASE)
+                .baseUrl(apiBase)
                 .defaultHeader("Accept", "application/vnd.github+json")
                 .defaultHeader("X-GitHub-Api-Version", "2022-11-28")
                 .build();
@@ -102,8 +111,10 @@ public class GithubAdapter implements SourceAdapter {
         List<GithubRepo> allRepos = new ArrayList<>(pinnedRepos);
         
         // Supplement with top personal repos by stars (excluding already-pinned repos)
+        // An account without public repos needs no search: GitHub's search even
+        // answers 422 for some of them ("cannot be searched"), which failed the source.
         int remaining = MAX_REPOS - pinnedRepos.size();
-        if (remaining > 0) {
+        if (remaining > 0 && user.publicRepos() > 0) {
             List<GithubRepo> personalRepos = searchReposByStars(username);
             // Filter out repos already in pinned (match by owner/name)
             var pinnedKeys = pinnedRepos.stream()
@@ -121,7 +132,8 @@ public class GithubAdapter implements SourceAdapter {
 
         if (allRepos.isEmpty()) {
             log.warn("GitHub user {} has no public repos and no pinned repos", username);
-            return List.of();
+            throw new IngestionRejectedException("Auf dem GitHub-Konto „" + username
+                    + "“ gibt es keine öffentlichen Repositories, die Orbit auswerten kann.");
         }
 
         // 4. Build one SourceRef per repo
@@ -452,6 +464,8 @@ public class GithubAdapter implements SourceAdapter {
                     node.path("public_repos").asInt(0),
                     node.path("followers").asInt(0)
             );
+        } catch (HttpClientErrorException.NotFound e) {
+            throw new IngestionRejectedException("Das GitHub-Konto „" + username + "“ wurde nicht gefunden.");
         } catch (Exception e) {
             throw new IngestionException("Failed to fetch GitHub user " + username, e);
         }
@@ -471,7 +485,14 @@ public class GithubAdapter implements SourceAdapter {
             if (githubToken != null && !githubToken.isBlank()) {
                 request = request.header("Authorization", "Bearer " + githubToken);
             }
-            JsonNode node = request.retrieve().body(JsonNode.class);
+            JsonNode node;
+            try {
+                node = request.retrieve().body(JsonNode.class);
+            } catch (HttpClientErrorException.UnprocessableContent e) {
+                // "The listed users cannot be searched": the user's repos are not searchable.
+                log.warn("GitHub search refused user {}: {}", username, e.getMessage());
+                return List.of();
+            }
 
             List<GithubRepo> repos = new ArrayList<>();
             JsonNode items = node.path("items");

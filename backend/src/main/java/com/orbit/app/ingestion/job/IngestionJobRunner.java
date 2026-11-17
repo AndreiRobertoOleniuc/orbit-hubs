@@ -16,6 +16,7 @@ import org.springframework.transaction.support.TransactionOperations;
 
 import com.orbit.app.ingestion.EntityEnrichmentService;
 import com.orbit.app.ingestion.IngestionOrchestrator;
+import com.orbit.app.ingestion.IngestionRejectedException;
 import com.orbit.app.ingestion.dto.IngestionResult;
 import com.orbit.app.ingestion.dto.IngestionSummary;
 import com.orbit.app.ingestion.dto.SourceRef;
@@ -71,7 +72,10 @@ public class IngestionJobRunner {
             }
         } catch (Exception e) {
             String error = e.getClass().getSimpleName() + ": " + e.getMessage();
-            if (retryable(e) && job.attempts() < job.maxAttempts()) {
+            if (e instanceof IngestionRejectedException) {
+                log.warn("Ingestion job #{} rejected: {}", job.id(), e.getMessage());
+                store.fail(job.id(), error);
+            } else if (retryable(e) && job.attempts() < job.maxAttempts()) {
                 Duration delay = backoff(job.attempts());
                 log.warn("Ingestion job #{} failed, retrying in {}s: {}", job.id(), delay.toSeconds(), error);
                 store.retryLater(job.id(), error, delay);

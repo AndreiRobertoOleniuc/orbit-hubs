@@ -15,6 +15,8 @@ import com.orbit.app.ingestion.dto.IngestionSummary;
  * @param entityId   the profile the job worked on, once known
  * @param result     per-source outcome of a succeeded source or resync job
  * @param error      why the last run failed, when it did
+ * @param message    why the source was refused, in German for the user — e.g. it
+ *                   belongs to another account's profile; {@code null} otherwise
  */
 public record IngestionJobDto(
         Long id,
@@ -25,6 +27,7 @@ public record IngestionJobDto(
         Long entityId,
         IngestionSummary result,
         String error,
+        String message,
         Instant createdAt,
         Instant finishedAt) {
 }

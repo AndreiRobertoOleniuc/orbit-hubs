@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 
 import com.orbit.app.controllers.dto.IngestionJobDto;
 import com.orbit.app.controllers.dto.IngestionJobsDto;
+import com.orbit.app.ingestion.IngestionRejectedException;
 import com.orbit.app.ingestion.dto.IngestionSummary;
 import com.orbit.app.ingestion.dto.SourceRef;
 import tools.jackson.databind.json.JsonMapper;
@@ -54,10 +55,16 @@ public class IngestionJobService {
         IngestionSummary result = job.resultJson() == null ? null
                 : json.readValue(job.resultJson(), IngestionSummary.class);
         return new IngestionJobDto(job.id(), job.kind(), job.sourceType(), job.status(), job.attempts(),
-                job.entityId(), result, job.error(), job.createdAt(), job.finishedAt());
+                job.entityId(), result, job.error(), userMessage(job.error()), job.createdAt(), job.finishedAt());
+    }
+
+    /** The user-facing reason of a rejected source; the runner stores it as {@code Class: message}. */
+    static String userMessage(String error) {
+        String prefix = IngestionRejectedException.class.getSimpleName() + ": ";
+        return error != null && error.startsWith(prefix) ? error.substring(prefix.length()) : null;
     }
 
     private static IngestionJobDto queued(long id, String kind, String sourceType, Long entityId) {
-        return new IngestionJobDto(id, kind, sourceType, IngestionJob.QUEUED, 0, entityId, null, null, null, null);
+        return new IngestionJobDto(id, kind, sourceType, IngestionJob.QUEUED, 0, entityId, null, null, null, null, null);
     }
 }
